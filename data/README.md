@@ -10,7 +10,7 @@
 
 \## Ownership
 
-\- Owner: Member x
+\- Owner: team06
 
 \- Format: CSV (`department`, `location`)
 

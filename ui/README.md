@@ -17,4 +17,5 @@ This directory contains the user interface components for the assistant project.
 
 
 \## Owner
+- team06
 
