@@ -6,7 +6,12 @@ from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
-GREETINGS = {"hi", "hello", "hey", "xin chao", "chao"}
+GREETINGS = {
+    "hi", "hello", "hey",
+    "good morning", "good afternoon", "good evening",
+    "hi there", "hello there"
+}
+GOODBYES = {"bye", "goodbye", "bye bye", "see you", "see you later"}
 
 
 def load_offices(path: Path = DATA_DIR / "offices.csv") -> dict[str, dict[str, str]]:
@@ -22,6 +27,8 @@ def reply(message: str, offices: dict[str, dict[str, str]] | None = None) -> str
         return "Please type a question."
     if text in GREETINGS:
         return "Hello! Ask me where an office is, or when it opens."
+    if text in GOODBYES:
+        return "Goodbye! Good luck with your studies."
     offices = offices if offices is not None else load_offices()
     for name, row in offices.items():
         if name in text:
