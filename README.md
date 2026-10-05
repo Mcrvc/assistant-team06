@@ -1,1 +1,62 @@
-# assistant-team06
+# assistant-team06 — Smart Virtual Assistant
+
+Small rule-based study assistant for CSC10014 Lab 1. Follow the steps below and it must run without extra help.
+
+## Setup
+
+Prerequisites: Python 3.10+, Git.
+
+```bash
+git clone git@github.com:Mcrvc/assistant-team06.git
+cd assistant-team06
+python -m venv .venv
+source .venv/bin/activate # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -e .
+```
+
+## Run
+
+With the virtual environment active:
+
+```bash
+python -m assistant "hi"
+```
+
+Expected output:
+
+```
+Hello! Ask me where an office is, or when it opens.
+```
+
+Interactive mode:
+
+```bash
+python -m assistant
+```
+
+Expected:
+
+```
+Study assistant (starter). Type 'quit' to exit.
+```
+
+Type `hi`, then `quit` to exit.
+
+## Test
+
+```bash
+python scripts/check_env.py
+```
+```bash
+pytest -q
+```
+
+
+
+## Troubleshooting
+
+- `No module named assistant` -> venv not active or you forgot `pip install -e .`.
+- PowerShell blocks `Activate.ps1` -> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then activate again.
+- `python: command not found` (Windows) -> use `py`. Inside venv, `python` works.
+- `FileNotFoundError: data/offices.csv` on office questions -> expected on `main`, the file is not merged yet.
