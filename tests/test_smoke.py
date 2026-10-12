@@ -15,3 +15,9 @@ def test_unknown():
 
 def test_empty():
     assert reply("   ") == "Please type a question."
+
+
+def test_help():
+    answer = reply("help")
+    assert "office" in answer.lower()
+    assert reply("Help?") == answer

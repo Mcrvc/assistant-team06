@@ -29,6 +29,18 @@ Expected output:
 Hello! Ask me where an office is, or when it opens.
 ```
 
+See what the assistant can do:
+
+```bash
+python -m assistant "help"
+```
+
+Expected output:
+
+```
+I can: greet you (try 'hi'), tell you where an office is and when it opens (e.g. 'where is the training office?'), and say goodbye ('bye').
+```
+
 Interactive mode:
 
 ```bash
@@ -41,7 +53,7 @@ Expected:
 Study assistant (starter). Type 'quit' to exit.
 ```
 
-Type `hi`, then `quit` to exit.
+Type `hi` or `help`, then `quit` to exit.
 
 ## Test
 
