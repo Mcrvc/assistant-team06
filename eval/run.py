@@ -2,10 +2,17 @@ import csv
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SRC_DIR = REPO_ROOT / "src"
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from assistant.rules import reply
+
 
 def run_assistant(query: str) -> str:
- 
-    return query
+    return reply(query)
 
 
 def evaluate(cases_path: Path) -> float:
@@ -20,10 +27,10 @@ def evaluate(cases_path: Path) -> float:
         reader = csv.DictReader(f)
         for row in reader:
             total += 1
-            query = row["query"].strip()
+            question = row["question"].strip()
             expected = row["expected"].strip()
 
-            actual = str(run_assistant(query)).strip()
+            actual = str(run_assistant(question)).strip()
 
             if actual.lower() == expected.lower():
                 correct += 1
