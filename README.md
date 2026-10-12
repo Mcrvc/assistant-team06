@@ -72,3 +72,11 @@ pytest -q
 - PowerShell blocks `Activate.ps1` -> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then activate again.
 - `python: command not found` (Windows) -> use `py`. Inside venv, `python` works.
 - `FileNotFoundError: data/offices.csv` on office questions -> expected on `main`, the file is not merged yet.
+
+## Evaluation
+
+Run the benchmark script:
+
+```bash
+python eval/run.py
+```
