@@ -196,8 +196,4 @@ res = answer("and on Saturday?", history=[
 - No streaming, tools/function-calling, or embeddings in v1.
 - No change to `src/assistant/rules.py`; it stays the fallback.
 
-## 9. Definition of Done for this doc
 
-- [x] `docs/ai-interface.md` exists with signature, inputs, outputs, errors, fallback.
-- [x] No LLM call is added anywhere.
-- [ ] Reviewed by a teammate and merged through a PR.
