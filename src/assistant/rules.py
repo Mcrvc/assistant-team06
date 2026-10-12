@@ -13,6 +13,13 @@ GREETINGS = {
 }
 GOODBYES = {"bye", "goodbye", "bye bye", "see you", "see you later"}
 
+HELP_WORDS = {"help", "what can you do"}
+
+HELP_TEXT = (
+    "I can: greet you (try 'hi'), tell you where an office is and when it opens "
+    "(e.g. 'where is the training office?'), and say goodbye ('bye')."
+)
+
 
 def load_offices(path: Path = DATA_DIR / "offices.csv") -> dict[str, dict[str, str]]:
     """Return {office_name_lower: row} from the offices CSV."""
@@ -29,6 +36,8 @@ def reply(message: str, offices: dict[str, dict[str, str]] | None = None) -> str
         return "Hello! Ask me where an office is, or when it opens."
     if text in GOODBYES:
         return "Goodbye! Good luck with your studies."
+    if text in HELP_WORDS:
+        return HELP_TEXT
     offices = offices if offices is not None else load_offices()
     for name, row in offices.items():
         if name in text:
