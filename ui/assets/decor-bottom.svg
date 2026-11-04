@@ -1,0 +1,32 @@
+<svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bottomGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#92C7CF" stop-opacity="0.35" />
+      <stop offset="50%" stop-color="#AAD7D9" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#AAD7D9" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Ambient glow core from bottom corner -->
+  <circle cx="560" cy="560" r="320" fill="url(#bottomGlow)" />
+
+  <!-- Concentric echo rings & soundwave ripples -->
+  <circle cx="560" cy="560" r="120" stroke="#FBF9F1" stroke-width="2" stroke-opacity="0.35" />
+  <circle cx="560" cy="560" r="190" stroke="#203D43" stroke-width="1.2" stroke-opacity="0.12" stroke-dasharray="6 8" />
+  <circle cx="560" cy="560" r="270" stroke="#FBF9F1" stroke-width="1.8" stroke-opacity="0.28" />
+  <circle cx="560" cy="560" r="360" stroke="#203D43" stroke-width="1.2" stroke-opacity="0.1" stroke-dasharray="12 8 4 8" />
+  <circle cx="560" cy="560" r="470" stroke="#FBF9F1" stroke-width="1.6" stroke-opacity="0.2" />
+  <circle cx="560" cy="560" r="600" stroke="#203D43" stroke-width="1" stroke-opacity="0.08" stroke-dasharray="10 14" />
+
+  <!-- Dynamic speech wave arcs -->
+  <path d="M 180 560 C 280 480, 420 620, 560 560 C 700 500, 780 620, 860 560" stroke="#FBF9F1" stroke-width="1.8" stroke-opacity="0.25" stroke-linecap="round" fill="none" />
+  <path d="M 220 630 C 320 550, 440 690, 560 630 C 680 570, 760 690, 840 630" stroke="#203D43" stroke-width="1.2" stroke-opacity="0.1" stroke-linecap="round" fill="none" />
+
+  <!-- Orbiting pulse nodes -->
+  <circle cx="440" cy="560" r="4" fill="#FBF9F1" fill-opacity="0.45" />
+  <circle cx="680" cy="560" r="3.5" fill="#FBF9F1" fill-opacity="0.4" />
+  <circle cx="560" cy="440" r="3" fill="#203D43" fill-opacity="0.2" />
+  <circle cx="560" cy="680" r="4" fill="#FBF9F1" fill-opacity="0.4" />
+  <circle cx="370" cy="370" r="3" fill="#FBF9F1" fill-opacity="0.3" />
+  <circle cx="750" cy="750" r="3" fill="#203D43" fill-opacity="0.15" />
+</svg>
