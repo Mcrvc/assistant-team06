@@ -19,3 +19,4 @@ data/raw/
 data/private/
 *.sqlite
 *.db
+AI/
