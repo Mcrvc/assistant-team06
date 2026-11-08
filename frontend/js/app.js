@@ -2394,39 +2394,80 @@
   // ============================================================
 
   if (page === "system-feedback") {
-    const inputs = [0, 1, 2, 3].map(
-      index => $("#feedback-" + index)
-    );
-
-    inputs.forEach((input, index) => {
-      if (!input) return;
-
-      input.value =
-        typeof account.feedback[index] === "string"
-          ? account.feedback[index]
-          : "";
-
-      input.addEventListener("input", () => {
-        account.feedback = inputs.map(
-          item => item?.value || ""
-        );
-
-        save();
-      });
-    });
+    function radioValue(name) {
+      const checked = document.querySelector(
+        'input[name="' + name + '"]:checked'
+      );
+      return checked ? checked.value : null;
+    }
 
     const feedbackForm = $("#feedback-form");
 
     if (feedbackForm) {
-      feedbackForm.addEventListener("submit", event => {
+      feedbackForm.addEventListener("submit", async event => {
         event.preventDefault();
 
-        account.feedback = inputs.map(
-          input => input?.value || ""
+        const gradeRating = radioValue("grade_rating");
+        const qualityRating = radioValue("quality_rating");
+
+        if (!gradeRating || !qualityRating) {
+          if (window.YourinErrors?.showToast) {
+            window.YourinErrors.showToast(
+              "Please select a rating for both questions.",
+              { type: "error" }
+            );
+          }
+          return;
+        }
+
+        const difficulty = radioValue("difficulty");
+        const recommend = radioValue("would_recommend");
+
+        const payload = {
+          grade_rating: Number(gradeRating),
+          quality_rating: Number(qualityRating),
+          difficulty: difficulty || null,
+          comments: $("#feedback-comments")?.value?.trim() || "",
+          would_recommend:
+            recommend === null ? null : recommend === "true"
+        };
+
+        if (account?.activeId) {
+          payload.session_id = account.activeId;
+        }
+
+        const submitBtn = feedbackForm.querySelector(
+          'button[type="submit"]'
         );
 
-        save();
-        go("thank-you.html");
+        if (submitBtn) submitBtn.disabled = true;
+
+        window.YourinUI?.loading.show({
+          title: "Submitting feedback",
+          detail: "Sending your responses to the server."
+        });
+
+        try {
+const result = await window.YourinAPI.submitFeedback(payload);
+
+          if (!result || !result.ok) {
+            return;
+          }
+
+          go("thank-you.html");
+        } catch (err) {
+          if (typeof apiError === "function") {
+            apiError(err);
+          } else if (window.YourinErrors?.showToast) {
+            window.YourinErrors.showToast(
+              err?.message || "Could not submit feedback.",
+              { type: "error" }
+            );
+          }
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+          window.YourinUI?.loading.hide();
+        }
       });
     }
   }

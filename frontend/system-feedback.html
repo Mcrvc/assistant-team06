@@ -42,45 +42,74 @@
   </nav>
 </header>
 <main id="main" class="page feedback-page">
-  <form class="panel survey-panel" id="feedback-form" action="thank-you.html">
+  <form class="panel survey-panel" id="feedback-form">
     <div class="survey-list">
       <div class="survey-row">
-        <label class="survey-label" for="feedback-0">
+        <label class="survey-label">
           <span class="survey-number">01</span>
-          <span class="survey-text">Did you get a Golden Experience with the accuracy of the AI-generated interview feedback?</span>
+          <span class="survey-text">How accurate was the AI-generated interview feedback? (1 = very poor, 5 = excellent)</span>
         </label>
         <div class="survey-field-input">
-          <textarea id="feedback-0" rows="3" maxlength="5000" placeholder="Type your answer..."></textarea>
+          <div class="rating-group" role="radiogroup" aria-label="Grade rating">
+            <label class="rating-option"><input type="radio" name="grade_rating" value="1" required><span>1</span></label>
+            <label class="rating-option"><input type="radio" name="grade_rating" value="2"><span>2</span></label>
+            <label class="rating-option"><input type="radio" name="grade_rating" value="3"><span>3</span></label>
+            <label class="rating-option"><input type="radio" name="grade_rating" value="4"><span>4</span></label>
+            <label class="rating-option"><input type="radio" name="grade_rating" value="5"><span>5</span></label>
+          </div>
         </div>
       </div>
 
       <div class="survey-row">
-        <label class="survey-label" for="feedback-1">
+        <label class="survey-label">
           <span class="survey-number">02</span>
-          <span class="survey-text">How intuitive and easy-to-use did you find the interview navigation and interface?</span>
-        </label>
-        <div class="survey-field-input">
-          <textarea id="feedback-1" rows="3" maxlength="5000" placeholder="Type your answer..."></textarea>
-        </div>
-      </div>
-
-      <div class="survey-row">
-        <label class="survey-label" for="feedback-2">
-          <span class="survey-number">03</span>
-          <span class="survey-text">Did you encounter any bugs, technical issues, during your session? If so, please describe them.</span>
-        </label>
-        <div class="survey-field-input">
-          <textarea id="feedback-2" rows="3" maxlength="5000" placeholder="Type your answer..."></textarea>
-        </div>
-      </div>
-
-      <div class="survey-row">
-        <label class="survey-label" for="feedback-3">
-          <span class="survey-number">04</span>
           <span class="survey-text">Were the interview questions appropriate for your targeted job profile and experience level?</span>
         </label>
         <div class="survey-field-input">
-          <textarea id="feedback-3" rows="3" maxlength="5000" placeholder="Type your answer..."></textarea>
+          <div class="rating-group" role="radiogroup" aria-label="Quality rating">
+            <label class="rating-option"><input type="radio" name="quality_rating" value="1" required><span>1</span></label>
+            <label class="rating-option"><input type="radio" name="quality_rating" value="2"><span>2</span></label>
+            <label class="rating-option"><input type="radio" name="quality_rating" value="3"><span>3</span></label>
+            <label class="rating-option"><input type="radio" name="quality_rating" value="4"><span>4</span></label>
+            <label class="rating-option"><input type="radio" name="quality_rating" value="5"><span>5</span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="survey-row">
+        <label class="survey-label">
+          <span class="survey-number">03</span>
+          <span class="survey-text">How difficult were the interview questions?</span>
+        </label>
+        <div class="survey-field-input">
+          <div class="difficulty-group" role="radiogroup" aria-label="Difficulty">
+            <label class="difficulty-option"><input type="radio" name="difficulty" value="too_easy"><span>Too easy</span></label>
+            <label class="difficulty-option"><input type="radio" name="difficulty" value="just_right"><span>Just right</span></label>
+            <label class="difficulty-option"><input type="radio" name="difficulty" value="too_hard"><span>Too hard</span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="survey-row">
+        <label class="survey-label">
+          <span class="survey-number">04</span>
+          <span class="survey-text">Would you recommend Yourin to others?</span>
+        </label>
+        <div class="survey-field-input">
+          <div class="recommend-group" role="radiogroup" aria-label="Would recommend">
+            <label class="recommend-option"><input type="radio" name="would_recommend" value="true"><span>Yes</span></label>
+            <label class="recommend-option"><input type="radio" name="would_recommend" value="false"><span>No</span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="survey-row">
+        <label class="survey-label" for="feedback-comments">
+          <span class="survey-number">05</span>
+          <span class="survey-text">Additional comments, bugs, or suggestions (optional).</span>
+        </label>
+        <div class="survey-field-input">
+          <textarea id="feedback-comments" rows="3" maxlength="2000" placeholder="Type your answer..."></textarea>
         </div>
       </div>
     </div>
