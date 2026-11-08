@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Yourin Interview AI Assistant.">
+  <title>Sign in · Yourin</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+
+  <script src="js/data.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="js/config.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+
+<body data-page="sign-in">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="auth-page">
+    <section class="auth-brand" aria-label="Yourin Interview AI Assistant">
+      <img class="decor decor-top" src="assets/decor-top.svg" alt="" aria-hidden="true">
+      <img class="decor decor-bottom" src="assets/decor-bottom.svg" alt="" aria-hidden="true">
+
+      <div class="auth-brand-content">
+        <div class="brand">
+          <img src="assets/logo.svg" alt="">
+          <span>Yourin</span>
+        </div>
+
+        <h1>Your AI Interview Assistant</h1>
+        <p class="tagline">Enhance your career with AI</p>
+      </div>
+    </section>
+
+    <main class="auth-panel" id="main">
+      <form class="auth-form" id="sign-in-form" action="dashboard.html">
+        <h2>Sign in to your account</h2>
+
+        <p class="auth-switch">
+          Don't have an account?
+          <a class="text-link" href="sign-up.html">Sign up</a>.
+        </p>
+
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" autocomplete="username" placeholder="Username" required
+            minlength="3" maxlength="60">
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+
+          <div class="password-input-wrap">
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password"
+              required>
+
+            <button type="button" class="password-toggle-btn" data-toggle-password="password" aria-label="Show password"
+              aria-pressed="false" title="Show password">
+              <svg class="eye-icon eye-show" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+
+              <svg class="eye-icon eye-hide is-hidden" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <path
+                  d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24">
+                </path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <p class="form-error" id="auth-error" role="alert" hidden></p>
+
+        <button class="btn btn-wide" type="submit">
+          Sign in <span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <p class="auth-foot">Interview AI Assistant · Team 6</p>
+    </main>
+  </div>
+</body>
+
+</html>

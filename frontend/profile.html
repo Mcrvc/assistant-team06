@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profile · Yourin</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+
+  <script src="js/data.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="js/config.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+
+<body data-page="profile">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <nav class="header-inner" aria-label="Main navigation">
+      <a class="brand header-brand" href="dashboard.html">
+        <span class="brand-icon">
+          <img src="assets/logo.svg" alt="" aria-hidden="true">
+        </span>
+        <span class="brand-text">Yourin</span>
+      </a>
+
+      <div class="header-nav">
+        <a class="nav-link" href="dashboard.html" data-nav="dashboard">Dashboard</a>
+        <a class="nav-link" href="storage.html" data-nav="storage">Your Interview</a>
+        <a class="nav-link" href="system-feedback.html" data-nav="feedback">System Feedback</a>
+      </div>
+
+      <div class="header-right">
+        <a class="profile-link is-active" href="profile.html" aria-label="Profile" title="Profile" data-nav="profile">
+          <img class="header-avatar" src="assets/avatar.svg" alt="">
+          <span class="profile-name" data-username>Username</span>
+        </a>
+
+        <span class="header-divider" aria-hidden="true"></span>
+
+        <a class="header-logout-link" href="sign-in.html" data-sign-out aria-label="Sign out" title="Sign out">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span class="logout-text">Sign out</span>
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main" class="page narrow-page profile-page-layout">
+
+    <!-- SECTION 1: ACCOUNT & PASSWORD -->
+    <section class="panel profile-panel">
+      <div class="profile-summary">
+        <div class="profile-avatar-wrapper">
+          <img class="profile-avatar" src="assets/avatar.svg" alt="">
+        </div>
+        <h2 data-username>Username</h2>
+      </div>
+
+      <form id="profile-form" action="#">
+        <div class="field">
+          <label for="profile-username">Username</label>
+          <input id="profile-username" type="text" required minlength="3" maxlength="60" autocomplete="username"
+            placeholder="Your username">
+        </div>
+
+        <div class="field">
+          <label for="account-password">New password</label>
+          <input id="account-password" type="password" minlength="8" maxlength="128" autocomplete="new-password"
+            readonly placeholder="Unlock editing to change your password">
+        </div>
+
+        <div class="password-unlock-box" id="password-unlock-box">
+          <label for="verify-password" class="unlock-label">
+            Verify your current password to edit account details
+          </label>
+
+          <div class="unlock-input-group">
+            <input id="verify-password" type="password" placeholder="Enter current password"
+              autocomplete="current-password">
+            <button class="btn btn-secondary" id="unlock-password-btn" type="button">
+              Unlock
+            </button>
+          </div>
+        </div>
+
+        <p class="form-status" id="profile-status" role="status"></p>
+        <p class="form-error" id="profile-error" hidden role="alert"></p>
+
+        <div class="actions">
+          <button class="btn" id="save-profile" type="submit">Save</button>
+          <a class="btn btn-quiet" href="sign-in.html" data-sign-out>Sign out</a>
+        </div>
+      </form>
+    </section>
+
+    <!-- SECTION 2: YOUR CV SECTION -->
+    <section id="your-cv" class="panel profile-cv-panel">
+      <div class="profile-cv-header">
+        <h2>Your CV</h2>
+      </div>
+
+      <div class="field cv-raw-field">
+        <label for="prof-cv-raw">Paste raw CV text</label>
+        <textarea id="prof-cv-raw" rows="6" maxlength="15000"
+          placeholder="Paste your raw resume, CV text, or background summary here..."></textarea>
+      </div>
+
+      <div class="cv-or-divider">
+        <span>OR you can upload your CV</span>
+      </div>
+
+      <div class="cv-pdf-dropzone" id="cv-pdf-dropzone" tabindex="0" role="button" aria-label="Upload PDF resume">
+        <input type="file" id="cv-pdf-file-input" accept=".pdf,application/pdf" class="visually-hidden">
+
+        <div class="dropzone-icon" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <path d="M12 18v-6"></path>
+            <path d="M9 15l3-3 3 3"></path>
+          </svg>
+        </div>
+
+        <h3>Upload your PDF Resume</h3>
+        <p class="dropzone-text">
+          Drag and drop your file here, or
+          <button type="button" class="btn-text-action" id="browse-pdf-btn">
+            browse from computer
+          </button>
+        </p>
+        <span class="dropzone-hint">Supports PDF only (up to 10MB)</span>
+      </div>
+
+      <div class="cv-pdf-card is-hidden" id="cv-pdf-card">
+        <div class="pdf-card-file">
+          <div class="pdf-icon-badge" aria-hidden="true">PDF</div>
+
+          <div class="pdf-file-details">
+            <div class="pdf-file-name" id="pdf-file-name">CV.pdf</div>
+            <div class="pdf-file-meta">
+              <span id="pdf-file-size">420 KB</span>
+              <span class="meta-dot">•</span>
+              <span id="pdf-file-date">Attached to profile</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pdf-card-actions">
+          <button class="btn btn-secondary btn-sm" id="replace-pdf-btn" type="button">
+            Replace
+          </button>
+          <button class="btn btn-quiet btn-sm text-danger" id="remove-pdf-btn" type="button">
+            Remove
+          </button>
+        </div>
+      </div>
+
+      <p class="form-status" id="pdf-status" role="status"></p>
+      <p class="form-error" id="pdf-error" hidden role="alert"></p>
+
+      <div class="cv-actions-bar">
+        <p class="form-status" id="cv-status" role="status"></p>
+        <button class="btn" id="save-cv-btn" type="button">Save CV</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>Yourin · Interview AI Assistant</span>
+  </footer>
+
+  <noscript>
+    <p class="noscript">Enable JavaScript to use your profile and CV features.</p>
+  </noscript>
+</body>
+
+</html>
