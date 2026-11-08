@@ -191,6 +191,28 @@ def test_feedback_optional_fields(client):
     assert client.post("/api/feedback", json=minimal, headers=ALICE).status_code == 201
 
 
+def test_feedback_with_own_session_is_201(client):
+    interview_id = make_interview(client, finish=True)
+    response = client.post("/api/feedback", json={**FEEDBACK, "session_id": interview_id},
+                          headers=ALICE)
+    assert response.status_code == 201
+
+
+def test_feedback_with_other_users_session_is_404(client):
+    other = make_interview(client, headers=BOB, finish=True)
+    response = client.post("/api/feedback", json={**FEEDBACK, "session_id": other},
+                          headers=ALICE)
+    assert response.status_code == 404
+
+
+def test_feedback_with_unknown_session_is_404(client):
+    response = client.post("/api/feedback",
+                          json={**FEEDBACK,
+                                "session_id": "00000000-0000-0000-0000-000000000000"},
+                          headers=ALICE)
+    assert response.status_code == 404
+
+
 @pytest.mark.parametrize("bad", [
     {},
     {**FEEDBACK, "grade_rating": 0},

@@ -35,6 +35,10 @@ CV_FIELDS = 4
 # Proposed range; the team still has to confirm it with the survey UI (Khang).
 RATING_MIN, RATING_MAX = 1, 5
 
+# Serialises creation of the temporary in-memory store so two first requests
+# cannot create two separate stores and lose CV/feedback data.
+_PROFILE_STORE_LOCK = threading.Lock()
+
 CvField = Annotated[str, Field(max_length=5000)]
 Rating = Annotated[int, Field(ge=RATING_MIN, le=RATING_MAX)]
 
@@ -98,7 +102,11 @@ class InMemoryProfileStore:
 def get_profile_store(request: Request) -> ProfileStore:
     store = getattr(request.app.state, "profile_store", None)
     if store is None:
-        store = request.app.state.profile_store = InMemoryProfileStore()
+        with _PROFILE_STORE_LOCK:
+            store = getattr(request.app.state, "profile_store", None)
+            if store is None:
+                store = InMemoryProfileStore()
+                request.app.state.profile_store = store
     return store
 
 
@@ -148,7 +156,11 @@ def build_router(current_user: Callable[..., str],
         return {"id": interview["id"], "name": interview["name"], "report": interview["report"]}
 
     @router.post("/api/feedback", status_code=201)
-    def send_feedback(payload: SendFeedback, user: User, store: Store):
+    def send_feedback(payload: SendFeedback, user: User, store: Store, service: Service):
+        # A feedback record may reference an interview, but only one that
+        # belongs to the verified user. Unknown or foreign sessions are 404.
+        if payload.session_id is not None:
+            service.get(user, payload.session_id)
         record = {**payload.model_dump(), "created": datetime.now(timezone.utc).isoformat()}
         store.add_feedback(user, record)
         return JSONResponse(status_code=201, content={"ok": True})
