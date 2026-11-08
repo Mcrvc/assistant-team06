@@ -695,7 +695,25 @@
       } else {
         startInterview(null, null, "none");
       }
-      go("interview.html");
+
+      const begin = () => go("interview.html");
+      if (window.YourinUI && window.YourinUI.loading) {
+        // Placeholder delay until the interview-creation API is wired in.
+        window.YourinUI.loading.show({
+          title: "Creating your interview",
+          detail: "Researching the role and writing your questions.",
+          steps: [
+            "Researching the role and company…",
+            "Reading your CV for relevant experience…",
+            "Writing three targeted questions…",
+            "Preparing what you'll be assessed on…"
+          ],
+          stepInterval: 2000
+        });
+        window.setTimeout(begin, 2800);
+      } else {
+        begin();
+      }
     });
     $$("[data-save-job]").forEach(link => link.addEventListener("click", saveJob));
   }
@@ -1027,7 +1045,7 @@
       if (name) interview.name = name;
       interview.finished = true;
       save();
-      go("report.html");
+      go("report.html?grading=1");
     });
   }
 
@@ -1192,6 +1210,9 @@
   }
 
   if (page === "report") {
+    let grading = false;
+    try { grading = new URLSearchParams(window.location.search).get("grading") === "1"; } catch (_) {}
+
     const interview = reportInterview();
     if (interview) {
       if ($("#report-name")) $("#report-name").textContent = interview.name;
@@ -1216,6 +1237,23 @@
           go("interview.html");
         });
       }
+    }
+
+    if (grading && window.YourinUI && window.YourinUI.loading) {
+      try { window.history.replaceState({}, "", window.location.pathname); } catch (_) { /* file:// */ }
+      // Placeholder duration until grading is polled from /api/job/{job_id}.
+      window.YourinUI.loading.show({
+        title: "Grading your answers",
+        detail: "Comparing each answer with the criteria for this role.",
+        steps: [
+          "Reading your answers against the role criteria…",
+          "Checking every score against your own words…",
+          "Writing feedback and a recommendation…",
+          "Building your final report…"
+        ],
+        stepInterval: 2000,
+        hideAfter: 3200
+      });
     }
   }
   if (page === "system-feedback") {

@@ -1,5 +1,16 @@
 # Interview backend: bản local để ghép với nhóm
 
+## Cập nhật tích hợp LOCAL-02
+
+Nhánh tính năng đã nhận code từ `origin/frontend` (`08b8ceb`), gồm AI và Auth.
+Một ASGI app dùng chung cho `python -m assistant --interview-api` từ root và
+`uvicorn app.main:app` từ `backend/`. Cài môi trường chuẩn từ root bằng
+`pip install -r requirements.txt`. SQLAlchemy cho phép 2.x để khớp các nhánh.
+API mới vẫn giữ nguyên contract bên dưới; giao diện nhóm ở `/app/`, prototype
+cũ ở `/` và `/prototype/`. Việc nối UI/Auth/AI được thực hiện ở các checkpoint sau.
+`frontend/js/config.js` lấy config cùng origin, không ghim port 8000; có thể đặt
+`window.YOURIN_API_URL` trước khi load script nếu chạy giao diện ở origin khác.
+
 Phạm vi của Trần Bảo Anh: tạo interview, lưu/tiếp tục, nhận đáp án, gọi AI chấm
 nền, kiểm tra bằng chứng và finalize. Bản này chạy độc lập với **AI mẫu + SQLite
 qua SQLAlchemy**. Không cần key hay truy cập Supabase.

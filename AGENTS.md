@@ -10,6 +10,9 @@
 
 ## Cập nhật sau khảo sát: triển khai local đã được cho phép
 
+- Người dùng đã yêu cầu làm toàn bộ phần có thể thực hiện độc lập và **commit sau mỗi việc để tạo checkpoint**. Đã lưu bản local thành `3d89d55` (41 tests). Đang thực hiện LOCAL-02, phạm vi tại `docs/backlog/LOCAL-02-team-integration.md`; cho phép commit local, chưa cho phép push/deploy hoặc sửa cloud.
+- Đã ghép `origin/frontend` (gồm AI/authen) vào nhánh tính năng, dùng chung `assistant.api:app` qua cả entry point root và `backend/app/main.py`; frontend nhóm ở `/app/`, prototype ở `/` và `/prototype/`. Bộ test sau ghép: 72 passed. Các nhận định bên dưới về chưa ghép branch là snapshot trước giai đoạn LOCAL-02.
+
 - Người dùng đã yêu cầu triển khai phần mình nhận bằng AI mẫu + lưu local, chưa cần liên hệ các thành viên trước. Không tiếp tục coi giới hạn chỉ-thảo-luận của buổi đầu là phạm vi hiện tại.
 - Người dùng sau đó cung cấp ảnh bản Backend đã thống nhất: **FastAPI, Uvicorn, Pydantic, SQLAlchemy/psycopg, PostgreSQL**, **session cookie + Argon2id** ở Authentication; lưu đáp án trước, chấm từng câu bằng **BackgroundTasks**, đối chiếu trích dẫn nguyên văn (**Fabrication Guard**), API tiến độ, finalize tổng hợp từ kết quả đã lưu. Bản này được ưu tiên hơn suy đoán auth từ Summary cũ.
 - Đã tạo nhánh local `feat/LOCAL-01-interview-lifecycle`. `LOCAL-01` là ID backlog local trong `docs/backlog/LOCAL-01-interview-lifecycle.md`, không giả làm GitHub issue number. Chưa commit/push hoặc deploy.

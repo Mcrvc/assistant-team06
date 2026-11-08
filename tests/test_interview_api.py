@@ -122,6 +122,9 @@ def test_existing_endpoints_static_ui_and_openapi_remain_available(client):
     assert "supabaseUrl" in client.get("/api/config").json()
     assert client.post("/api/answer", json={"question": "hi"}).json()["used_fallback"] is True
     assert client.get("/dashboard.html").status_code == 200
+    assert client.get("/app/dashboard.html").status_code == 200
+    assert client.get("/prototype/dashboard.html").status_code == 200
+    assert client.get("/api/config").json()["interviewDemoEnabled"] is True
     assert client.get("/docs").status_code == 200
     assert "/api/interviews/{interview_id}/answers/{index}" in client.get("/openapi.json").json()["paths"]
     assert client.get("/api/unknown").json()["error"]["code"] == "not_found"

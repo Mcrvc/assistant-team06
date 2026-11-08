@@ -1,0 +1,40 @@
+<svg width="400" height="240" viewBox="0 0 400 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="c2bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2B5862" />
+      <stop offset="100%" stop-color="#1B3940" />
+    </linearGradient>
+    <linearGradient id="c2card" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#FBF9F1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Simple Deep Teal Background -->
+  <rect width="400" height="240" fill="url(#c2bg)" />
+
+  <!-- Subtle Wave Accent -->
+  <path d="M0 190 C 120 155, 260 215, 400 170 L 400 240 L 0 240 Z" fill="#92C7CF" fill-opacity="0.15" />
+
+  <!-- Simple Central Interview Card -->
+  <g transform="translate(120, 42)">
+    <rect width="160" height="156" rx="16" fill="url(#c2card)" />
+
+    <!-- Play / Resume Button Circle -->
+    <circle cx="80" cy="56" r="24" fill="#92C7CF" fill-opacity="0.35" />
+    <circle cx="80" cy="56" r="16" fill="#3D7C88" />
+    <polygon points="77,49 87,56 77,63" fill="#FFFFFF" />
+
+    <!-- Simple Report Summary Lines -->
+    <rect x="32" y="98" width="96" height="7" rx="3.5" fill="#203D43" fill-opacity="0.8" />
+    <rect x="46" y="112" width="68" height="6" rx="3" fill="#64787B" fill-opacity="0.45" />
+
+    <!-- Simple Progress Bar -->
+    <rect x="36" y="132" width="88" height="6" rx="3" fill="#E5E1DA" />
+    <rect x="36" y="132" width="62" height="6" rx="3" fill="#DE8C5A" />
+  </g>
+
+  <!-- Minimal Ambient Circles -->
+  <circle cx="68" cy="110" r="20" stroke="#92C7CF" stroke-width="1.5" stroke-opacity="0.3" />
+  <circle cx="332" cy="95" r="14" fill="#92C7CF" fill-opacity="0.2" />
+</svg>
