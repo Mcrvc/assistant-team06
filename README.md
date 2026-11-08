@@ -1,5 +1,10 @@
 # assistant-team06 — Smart Virtual Assistant
 
+> **WIP — chưa hoàn thành tích hợp 100%.** Nhánh `feat/LOCAL-01-interview-lifecycle`
+> chia sẻ backend interview và hàm kiểm tra token để nhóm ghép tiếp. Đã kiểm thử
+> local; còn chốt schema/format AI, cấu hình và thử dịch vụ thật, review rồi deploy.
+> Xem [hướng dẫn lấy hàm token và những việc còn lại](docs/backend-handoff.md).
+
 Yourin interview backend (local demo): see [the FastAPI walkthrough and API contract](docs/interview-api.md).
 This adds a separate `python -m assistant --interview-api` entry point; the CLI and `--ui` below still work.
 

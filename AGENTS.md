@@ -10,6 +10,18 @@
 
 ## Cập nhật sau khảo sát: triển khai local đã được cho phép
 
+### Chia sẻ nhánh WIP theo yêu cầu mới nhất
+
+- Người dùng đã **cho phép push nhánh riêng** `feat/LOCAL-01-interview-lifecycle`
+  lên origin để Trương Bảo Anh lấy hàm token, kèm thông điệp chưa hoàn thành 100%
+  và checklist còn lại. Các giới hạn "chưa cho phép push" bên dưới là lịch sử.
+- Chỉ push nhánh tính năng, không tự merge main/backend, deploy, sửa Supabase
+  hoặc gửi tin cho thành viên. Context WIP đặt đầu README và
+  `docs/backend-handoff.md`; đã nêu ranh giới Auth/AI, cách dùng verifier và
+  schema/format/config/test dịch vụ thật còn chờ nhóm.
+- Kết quả 154 tests là kiểm chứng local trước khi chia sẻ; kiểm tra trạng thái
+  GitHub CI riêng sau push, không báo CI đã qua chỉ từ kết quả local.
+
 ### Cập nhật LOCAL-04: PostgreSQL độc lập (mới nhất)
 
 - Người dùng yêu cầu hoàn thiện phần mình trước, điều chỉnh format với nhóm sau.

@@ -1,5 +1,62 @@
 # Trao đổi với Trương Bảo Anh: điểm dùng chung và schema mới
 
+## Bản chia sẻ WIP — chưa hoàn thành tích hợp 100%
+
+Nhánh chia sẻ: `feat/LOCAL-01-interview-lifecycle`. Người dùng đã cho phép push
+nhánh riêng để Backend còn lại lấy code. Đây là bản phát triển để ghép tiếp;
+không tự merge vào main/backend, áp dụng schema lên Supabase hoặc deploy.
+
+**Đã có:** create/save/resume/submit/progress/finalize, kiểm tra trích dẫn,
+adapter AI, verified token và PostgreSQL, giao diện interview gọi API.
+**Kiểm chứng local:** 154 tests passed, gồm 13 PostgreSQL thật và 8 browser tests.
+GitHub CI là kiểm chứng riêng; không suy ra đã qua CI từ kết quả local này.
+
+**Còn làm trước khi hoàn tất với nhóm:**
+
+1. Huy review cách lưu và SQL bổ sung đề xuất; chỉ áp dụng trên môi trường nhóm
+   sau khi thống nhất. Schema Supabase hiện có chưa đủ cho adapter PostgreSQL.
+2. Đối chiếu input/output tạo câu hỏi và chấm với Duy. Tiêu chí/thang điểm do AI
+   phụ trách; quy ước score 0–10/ngưỡng 6 ở local cần được nhóm xác nhận/điều chỉnh.
+3. Cấu hình DB test/Supabase/AI thật rồi kiểm thử toàn luồng. Demo SQLite và AI
+   mẫu vẫn là mặc định; chưa kiểm chứng login hoặc model thật của project.
+4. Ghép API Profile/CV/history/report riêng/feedback do Trương Bảo Anh phụ trách;
+   chốt chính sách CV, review PR và cấu hình triển khai. BackgroundTasks còn dùng
+   retry thủ công khi process dừng, chưa có durable queue.
+
+### Lấy hàm kiểm tra token
+
+Sau khi fetch nhánh này, cài dependencies từ root (`pip install -r requirements.txt`).
+Các file dùng chung:
+
+- `src/assistant/auth.py`: `SupabaseBearerAuth`, xác minh token và trả UUID user.
+- `src/assistant/api.py`: `get_current_user` cho các route dùng app chung từ
+  `create_app`; Supabase URL/JWKS đọc từ môi trường, demo phải tắt khi thử Auth thật.
+- `tests/test_supabase_auth.py`: ví dụ kiểm tra chữ ký/claims và ownership.
+
+Ví dụ dependency cho router dùng **app chung đã cấu hình**:
+
+```python
+from typing import Annotated
+from fastapi import APIRouter, Depends
+from assistant.api import get_current_user
+
+router = APIRouter()
+
+@router.get("/api/profile")
+def read_profile(user_id: Annotated[str, Depends(get_current_user)]):
+    # Query the profile for this verified user_id.
+    ...
+```
+
+Ví dụ trên chỉ minh họa cách nhận user đã xác minh, không phải API Profile đã
+triển khai. Khi ghép router, cần đăng ký trước catch-all `/api/{unknown:path}`
+và static mounts; tránh circular import giữa api.py và module router. Nếu dùng
+app khác, tái sử dụng lớp verifier và cấu hình xử lý lỗi tương ứng.
+Verifier hỗ trợ RS256/ES256; chưa hỗ trợ HS256 hay thu hồi session tức thì.
+Backend không cung cấp đăng ký/đăng nhập hoặc tự thiết kế tiêu chí chấm.
+
+## Bối cảnh khảo sát và đề xuất
+
 Ngày 08/11/2026. Đây là thông tin đã kiểm tra và đề xuất để nhóm xác nhận,
 không phải thay đổi schema hoặc quyết định đã được toàn nhóm đồng ý.
 
@@ -70,9 +127,9 @@ login thật vì chưa có runtime public config. Không cần hai người vi�
 verifier. Khi chia router, tách/import dependency dùng chung theo cách tránh
 circular import; không chỉ decode JWT rồi tin user ID.
 
-Code hiện nằm ở nhánh local `feat/LOCAL-01-interview-lifecycle`, đã commit nhưng
-**chưa push** nên teammate chưa pull được các module mới. Đề xuất hai người có
-feature branch riêng từ cùng base tích hợp và ghép bằng PR; backend có thể là
+Code được chia sẻ qua nhánh riêng `feat/LOCAL-01-interview-lifecycle` theo yêu cầu
+của người dùng. Đề xuất hai người có feature branch riêng từ cùng base tích hợp
+và ghép bằng PR; backend có thể là
 nhánh tích hợp nếu nhóm đồng ý, không cùng sửa/push chồng trực tiếp lên một nhánh.
 
 API_CONTRACT phía frontend gồm phần draft cũ và phần LOCAL-02 implementation

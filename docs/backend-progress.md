@@ -1,8 +1,11 @@
 # Báo cáo phần Backend của Trần Bảo Anh
 
-Ngày cập nhật: 08/11/2026. Nhánh local: `feat/LOCAL-01-interview-lifecycle`.
+Ngày cập nhật: 08/11/2026. Nhánh chia sẻ: `feat/LOCAL-01-interview-lifecycle`.
 Đã triển khai và kiểm tra bản ghép local từ các nhánh nhóm. Đã commit checkpoint
-sau từng việc theo yêu cầu người dùng; chưa push, deploy hoặc ghi vào cloud.
+sau từng việc theo yêu cầu người dùng. Người dùng đã yêu cầu push nhánh riêng
+để chia sẻ hàm token; **WIP, chưa hoàn thành tích hợp 100%**. Xem hướng dẫn lấy
+hàm token và checklist bàn giao ở `docs/backend-handoff.md`. Chưa deploy hoặc
+ghi Supabase chung; các mốc "chưa push" bên dưới mô tả thời điểm checkpoint cũ.
 
 ## Cập nhật LOCAL-04: phần độc lập đã hoàn thiện thêm
 
