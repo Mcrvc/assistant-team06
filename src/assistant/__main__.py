@@ -8,12 +8,14 @@ from assistant.rules import reply
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    if argv and argv[0] in {"--ui", "--web", "--serve"}:
-        from assistant.web import serve_ui
-
+    if argv and argv[0] in {"--ui", "--web", "--serve", "--interview-api"}:
         port: int | None = None
         if len(argv) >= 3 and argv[1] == "--port":
             port = int(argv[2])
+        if argv[0] == "--interview-api":
+            from assistant.api import serve_api
+            return serve_api(port=port)
+        from assistant.web import serve_ui
         return serve_ui(port=port)
     if argv:
         print(reply(" ".join(argv)))
