@@ -360,6 +360,15 @@
     }
 
     save();
+
+    // Gradual migration: mirror to backend when available (falls back silently).
+    if (window.YourinAPI && typeof window.YourinAPI.saveCV === "function") {
+      window.YourinAPI.saveCV({
+        cv: account.cv,
+        cvMode: account.cvMode,
+        cvPdf: account.cvPdf
+      }).catch(() => { /* offline / cold start: local state already saved */ });
+    }
   }
 
   function saveAnswer() {
@@ -1360,7 +1369,33 @@
           startInterview(null, null, "none");
         }
 
-        go("interview.html");
+        // Gradual migration: mirror interview creation to backend (non-blocking).
+        if (window.YourinAPI && typeof window.YourinAPI.createInterview === "function") {
+          window.YourinAPI.createInterview({
+            job: account.job,
+            cv: account.cv,
+            cvMode: account.cvMode,
+            cvPdf: account.cvPdf
+          }).catch(() => { /* offline / cold start: local interview already created */ });
+        }
+
+        const beginInterview = () => go("interview.html");
+        if (window.YourinUI && window.YourinUI.loading) {
+          window.YourinUI.loading.show({
+            title: "Creating your interview",
+            detail: "Researching the role and writing your questions.",
+            steps: [
+              "Researching the role and company…",
+              "Reading your CV for relevant experience…",
+              "Writing three targeted questions…",
+              "Preparing what you'll be assessed on…"
+            ],
+            stepInterval: 2000
+          });
+          window.setTimeout(beginInterview, 2800);
+        } else {
+          beginInterview();
+        }
       });
     }
 

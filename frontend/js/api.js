@@ -350,6 +350,117 @@ window.YourinAPIReady = (async () => {
     }
 
     // =========================================
+    // 11b. BACKEND API (Render) — contract for src/assistant/web.py
+    // Replace localStorage gradually: each helper calls Render first and
+    // returns { status, ok, data, fallback? } so callers can fall back to
+    // local state when the backend is unavailable (offline / cold start).
+    // =========================================
+    const RENDER_API_URL = "";
+
+    function resolveApiBase() {
+        if (RENDER_API_URL.trim()) {
+            return RENDER_API_URL.trim().replace(/\/+$/, "");
+        }
+        if (
+            window.location.protocol.startsWith("http") &&
+            (window.location.hostname === "127.0.0.1" ||
+                window.location.hostname === "localhost")
+        ) {
+            return window.location.origin;
+        }
+        return "";
+    }
+
+    async function getAuthHeaders() {
+        try {
+            const { data } = await supabaseClient.auth.getSession();
+            const token = data?.session?.access_token;
+            if (token) {
+                return { Authorization: `Bearer ${token}` };
+            }
+        } catch (_) { /* ignore */ }
+        return {};
+    }
+
+    async function apiRequest(path, options = {}) {
+        const base = resolveApiBase();
+        if (!base) {
+            return { status: 0, ok: false, data: null, networkError: true, fallback: true };
+        }
+        try {
+            const response = await fetch(`${base}${path}`, {
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(await getAuthHeaders()),
+                    ...(options.headers || {})
+                },
+                ...options
+            });
+            let data = null;
+            try { data = await response.json(); } catch (_) { data = null; }
+            if (!response.ok && window.YourinErrors?.handleStatus) {
+                window.YourinErrors.handleStatus(response.status, data);
+            }
+            return { status: response.status, ok: response.ok, data };
+        } catch (_) {
+            if (window.YourinErrors?.handleStatus) {
+                window.YourinErrors.handleStatus(0, null);
+            }
+            return { status: 0, ok: false, data: null, networkError: true, fallback: true };
+        }
+    }
+
+    const backend = {
+        getHealth: () => apiRequest("/api/health"),
+        getConfig: () => apiRequest("/api/config"),
+        askAssistant: (question) =>
+            apiRequest("/api/answer", {
+                method: "POST",
+                body: JSON.stringify({ question })
+            }),
+
+        // CV
+        getCV: () => apiRequest("/api/cv"),
+        saveCV: (payload) =>
+            apiRequest("/api/cv", {
+                method: "PUT",
+                body: JSON.stringify(payload || {})
+            }),
+
+        // Interviews
+        getInterviews: () => apiRequest("/api/interviews"),
+        createInterview: (payload) =>
+            apiRequest("/api/interviews", {
+                method: "POST",
+                body: JSON.stringify(payload || {})
+            }),
+        getInterview: (id) =>
+            apiRequest(`/api/interviews/${encodeURIComponent(id)}`),
+        updateInterview: (id, payload) =>
+            apiRequest(`/api/interviews/${encodeURIComponent(id)}`, {
+                method: "PUT",
+                body: JSON.stringify(payload || {})
+            }),
+        finalizeInterview: (id) =>
+            apiRequest(`/api/interviews/${encodeURIComponent(id)}/finalize`, {
+                method: "POST"
+            }),
+        deleteInterview: (id) =>
+            apiRequest(`/api/interviews/${encodeURIComponent(id)}`, {
+                method: "DELETE"
+            }),
+
+        // Report + feedback
+        getReport: (id) =>
+            apiRequest(`/api/interviews/${encodeURIComponent(id)}/report`),
+        submitFeedback: (payload) =>
+            apiRequest("/api/feedback", {
+                method: "POST",
+                body: JSON.stringify(payload || {})
+            })
+    };
+
+    // =========================================
     // 12. PUBLIC API
     // =========================================
 
@@ -362,7 +473,23 @@ window.YourinAPIReady = (async () => {
         isAuthenticated,
         unlockEditing,
         updateAccount,
-        onAuthStateChange
+        onAuthStateChange,
+        // backend (Render) helpers
+        request: apiRequest,
+        getHealth: backend.getHealth,
+        getConfig: backend.getConfig,
+        askAssistant: backend.askAssistant,
+        getCV: backend.getCV,
+        saveCV: backend.saveCV,
+        getInterviews: backend.getInterviews,
+        createInterview: backend.createInterview,
+        getInterview: backend.getInterview,
+        updateInterview: backend.updateInterview,
+        finalizeInterview: backend.finalizeInterview,
+        deleteInterview: backend.deleteInterview,
+        getReport: backend.getReport,
+        submitFeedback: backend.submitFeedback,
+        backend
     };
 
     return window.YourinAPI;
