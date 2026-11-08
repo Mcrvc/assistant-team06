@@ -28,6 +28,24 @@ tránh chờ lâu khi demo. CV không chuyển tới provider trừ khi người
 dùng dữ liệu thật. Đây là đường code đã kiểm thử bằng provider giả, chưa có
 key để xác minh chất lượng hoặc tính khả dụng của dịch vụ NVIDIA thật.
 
+### Auth theo nhánh nhóm
+
+Khi demo tắt và có `SUPABASE_URL` hợp lệ, API tự kiểm tra Bearer token bằng
+JWKS của chính project đó: RS256/ES256, chữ ký, issuer, audience authenticated,
+expiry/issued-at, role authenticated và UUID người dùng. Không cần secret key
+để kiểm tra chữ ký. Không chấp nhận HS256/unsigned token; project còn dùng legacy
+HS256 cần chuyển signing key hoặc thống nhất một phương thức xác minh khác.
+JWKS timeout 5 giây, cache 5 phút. Lỗi key server trả 503; token sai/hết hạn trả
+401. Xác minh JWT local không kiểm tra thu hồi session tức thì qua Auth server.
+
+Để thử đăng nhập thật nhưng vẫn giữ DB trên máy: đặt `INTERVIEW_DEMO_ENABLED=0`,
+`INTERVIEW_LOCAL_STORAGE=1`, cấu hình URL/publishable key/JWKS trong `.env`,
+rồi mở `/app/`. Chưa có thông tin Auth/key của nhóm để chạy đăng nhập thật trong
+buổi này; tests dùng token RS256/ES256 ký bằng key sinh riêng cho test.
+Đây là adapter theo code nhánh authen, không phải triển khai session cookie/
+Argon2id của ảnh thiết kế cũ. Demo bật vẫn chỉ dùng cookie local, không trộn
+user ID của hai cơ chế trong cùng một phiên chạy.
+
 Phạm vi của Trần Bảo Anh: tạo interview, lưu/tiếp tục, nhận đáp án, gọi AI chấm
 nền, kiểm tra bằng chứng và finalize. Bản này chạy độc lập với **AI mẫu + SQLite
 qua SQLAlchemy**. Không cần key hay truy cập Supabase.

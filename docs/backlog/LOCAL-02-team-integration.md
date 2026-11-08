@@ -9,7 +9,7 @@ shared database writes, deployment or messages to teammates are authorized.
   consistent install/configuration path while preserving the original prototype.
 - [x] Add an opt-in real AI adapter, weighted rubrics, model-generated evidence,
   safe timeouts/fallback and explicit CV forwarding controls. Test without keys.
-- [ ] Add verified Supabase Bearer authentication matching the existing branches.
+- [x] Add verified Supabase Bearer authentication matching the existing branches.
   Keep demo authentication explicitly local and separate from the production path.
 - [ ] Wire the team's interview UI to the API: creation, answers, resume,
   grading progress and finalize; test the integrated browser flow with fake data.

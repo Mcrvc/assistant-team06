@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 
 from assistant.db import get_env_config, get_public_config, load_env_file
+from assistant.auth import SupabaseBearerAuth
 from assistant.interview_schemas import (
     CreatedInterview, CreateInterview, FinalizeInterview, InterviewView,
     Progress, SaveProgress, SubmitAnswer,
@@ -60,6 +61,9 @@ def get_current_user(request: Request) -> str:
         if not isinstance(user, str) or not user.strip() or len(user) > 200:
             raise InterviewError(401, "authentication_required", "Sign in first")
         return user
+    verifier = request.app.state.token_auth
+    if verifier is not None:
+        return verifier.authenticate(request.headers.get("authorization", ""))
     if not request.app.state.demo_enabled:
         raise InterviewError(503, "auth_not_integrated", "Real session authentication is not integrated")
     _check_local(request)
@@ -83,7 +87,8 @@ QuestionIndex = Annotated[int, ApiPath(ge=0, le=2)]
 
 def create_app(*, service: InterviewService | None = None,
                demo_enabled: bool | None = None,
-               auth_resolver: Callable[[Request], str] | None = None) -> FastAPI:
+               auth_resolver: Callable[[Request], str] | None = None,
+               token_auth: SupabaseBearerAuth | None = None) -> FastAPI:
     load_env_file()
     enabled = (os.environ.get("INTERVIEW_DEMO_ENABLED") == "1"
                if demo_enabled is None else demo_enabled)
@@ -91,7 +96,7 @@ def create_app(*, service: InterviewService | None = None,
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         owned_store = None
-        if app.state.interview_service is None and enabled:
+        if app.state.interview_service is None and (enabled or os.environ.get("INTERVIEW_LOCAL_STORAGE") == "1"):
             path = Path(os.environ.get("INTERVIEW_DB_PATH", "data/private/interviews.sqlite"))
             if not path.is_absolute():
                 path = REPO_ROOT / path
@@ -109,6 +114,8 @@ def create_app(*, service: InterviewService | None = None,
     app.state.demo_enabled = enabled
     app.state.demo_token = secrets.token_urlsafe(32)
     app.state.auth_resolver = auth_resolver
+    app.state.token_auth = (token_auth or SupabaseBearerAuth.from_config(get_env_config())
+                           if not enabled and auth_resolver is None else None)
     origins = [origin.strip() for origin in os.environ.get("CORS_ORIGIN", "").split(",")
                if origin.strip() and origin.strip() != "*"]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True,
@@ -154,6 +161,7 @@ def create_app(*, service: InterviewService | None = None,
     @app.get("/api/config", tags=["Existing API"])
     def config():
         return {**get_public_config(), "interviewDemoEnabled": enabled,
+                "interviewAuthMode": "demo" if enabled else "supabase",
                 "interviewCvEnabled": enabled or os.environ.get("INTERVIEW_ALLOW_CV_TO_AI") == "1"}
 
     @app.post("/api/answer", tags=["Existing API"])
