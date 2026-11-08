@@ -1,4 +1,4 @@
-# assistant-team06 — Smart Virtual Assistant
+# assistant-team06 — Smart Virtual Assistants
 
 > **WIP — chưa hoàn thành tích hợp 100%.** Nhánh `feat/LOCAL-01-interview-lifecycle`
 > chia sẻ backend interview và hàm kiểm tra token để nhóm ghép tiếp. Đã kiểm thử
