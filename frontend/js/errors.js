@@ -125,7 +125,8 @@
   function messageFromPayload(payload) {
     if (!payload) return null;
     if (typeof payload === "string") return payload;
-    return payload.error || payload.message || payload.detail || null;
+    const value = payload.error?.message || payload.error || payload.message || payload.detail;
+    return typeof value === "string" ? value : null;
   }
 
   function handleStatus(status, payload) {
@@ -149,8 +150,8 @@
     // 500/503/network: fallback mode banner
     if (status === 500 || status === 503 || status === 0) {
       const msg = status === 0
-        ? "We couldn't reach the server. Switching to offline demo mode — your work is safe."
-        : (messageFromPayload(payload) || "The AI service is temporarily unavailable. Switching to fallback mode with sample data.");
+        ? "We couldn't reach the server. Your local draft is kept on this device. Please retry when connected."
+        : (messageFromPayload(payload) || "The service is temporarily unavailable. Your draft is kept on this device; please retry.");
       showBanner(msg, {
         type: "warning",
         dismissible: true,

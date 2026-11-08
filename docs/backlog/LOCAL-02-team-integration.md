@@ -11,7 +11,7 @@ shared database writes, deployment or messages to teammates are authorized.
   safe timeouts/fallback and explicit CV forwarding controls. Test without keys.
 - [x] Add verified Supabase Bearer authentication matching the existing branches.
   Keep demo authentication explicitly local and separate from the production path.
-- [ ] Wire the team's interview UI to the API: creation, answers, resume,
+- [x] Wire the team's interview UI to the API: creation, answers, resume,
   grading progress and finalize; test the integrated browser flow with fake data.
 - [ ] Document completed checkpoints and remaining integration decisions.
 

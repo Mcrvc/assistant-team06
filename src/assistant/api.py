@@ -151,6 +151,21 @@ def create_app(*, service: InterviewService | None = None,
                             samesite="strict", secure=False, max_age=8 * 60 * 60)
         return {"user": "local-demo", "mode": "local-demo", "real_auth": False}
 
+    @app.get("/api/demo/session", tags=["Local demo"])
+    def read_demo_session(request: Request):
+        if not enabled:
+            raise InterviewError(404, "not_found", "Local demo is disabled")
+        get_current_user(request)
+        return {"id": "local-demo", "user_metadata": {"username": "Local Demo"}}
+
+    @app.post("/api/demo/logout", tags=["Local demo"])
+    def end_demo_session(request: Request, response: Response):
+        if not enabled:
+            raise InterviewError(404, "not_found", "Local demo is disabled")
+        _check_local(request)
+        response.delete_cookie(DEMO_COOKIE)
+        return {"ok": True}
+
     @app.get("/api/health", tags=["Existing API"])
     def health():
         cfg = get_env_config()

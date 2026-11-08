@@ -1,5 +1,20 @@
 # Frontend ↔ Backend API Contract (draft)
 
+## LOCAL-02 implementation update
+
+The working interview contract is documented in [the canonical API guide](../../docs/interview-api.md).
+Run one server with `python -m assistant --interview-api`; the team UI is at `/app/`.
+`js/interviews.js` maps UI job/CV values to `job_profile`/CV text and uses server IDs.
+Writes use revision, POST progress saves drafts, POST answers/{index} queues per-answer
+grading, GET progress polls counts, and finalize aggregates already-graded answers.
+GET by ID returns the canonical object directly. Demo cookies work only in explicit
+local demo mode; the non-demo path verifies Supabase Bearer tokens.
+
+The remaining text below is the original team draft. Its list/CV/report-specific/
+feedback APIs are not implemented by the interview lifecycle work. Its finalize-time
+grading and payload shapes do not describe the current `/app/` integration.
+PDF metadata is not treated as an uploaded CV; real-provider CV forwarding is opt-in.
+
 Base URL: Render service (`src/assistant/web.py`). Frontend resolves it via `RENDER_API_URL`
 or `window.location.origin` on localhost. All endpoints return JSON. Protected endpoints
 expect `Authorization: Bearer <supabase access token>`.

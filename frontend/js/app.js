@@ -18,7 +18,9 @@
 
   // Initialize Supabase and the authentication API.
   try {
-    if (!window.supabase?.createClient) {
+    if (!window.YourinConfigPromise) await loadScript("js/config.js");
+    const config = await window.YourinConfigPromise;
+    if (!config.interviewDemoEnabled && !window.supabase?.createClient) {
       await loadScript(
         "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
       );
@@ -35,6 +37,7 @@
     // Wait until Supabase configuration and authentication
     // functions have finished initializing.
     await window.YourinAPIReady;
+    await loadScript("js/interviews.js");
 
     if (!window.YourinAPI) {
       throw new Error(
@@ -135,16 +138,7 @@
       feedback: [],
       cvMode: "text",
       cvPdf: null,
-      interviews: [1, 2, 3, 4].map(n => ({
-        id: "sample-" + n,
-        name: "Interview " + n,
-        date: "29/2/2026",
-        finished: n !== 2,
-        sample: true,
-        answers: n === 2 ? ["", "", ""] : [...DATA.answers],
-        cv: [...DATA.cv],
-        job: {}
-      }))
+      interviews: []
     };
   }
 
@@ -381,6 +375,46 @@
     interview.answers[Number(input.dataset.answer)] = input.value;
 
     save();
+  }
+
+  function apiError(err) {
+    let message = $("#interview-api-error");
+    if (!message) {
+      message = document.createElement("p");
+      message.id = "interview-api-error";
+      message.setAttribute("role", "alert");
+      $("main")?.prepend(message);
+    }
+    message.textContent = err.message || "Could not save your interview. Please try again.";
+    message.hidden = false;
+  }
+  if (["interview", "done-interview", "report", "interview-interrupt"].includes(page)) {
+    const current = activeInterview();
+    if (!current?.backend) {
+      const main = $("main");
+      main?.replaceChildren();
+      apiError(new Error("Create an interview from Job Profile before opening this page."));
+      const link = document.createElement("a");
+      link.href = "job-profile.html";
+      link.textContent = "Create an interview";
+      main?.append(link);
+      return;
+    }
+    try {
+      await window.YourinInterviews.restore(current);
+      save();
+    } catch (err) {
+      apiError(err);
+      return;
+    }
+  }
+
+  if ((await window.YourinConfigPromise).interviewDemoEnabled) {
+    const notice = document.createElement("p");
+    notice.className = "demo-notice";
+    notice.setAttribute("role", "status");
+    notice.textContent = "Local demo: no real account is required. AI results may be mock data.";
+    $("main")?.prepend(notice);
   }
 
   // Display the authenticated username.
@@ -1294,7 +1328,7 @@
     const jobForm = $("#job-form");
 
     if (jobForm) {
-      jobForm.addEventListener("submit", event => {
+      jobForm.addEventListener("submit", async event => {
         event.preventDefault();
 
         const jobError = $("#job-error");
@@ -1369,32 +1403,24 @@
           startInterview(null, null, "none");
         }
 
-        // Gradual migration: mirror interview creation to backend (non-blocking).
-        if (window.YourinAPI && typeof window.YourinAPI.createInterview === "function") {
-          window.YourinAPI.createInterview({
-            job: account.job,
-            cv: account.cv,
-            cvMode: account.cvMode,
-            cvPdf: account.cvPdf
-          }).catch(() => { /* offline / cold start: local interview already created */ });
-        }
-
-        const beginInterview = () => go("interview.html");
-        if (window.YourinUI && window.YourinUI.loading) {
-          window.YourinUI.loading.show({
-            title: "Creating your interview",
-            detail: "Researching the role and writing your questions.",
-            steps: [
-              "Researching the role and company…",
-              "Reading your CV for relevant experience…",
-              "Writing three targeted questions…",
-              "Preparing what you'll be assessed on…"
-            ],
-            stepInterval: 2000
-          });
-          window.setTimeout(beginInterview, 2800);
-        } else {
-          beginInterview();
+        const item = activeInterview();
+        const oldId = item.id;
+        const button = jobForm.querySelector('[type="submit"]');
+        button.disabled = true;
+        window.YourinUI?.loading.show({ title: "Creating your interview", detail: "Preparing three questions and their scoring criteria." });
+        try {
+          await window.YourinInterviews.create(item);
+          account.activeId = item.id;
+          save();
+          go("interview.html");
+        } catch (err) {
+          if (!item.backend) account.interviews = account.interviews.filter(i => i.id !== oldId);
+          account.activeId = item.backend ? item.id : null;
+          save();
+          apiError(err);
+        } finally {
+          button.disabled = false;
+          window.YourinUI?.loading.hide();
         }
       });
     }
@@ -1417,15 +1443,36 @@
   ) {
     const interview = activeInterview() || startInterview();
 
-    const questions = DATA.questions || [
+    const questions = interview.questions || DATA.questions || [
       "Imagine you're tasked with curating a time capsule that defines the year 2026 for an alien civilization. What are three objects you put inside?",
       "To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles, and by opposing end them.",
       "Wat een wartaa. Het is echt niet alsof ik bezorgd om je was ofzo. Mijn colonne verplaatste zich puur toevallig langs deze strategische route, dus haal je maar niks in je hoofd, begrepen?"
     ];
 
     const totalQuestions = questions.length;
+    const progressText = document.createElement("p");
+    progressText.id = "interview-grading-progress";
+    progressText.setAttribute("role", "status");
+    const showProgress = counts => {
+      progressText.textContent = `Saved answers: ${counts.answered}/3 · Graded: ${counts.graded}/3 · Waiting: ${counts.pending}/3`;
+    };
+    showProgress(interview.progress);
+    $("main")?.prepend(progressText);
+    const progressTimer = setInterval(async () => {
+      const response = await window.YourinAPI.getProgress(interview.id);
+      if (response.ok) showProgress(response.data);
+      else clearInterval(progressTimer);
+    }, 2000);
+    window.addEventListener("pagehide", () => clearInterval(progressTimer));
 
-    let currentStep = 0;
+    let currentStep = interview.currentQuestion || 0;
+    let autosaveTimer = null;
+    let savingAction = false;
+    const persist = (status = "in_progress", position = currentStep) =>
+      window.YourinInterviews.save(interview, position, status).then(() => save());
+    window.addEventListener("beforeunload", event => {
+      if (interview.dirty) { event.preventDefault(); event.returnValue = ""; }
+    });
 
     try {
       const params = new URLSearchParams(window.location.search);
@@ -1592,6 +1639,7 @@
         0,
         Math.min(index, totalQuestions - 1)
       );
+      interview.currentQuestion = currentStep;
 
       if (questionTitle) {
         questionTitle.textContent =
@@ -1639,10 +1687,12 @@
     if (answerInput) {
       answerInput.addEventListener("input", () => {
         interview.answers[currentStep] = answerInput.value;
-
+        interview.dirty = true;
         save();
         updateCharCount();
         updateGazeOnTyping();
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(() => persist().catch(apiError), 700);
       });
 
       answerInput.addEventListener("focus", () => {
@@ -1681,43 +1731,61 @@
     }
 
     if (prevBtn) {
-      prevBtn.addEventListener("click", () => {
+      prevBtn.addEventListener("click", async () => {
+        if (savingAction) return;
         if (currentStep > 0) {
           if (answerInput) {
             interview.answers[currentStep] = answerInput.value;
           }
 
-          save();
-          renderStep(currentStep - 1);
+          savingAction = true;
+          clearTimeout(autosaveTimer);
+          try {
+            await persist("in_progress", currentStep - 1);
+            renderStep(currentStep - 1);
+          } catch (err) { apiError(err); }
+          finally { savingAction = false; }
         }
       });
     }
 
     if (nextBtn) {
-      nextBtn.addEventListener("click", () => {
+      nextBtn.addEventListener("click", async () => {
+        if (savingAction) return;
         if (answerInput) {
           interview.answers[currentStep] = answerInput.value;
         }
 
-        save();
-
-        if (currentStep < totalQuestions - 1) {
-          renderStep(currentStep + 1);
-        } else {
-          interview.finished = true;
-          save();
-          go("done-interview.html");
-        }
+        savingAction = true;
+        nextBtn.disabled = true;
+        if (answerInput) answerInput.disabled = true;
+        clearTimeout(autosaveTimer);
+        try {
+          await window.YourinInterviews.submit(interview, currentStep);
+          if (currentStep < totalQuestions - 1) {
+            await persist("in_progress", currentStep + 1);
+            renderStep(currentStep + 1);
+          } else {
+            save();
+            go("done-interview.html");
+          }
+        } catch (err) { apiError(err); }
+        finally { savingAction = false; nextBtn.disabled = false; if (answerInput) answerInput.disabled = false; }
       });
     }
 
     // Save and exit handling.
-    function triggerSaveAndExit(targetHref) {
+    async function triggerSaveAndExit(targetHref) {
+      if (savingAction) return;
       if (answerInput) {
         interview.answers[currentStep] = answerInput.value;
       }
 
-      save();
+      clearTimeout(autosaveTimer);
+      savingAction = true;
+      try { await persist("interrupted"); }
+      catch (err) { apiError(err); return; }
+      finally { savingAction = false; }
 
       if (exitModal) {
         if (exitModalName) {
@@ -1914,7 +1982,7 @@
     const doneForm = $("#done-form");
 
     if (doneForm) {
-      doneForm.addEventListener("submit", event => {
+      doneForm.addEventListener("submit", async event => {
         event.preventDefault();
 
         const interview =
@@ -1922,15 +1990,31 @@
 
         const name = $("#interview-name")?.value.trim();
 
-        if (name) {
-          interview.name = name;
-        }
-
-        interview.finished = true;
-
-        save();
-        go("report.html");
+        const button = doneForm.querySelector('[type="submit"]');
+        button.disabled = true;
+        window.YourinUI?.loading.show({ title: "Preparing your report", detail: "Waiting for checked grading results." });
+        try {
+          await window.YourinInterviews.finalize(interview, name);
+          save();
+          go("report.html");
+        } catch (err) { apiError(err); }
+        finally { button.disabled = false; window.YourinUI?.loading.hide(); }
       });
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.id = "retry-grading-btn";
+      retry.className = "btn btn-secondary";
+      retry.textContent = "Retry incomplete grading";
+      retry.addEventListener("click", async () => {
+        retry.disabled = true;
+        try {
+          await window.YourinInterviews.retryPending(activeInterview());
+          save();
+          if ($("#interview-api-error")) $("#interview-api-error").hidden = true;
+        } catch (err) { apiError(err); }
+        finally { retry.disabled = false; }
+      });
+      doneForm.append(retry);
     }
   }
 
@@ -1994,6 +2078,7 @@
         `;
 
         function openRenameEditor() {
+          if (interview.backend) return;
           colName.replaceChildren();
 
           const editor = document.createElement("div");
@@ -2150,6 +2235,12 @@
         deleteBtn.type = "button";
         deleteBtn.textContent = "Delete";
         deleteBtn.title = "Delete this interview";
+        if (interview.backend) {
+          editBtn.disabled = true;
+          editBtn.title = "Renaming is not available yet.";
+          deleteBtn.disabled = true;
+          deleteBtn.title = "Deletion is not available yet.";
+        }
 
         deleteBtn.addEventListener("click", () => {
           account.interviews.splice(index, 1);
@@ -2186,6 +2277,29 @@
     const interview = reportInterview();
 
     if (interview) {
+      if (!interview.report) {
+        $(".report-stack")?.setAttribute("hidden", "");
+        apiError(new Error("This interview has no completed report yet. Finish grading and finalize it first."));
+        return;
+      }
+      const report = interview.report;
+      const summary = document.createElement("p");
+      summary.id = "report-score";
+      summary.textContent = `Overall: ${report.overall_score}/10 · ${report.label}. ${report.notice}`;
+      $(".report-hero-bar")?.after(summary);
+      $$(".report-card").forEach((card, index) => {
+        const item = report.items[index];
+        card.querySelector(".report-question p").textContent = item.question.text;
+        card.querySelector(".feedback-block > p").textContent = item.feedback;
+        const badge = card.querySelector("[data-feedback-badge]");
+        badge.textContent = `${item.label} · ${item.score}/10`;
+        badge.classList.toggle("is-good", item.label === "Good");
+        badge.classList.toggle("is-improve", item.label !== "Good");
+        const evidence = document.createElement("p");
+        evidence.className = "report-evidence preserve-lines";
+        evidence.textContent = "Evidence: " + item.evidence.map(quote => `“${quote}”`).join("\n");
+        card.querySelector(".feedback-block").append(evidence);
+      });
       if ($("#report-name")) {
         $("#report-name").textContent = interview.name;
       }
@@ -2202,7 +2316,7 @@
       const retakeBtn = $("#retake-interview-btn");
 
       if (retakeBtn) {
-        retakeBtn.addEventListener("click", event => {
+        retakeBtn.addEventListener("click", async event => {
           event.preventDefault();
 
           const newInterview = startInterview(
@@ -2223,9 +2337,14 @@
           if (interview.job) {
             newInterview.job = { ...interview.job };
           }
-
-          save();
-          go("interview.html");
+          window.YourinUI?.loading.show({ title: "Creating a new practice session" });
+          try {
+            await window.YourinInterviews.create(newInterview);
+            account.activeId = newInterview.id;
+            save();
+            go("interview.html");
+          } catch (err) { apiError(err); }
+          finally { window.YourinUI?.loading.hide(); }
         });
       }
     }
@@ -2326,5 +2445,6 @@
 
   // Preserve local application data during navigation.
   window.addEventListener("pagehide", save);
+  document.body.dataset.appReady = "true";
 
 })();

@@ -46,6 +46,32 @@ buổi này; tests dùng token RS256/ES256 ký bằng key sinh riêng cho test.
 Argon2id của ảnh thiết kế cũ. Demo bật vẫn chỉ dùng cookie local, không trộn
 user ID của hai cơ chế trong cùng một phiên chạy.
 
+### Giao diện nhóm đã nối interview
+
+Bật demo như hướng dẫn bên dưới rồi mở **http://127.0.0.1:8000/app/**.
+Đăng nhập bằng username `demo_user`, password `demo12345` (chỉ đáp ứng form demo,
+không lưu hoặc xác minh tài khoản thật). Demo không cần CDN Supabase hoặc key.
+Tạo Job Profile, gửi từng đáp án, Save & Exit, Continue và View Report đều gọi
+backend. Câu hỏi, feedback, bằng chứng và điểm lấy từ dữ liệu server; giao diện
+hiển thị rõ khi có mock/fallback. Không dùng timer để giả lập việc tạo buổi/chấm.
+
+Draft tự lưu sau 700ms ngừng nhập; Next/Previous/Save & Exit chờ lưu thành công.
+Draft chưa lưu có cảnh báo khi đóng tab. Chấm nền có số answered/graded/pending;
+View Report chờ chấm tối đa 90 giây rồi giữ người dùng ở trang hoàn tất nếu lỗi.
+Nút Retry incomplete grading gửi lại các câu chưa chấm hợp lệ; không ghi đè
+các câu đã graded. Guard từ chối evidence bịa vẫn ngăn hiển thị báo cáo.
+
+Danh sách buổi ở Storage hiện dùng các ID đã biết trong browser local cache;
+API danh sách/history riêng vẫn chờ Backend còn lại. Không khẳng định khôi phục
+toàn bộ lịch sử sau khi xóa browser storage. API Profile/CV, rename/delete buổi,
+khảo sát và report endpoint riêng vẫn chưa ghép. PDF bị chặn với thông báo rõ,
+không gửi metadata giả làm nội dung CV.
+
+Browser tests dùng Playwright và Chrome có sẵn: `pytest tests/test_browser_interview.py`.
+Trên CI có thể cài Chromium bằng `python -m playwright install chromium`, đặt
+`YOURIN_TEST_BROWSER=chromium` rồi chạy tests. Tests chặn request ngoài loopback
+và dùng SQLite/temp + đáp án giả; không gọi Supabase/NVIDIA thật.
+
 Phạm vi của Trần Bảo Anh: tạo interview, lưu/tiếp tục, nhận đáp án, gọi AI chấm
 nền, kiểm tra bằng chứng và finalize. Bản này chạy độc lập với **AI mẫu + SQLite
 qua SQLAlchemy**. Không cần key hay truy cập Supabase.

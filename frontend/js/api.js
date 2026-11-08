@@ -19,15 +19,34 @@ window.YourinAPIReady = (async () => {
 
     const config = await window.YourinConfigPromise;
 
-    if (!config?.supabaseUrl || !config?.supabasePublishableKey) {
+    if (!config?.interviewDemoEnabled && (!config?.supabaseUrl || !config?.supabasePublishableKey)) {
         throw new Error("Supabase configuration is missing.");
     }
 
-    if (!window.supabase) {
+    if (!config.interviewDemoEnabled && !window.supabase) {
         throw new Error("Supabase JavaScript library is unavailable.");
     }
 
-    const supabaseClient = window.supabase.createClient(
+    async function demoUser() {
+        const response = await fetch("/api/demo/session", { credentials: "same-origin" });
+        return response.ok ? await response.json() : null;
+    }
+    const demoAuth = {
+        getUser: async () => ({ data: { user: await demoUser() }, error: null }),
+        getSession: async () => ({ data: { session: (await demoUser()) ? { access_token: null } : null }, error: null }),
+        signInWithPassword: async () => {
+            const response = await fetch("/api/demo/session", { method: "POST", credentials: "same-origin" });
+            return response.ok ? { data: { user: await demoUser() }, error: null }
+                : { data: {}, error: { message: "Local demo sign-in failed." } };
+        },
+        signUp: async () => ({ data: {}, error: { message: "Use Sign in for the local demo; no accounts are registered." } }),
+        signOut: async () => {
+            const response = await fetch("/api/demo/logout", { method: "POST", credentials: "same-origin" });
+            return { error: response.ok ? null : { message: "Could not sign out." } };
+        },
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    };
+    const supabaseClient = config.interviewDemoEnabled ? { auth: demoAuth } : window.supabase.createClient(
         config.supabaseUrl,
         config.supabasePublishableKey
     );
@@ -355,7 +374,7 @@ window.YourinAPIReady = (async () => {
     // returns { status, ok, data, fallback? } so callers can fall back to
     // local state when the backend is unavailable (offline / cold start).
     // =========================================
-    const RENDER_API_URL = "";
+    const RENDER_API_URL = String(window.YOURIN_API_URL || "");
 
     function resolveApiBase() {
         if (RENDER_API_URL.trim()) {
@@ -389,12 +408,13 @@ window.YourinAPIReady = (async () => {
         }
         try {
             const response = await fetch(`${base}${path}`, {
+                ...options,
+                credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     ...(await getAuthHeaders()),
                     ...(options.headers || {})
-                },
-                ...options
+                }
             });
             let data = null;
             try { data = await response.json(); } catch (_) { data = null; }
@@ -441,9 +461,16 @@ window.YourinAPIReady = (async () => {
                 method: "PUT",
                 body: JSON.stringify(payload || {})
             }),
-        finalizeInterview: (id) =>
+        saveProgress: (id, payload) => apiRequest(`/api/interviews/${encodeURIComponent(id)}/progress`, {
+            method: "POST", body: JSON.stringify(payload)
+        }),
+        submitAnswer: (id, index, payload) => apiRequest(`/api/interviews/${encodeURIComponent(id)}/answers/${index}`, {
+            method: "POST", body: JSON.stringify(payload)
+        }),
+        getProgress: (id) => apiRequest(`/api/interviews/${encodeURIComponent(id)}/progress`),
+        finalizeInterview: (id, payload) =>
             apiRequest(`/api/interviews/${encodeURIComponent(id)}/finalize`, {
-                method: "POST"
+                method: "POST", body: JSON.stringify(payload)
             }),
         deleteInterview: (id) =>
             apiRequest(`/api/interviews/${encodeURIComponent(id)}`, {
@@ -486,6 +513,9 @@ window.YourinAPIReady = (async () => {
         getInterview: backend.getInterview,
         updateInterview: backend.updateInterview,
         finalizeInterview: backend.finalizeInterview,
+        saveProgress: backend.saveProgress,
+        submitAnswer: backend.submitAnswer,
+        getProgress: backend.getProgress,
         deleteInterview: backend.deleteInterview,
         getReport: backend.getReport,
         submitFeedback: backend.submitFeedback,
