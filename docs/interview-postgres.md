@@ -46,7 +46,35 @@ hàng câu hỏi có thể thêm sau khi nhóm bàn giao cách chọn câu/ngu�
 - Không tự gọi create_all/migration lúc ứng dụng khởi động. Schema chưa phù hợp
   phải được báo lỗi; không tự chuyển qua SQLite để che lỗi PostgreSQL.
 
-## Kiểm thử PostgreSQL thật
+## Chọn PostgreSQL khi chạy ứng dụng
+
+Sau khi schema đề xuất được review và áp dụng **trên database test**, cấu hình
+trong `.env` local hoặc môi trường process:
+
+```dotenv
+INTERVIEW_DEMO_ENABLED=0
+INTERVIEW_STORAGE=postgres
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
+INTERVIEW_AI_PROVIDER=mock
+```
+
+Đồng thời cấu hình Supabase URL/publishable key để frontend đăng nhập và backend
+xác minh token. `accounts.id` phải tồn tại cho user đã đăng nhập (Auth/Profile
+chịu trách nhiệm tạo account); interview không tự tạo tài khoản. Khi test chỉ
+trên loopback có thể dùng cấu hình SSL của PostgreSQL test tương ứng.
+
+Chạy `python -m assistant --interview-api` như trước. Mặc định
+`INTERVIEW_STORAGE=auto` vẫn giữ demo SQLite hoặc local opt-in cũ, không tự
+kết nối chỉ vì có DATABASE_URL. Chỉ `postgres` mới mở kết nối; URL sai, DB lỗi,
+thiếu driver hoặc schema chưa phù hợp làm startup thất bại với thông báo đã
+lọc chi tiết riêng tư. Không tự fallback về SQLite. Startup chỉ kiểm tra cột
+bằng SELECT LIMIT 0, không tự chạy SQL đề xuất hoặc đọc nội dung dữ liệu.
+
+PostgreSQL không nhận demo user `local-demo`; demo cookie chỉ dùng với SQLite.
+Nếu được truyền service riêng vào `create_app(service=...)` để kiểm thử, app
+dùng service đó và không tự mở/đóng repository mà caller đang sở hữu.
+
+## Chạy bộ kiểm thử
 
 Cài `pip install -e ".[web,dev,postgres]"`. Chuẩn bị PostgreSQL chỉ trên loopback
 và một database rỗng tên bắt đầu bằng `yourin_interview_test`:
@@ -67,9 +95,12 @@ Fixture chỉ mô phỏng những cột team đang có mà adapter cần, không
 quyền truy cập hay chính sách RLS trên cloud. Backend dùng direct PostgreSQL cần
 role test phù hợp; owner luôn lấy từ Auth đã xác minh và lọc trong repository.
 
-Đã kiểm thử trên PostgreSQL portable 17.11 chạy riêng tại loopback: 18 tests
-(9 SQLite relational + 9 PostgreSQL), gồm apply đề xuất, Unicode, timezone,
+Đã kiểm thử trên PostgreSQL portable 17.11 chạy riêng tại loopback: 20 tests
+(10 SQLite relational + 10 PostgreSQL), gồm apply đề xuất, Unicode, timezone,
 resume/report qua connection mới, rollback, owner isolation, CAS và chấm đồng thời.
+HTTP test dùng cấu hình runtime PostgreSQL, chấm đủ 3 câu và đọc lại report qua
+hai instance app. Bộ kiểm thử đầy đủ tại checkpoint runtime: **148 passed**,
+gồm 8 browser tests; còn một warning TestClient/HTTPX đã có từ trước.
 Binaries/database test ở `data/private/`, bị Git bỏ qua, không thành dependency
 runtime của dự án. Nguồn binaries: [Zonky embedded PostgreSQL](https://github.com/zonkyio/embedded-postgres-binaries);
 adapter dùng [SQLAlchemy psycopg](https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#module-sqlalchemy.dialects.postgresql.psycopg).

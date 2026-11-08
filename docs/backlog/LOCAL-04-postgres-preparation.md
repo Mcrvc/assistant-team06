@@ -8,7 +8,7 @@ This local backlog ID is not a GitHub issue number.
   with an explicitly proposed schema extension for lossless lifecycle storage.
 - [x] Verify transactions, ownership, concurrent grading, restart/resume,
   invalidated grades and finalized reports independently of cloud services.
-- [ ] Add explicit PostgreSQL runtime configuration, with no automatic DDL,
+- [x] Add explicit PostgreSQL runtime configuration, with no automatic DDL,
   no fallback to SQLite after a database failure, and sanitized errors.
 - [ ] Provide a repeatable PostgreSQL integration test and a concrete schema
   proposal/handoff for the team. Keep existing UI/API behavior unchanged.

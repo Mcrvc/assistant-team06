@@ -11,11 +11,13 @@ import threading
 from uuid import uuid4
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete, event, func, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 
 from assistant.interview_ai import MockInterviewAI
+from assistant.api import create_app
 from assistant.interview_postgres import (
     PostgresInterviewRepository, StorageFormatError, accounts, answers, grades,
     metadata, questions, session_questions, sessions,
@@ -223,3 +225,34 @@ def test_legacy_session_is_not_falsely_imported(repository):
     with repository.engine.connect() as connection:
         old_id = connection.scalar(select(sessions.c.id))
     assert repository.get(old_id, OWNER) is None
+
+
+def test_http_runtime_uses_postgres_and_report_survives_app_restart(repository, monkeypatch):
+    monkeypatch.setenv("INTERVIEW_STORAGE", "postgres")
+    monkeypatch.setenv("INTERVIEW_AI_PROVIDER", "mock")
+    if repository.engine.dialect.name == "postgresql":
+        with repository.engine.connect() as connection:
+            schema = connection.scalar(select(func.current_schema()))
+        url = repository.engine.url.update_query_dict({"options": f"-csearch_path={schema}"})
+        monkeypatch.setenv("DATABASE_URL", url.render_as_string(hide_password=False))
+    else:
+        monkeypatch.setenv("DATABASE_URL", "postgresql://fake-local/test")
+        monkeypatch.setattr(PostgresInterviewRepository, "connect", lambda url: repository)
+    def new_app():
+        return create_app(demo_enabled=False, auth_resolver=lambda request: OWNER)
+    with TestClient(new_app()) as client:
+        created = client.post("/api/interviews", json={"job_profile": {"title": "Intern"}})
+        assert created.status_code == 201
+        path = "/api/interviews/" + created.json()["id"]
+        revision = 0
+        for index in range(3):
+            submitted = client.post(f"{path}/answers/{index}", json={"revision": revision, "text": ANSWER})
+            assert submitted.status_code == 202
+            revision = submitted.json()["revision"]
+        assert client.get(path + "/progress").json()["graded"] == 3
+        result = client.post(path + "/finalize", json={"revision": revision})
+        assert result.status_code == 200
+        report = result.json()
+    with TestClient(new_app()) as client:
+        assert client.get(path).json() == report
+        assert client.post(path + "/finalize", json={"revision": revision}).json() == report

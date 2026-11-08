@@ -23,7 +23,7 @@ from assistant.interview_schemas import (
     CreatedInterview, CreateInterview, FinalizeInterview, InterviewView,
     Progress, SaveProgress, SubmitAnswer,
 )
-from assistant.interview_store import SQLAlchemyInterviewRepository
+from assistant.interview_runtime import configured_repository
 from assistant.interviews import InterviewError, InterviewService, progress, public_view
 from assistant.web import handle_api_answer
 
@@ -96,13 +96,11 @@ def create_app(*, service: InterviewService | None = None,
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         owned_store = None
-        if app.state.interview_service is None and (enabled or os.environ.get("INTERVIEW_LOCAL_STORAGE") == "1"):
-            path = Path(os.environ.get("INTERVIEW_DB_PATH", "data/private/interviews.sqlite"))
-            if not path.is_absolute():
-                path = REPO_ROOT / path
-            owned_store = SQLAlchemyInterviewRepository.local(path)
-            app.state.interview_service = InterviewService(owned_store)
         try:
+            if app.state.interview_service is None:
+                owned_store = configured_repository(demo_enabled=enabled)
+                if owned_store is not None:
+                    app.state.interview_service = InterviewService(owned_store)
             yield
         finally:
             if owned_store:
@@ -139,7 +137,7 @@ def create_app(*, service: InterviewService | None = None,
     @app.exception_handler(SQLAlchemyError)
     async def storage_error(request: Request, exc: SQLAlchemyError):
         return JSONResponse(status_code=503, content={
-            "error": {"code": "storage_unavailable", "message": "Local storage is unavailable; retry later"},
+            "error": {"code": "storage_unavailable", "message": "Interview storage is unavailable; retry later"},
         })
 
     @app.post("/api/demo/session", tags=["Local demo"])
