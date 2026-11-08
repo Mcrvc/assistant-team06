@@ -1,0 +1,33 @@
+<svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="topGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FBF9F1" stop-opacity="0.3" />
+      <stop offset="60%" stop-color="#92C7CF" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#92C7CF" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Ambient soft glow core -->
+  <circle cx="280" cy="280" r="280" fill="url(#topGlow)" />
+
+  <!-- Concentric ripple arcs & soundwave rings -->
+  <circle cx="280" cy="280" r="100" stroke="#FBF9F1" stroke-width="2" stroke-opacity="0.35" />
+  <circle cx="280" cy="280" r="160" stroke="#FBF9F1" stroke-width="1.5" stroke-opacity="0.25" stroke-dasharray="6 8" />
+  <circle cx="280" cy="280" r="230" stroke="#203D43" stroke-width="1.5" stroke-opacity="0.12" />
+  <circle cx="280" cy="280" r="310" stroke="#FBF9F1" stroke-width="2" stroke-opacity="0.28" />
+  <circle cx="280" cy="280" r="400" stroke="#203D43" stroke-width="1.2" stroke-opacity="0.1" stroke-dasharray="14 10 4 10" />
+  <circle cx="280" cy="280" r="510" stroke="#FBF9F1" stroke-width="1.5" stroke-opacity="0.2" />
+  <circle cx="280" cy="280" r="640" stroke="#203D43" stroke-width="1" stroke-opacity="0.08" stroke-dasharray="8 12" />
+
+  <!-- Subtle conversational acoustic wave lines -->
+  <path d="M 40 280 C 140 240, 200 320, 280 280 C 360 240, 420 320, 520 280" stroke="#FBF9F1" stroke-width="1.8" stroke-opacity="0.22" stroke-linecap="round" fill="none" />
+  <path d="M 80 340 C 180 300, 240 380, 340 340 C 440 300, 500 380, 600 340" stroke="#203D43" stroke-width="1.2" stroke-opacity="0.09" stroke-linecap="round" fill="none" />
+
+  <!-- Subtle constellation nodes / AI pulse points -->
+  <circle cx="380" cy="280" r="4" fill="#FBF9F1" fill-opacity="0.45" />
+  <circle cx="180" cy="280" r="3" fill="#FBF9F1" fill-opacity="0.4" />
+  <circle cx="280" cy="180" r="3.5" fill="#203D43" fill-opacity="0.2" />
+  <circle cx="280" cy="380" r="4" fill="#FBF9F1" fill-opacity="0.4" />
+  <circle cx="499" cy="499" r="3" fill="#FBF9F1" fill-opacity="0.3" />
+  <circle cx="61" cy="61" r="3" fill="#203D43" fill-opacity="0.15" />
+</svg>
