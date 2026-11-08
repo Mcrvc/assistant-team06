@@ -10,6 +10,21 @@
 
 ## Cập nhật sau khảo sát: triển khai local đã được cho phép
 
+### Trạng thái mới nhất sau LOCAL-02 (ưu tiên hơn snapshot cũ bên dưới)
+
+- Kiểm chứng cuối: **114 tests passed**, gồm 5 browser tests; `f641cb8` thêm việc không echo lỗi provider ra log/response. Script HTTP chạy qua CLI sau ghép thành công, entry point root/backend cùng một ASGI app; server kiểm tra đã dừng. Các số 113/111/107 bên dưới là mốc kiểm tra tại từng checkpoint.
+
+- Người dùng đã yêu cầu làm toàn bộ việc độc lập và commit sau từng việc. Đã hoàn thành ghép local các nhánh nhóm, **chưa push/deploy/ghi cloud**. Checkpoints: `3d89d55` local 41 tests; `7d1a195` ghép branch/entry point 72 tests; `0ce43cd` AI adapter 82 tests; `7f45b59` verified JWT 107 tests; `638b09d` frontend wiring 111 tests; `3829658` hardening/integration tests 113 tests.
+- Chạy demo: `$env:INTERVIEW_DEMO_ENABLED="1"` rồi `.venv\Scripts\python.exe -m assistant --interview-api`; mở **`http://127.0.0.1:8000/app/`**, sign in `demo_user` / `demo12345`. Demo không cần key/CDN, không tạo tài khoản thật. Prototype ở `/` và `/prototype/`; `backend/app/main.py` dùng chung `assistant.api:app`.
+- UI tạo/đọc session, autosave, Next/Previous, lưu dở/tiếp tục, chấm nền/polling, finalize/report/retry đã gọi backend. Không dùng timer hay feedback Figma làm kết quả provider. Đăng xuất giữa buổi phải lưu draft trước khi xóa phiên.
+- `TeamInterviewAI` dùng generator của `aiworker.py` và structured grader mới `grade_answer_with_evidence`; Question lưu thêm rubric trọng số tổng 10. Evidence phải do model trả và được service so khớp, không được tạo giả để vượt guard. `INTERVIEW_AI_PROVIDER` mặc định mock, nvidia opt-in; `INTERVIEW_AI_TIMEOUT_S` 1–60s/attempt, retry qua biến AI_RETRIES. Không bật research/fetch web.
+- `auth.py` xác minh Supabase JWT RS256/ES256 bằng JWKS cố định theo project (timeout 5s/cache 300s), issuer, audience, exp/iat, role authenticated và UUID sub. Demo cookie giữ riêng; production không nhận user_id tự khai. Chưa hỗ trợ HS256 hoặc kiểm tra thu hồi session tức thì; cơ chế token theo code nhánh nhóm cần đối chiếu ảnh thiết kế cookie cũ.
+- CV forwarding mặc định tắt (`INTERVIEW_ALLOW_CV_TO_AI=0`); frontend chỉ cho gửi CV text trong demo/local hoặc khi bật rõ ràng. PDF và bare URL JD chưa import thì báo lỗi rõ. Không tự gửi CV thật ra provider để kiểm tra.
+- Kiểm chứng mới nhất: **113 passed**, gồm **5 browser tests Chrome headless + Uvicorn + SQLite/temp**, provider adapter qua HTTP bằng completion giả và token RSA/ECDSA thật sinh trong tests. Không dùng cloud accounts/key thật. check_env/pip check qua; 1 warning TestClient/HTTPX còn tồn tại.
+- Môi trường app hiện **chưa có key AI thật hoặc Supabase runtime URL/publishable key** (đã kiểm tra boolean, không in secret). MCP chỉ đọc vẫn là kết nối riêng phục vụ khảo sát, không phải credential runtime. DB cloud từng thấy public 0 bảng; kiểm tra lại khi Huy bàn giao schema.
+- Hướng dẫn/report hiện tại: `docs/interview-api.md`, `docs/backend-progress.md`; checklist `docs/integration-todo.md`; backlog `docs/backlog/LOCAL-02-team-integration.md`. Các claim chưa ghép branches/AI/Auth/UI phía dưới là lịch sử, không phải tình trạng hiện tại.
+- Còn cần nhóm: schema/migrations PostgreSQL, key/public Auth config để thử dịch vụ thật, chốt chính sách CV/cookie vs token; API history/Profile/CV/rename/delete/report riêng/feedback thuộc Backend còn lại; review/PR/deploy. Storage UI hiện chỉ biết ID đã cache trên browser, không có API list toàn bộ lịch sử. BackgroundTasks chưa có durable queue; có retry incomplete grading thủ công.
+
 - Người dùng đã yêu cầu làm toàn bộ phần có thể thực hiện độc lập và **commit sau mỗi việc để tạo checkpoint**. Đã lưu bản local thành `3d89d55` (41 tests). Đang thực hiện LOCAL-02, phạm vi tại `docs/backlog/LOCAL-02-team-integration.md`; cho phép commit local, chưa cho phép push/deploy hoặc sửa cloud.
 - Đã ghép `origin/frontend` (gồm AI/authen) vào nhánh tính năng, dùng chung `assistant.api:app` qua cả entry point root và `backend/app/main.py`; frontend nhóm ở `/app/`, prototype ở `/` và `/prototype/`. Bộ test sau ghép: 72 passed. Các nhận định bên dưới về chưa ghép branch là snapshot trước giai đoạn LOCAL-02.
 

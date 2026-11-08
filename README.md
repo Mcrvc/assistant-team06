@@ -3,6 +3,17 @@
 Yourin interview backend (local demo): see [the FastAPI walkthrough and API contract](docs/interview-api.md).
 This adds a separate `python -m assistant --interview-api` entry point; the CLI and `--ui` below still work.
 
+The team branches are now integrated locally. On Windows / PowerShell, after installing requirements:
+
+```powershell
+$env:INTERVIEW_DEMO_ENABLED = "1"
+.\.venv\Scripts\python.exe -m assistant --interview-api
+```
+
+Open **http://127.0.0.1:8000/app/**, sign in with `demo_user` / `demo12345`, then create an interview.
+This explicitly labeled local demo uses SQLite and mock AI without cloud keys.
+Progress, answers and reports come from the backend. See [completed checkpoints and remaining work](docs/backend-progress.md).
+
 Small rule-based study assistant for CSC10014 Lab 1. Follow the steps below and it must run without extra help.
 
 ## Setup

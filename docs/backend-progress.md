@@ -1,7 +1,67 @@
 # Báo cáo phần Backend của Trần Bảo Anh
 
 Ngày cập nhật: 08/11/2026. Nhánh local: `feat/LOCAL-01-interview-lifecycle`.
-Đã triển khai và kiểm tra bản chạy độc lập; chưa commit/push, chưa deploy hoặc ghép cloud.
+Đã triển khai và kiểm tra bản ghép local từ các nhánh nhóm. Đã commit checkpoint
+sau từng việc theo yêu cầu người dùng; chưa push, deploy hoặc ghi vào cloud.
+
+## Các checkpoint đã hoàn thành
+
+| Commit | Việc đã xong | Kiểm chứng lúc commit |
+| --- | --- | --- |
+| `3d89d55` | Lưu mốc backend local ban đầu | 41 tests |
+| `7d1a195` | Ghép frontend/AI/authen, thống nhất FastAPI entry point và cách phục vụ UI | 72 tests |
+| `0ce43cd` | Nối provider AI của nhóm, rubric có trọng số, structured evidence và CV opt-in | 82 tests |
+| `7f45b59` | Xác minh Supabase Bearer token bằng chữ ký/JWKS và claims | 107 tests |
+| `638b09d` | Nối giao diện nhóm với tạo/lưu/tiếp tục/chấm/finalize/report | 111 tests, gồm 4 browser tests |
+| `3829658` | Sửa lưu draft trước đăng xuất; thêm kiểm thử provider qua HTTP và browser retry | 113 tests, gồm 5 browser tests |
+| `f641cb8` | Không log/return nguyên văn lỗi provider có thể chứa dữ liệu riêng tư | 43 tests AI/adapter; bộ cuối 114 tests |
+
+Code chạy chung qua `python -m assistant --interview-api` từ root hoặc
+`uvicorn app.main:app` từ `backend/`. Frontend nhóm ở `/app/`; prototype cũ giữ
+ở `/` và `/prototype/`. Các đoạn sau ghi lại bản local ban đầu; trạng thái mới
+và phần còn thiếu được cập nhật ở các mục bên dưới.
+
+## Hiện có thể làm được trên máy
+
+- Demo giao diện không cần CDN Supabase, tài khoản thật hay API key; vẫn gắn nhãn demo.
+- Tạo buổi lấy ID/câu hỏi từ server; lưu draft sau 700ms và lưu trước Next/Previous/
+  Save & Exit/đăng xuất; khôi phục câu/vị trí sau reload hoặc đăng nhập demo lại.
+- Gửi từng đáp án trả 202 rồi chấm nền; hiển thị số đã lưu/đã chấm/đang chờ.
+- Finalize chờ đủ kết quả hợp lệ và hiển thị điểm, nhận xét, bằng chứng đã lưu;
+  không dùng timer hay feedback mẫu giả làm kết quả provider. Nút Retry incomplete
+  grading cho phép thử lại pending/draft/rejected khi provider hoặc server phục hồi.
+- Adapter thực tế dùng code `ai.py`/`aiworker.py` của Phúc Duy, giữ rubric trọng số
+  tổng 10 và yêu cầu model đưa evidence. Default vẫn mock; chế độ NVIDIA opt-in,
+  CV không chuyển tới model trừ khi chủ động cho phép. Không bật web research/fetch.
+- Adapter Auth theo nhánh hiện có: RS256/ES256, JWKS cache/timeout, chữ ký, issuer,
+  audience, expiry, role và UUID; không lấy owner ID do frontend khai báo.
+- Các lỗi tạo buổi/ghi dữ liệu giữ người dùng ở trang hiện tại và giữ draft cục bộ;
+  evidence sai chặn báo cáo. PDF/URL JD chưa được import thì báo rõ thay vì giả xử lý.
+
+## Kiểm chứng mới nhất
+
+- **114 tests passed**, trong đó 5 tests chạy Chrome headless với server Uvicorn
+  và DB temp thật. Chặn network ngoài loopback trong browser tests.
+- Browser: toàn luồng tạo → lưu dở → tiếp tục → chấm → report → reload; tạo buổi
+  gặp 503 không sinh session giả; draft autosave; không cho bỏ trống đáp án;
+  từ chối evidence bịa rồi retry khi provider phục hồi; lưu draft trước đăng xuất.
+- Provider adapter: gọi generator/grader thật của nhóm bằng completion giả qua
+  HTTP, giữ rubric và metadata, ra report `used_fallback=false` đúng contract.
+  Không có request tới NVIDIA/TinyFish thật.
+- Token RS256/ES256 ký bằng key sinh trong test; token hết hạn/sai chữ ký/issuer/
+  audience/kid/role đều bị từ chối; hai user bị tách dữ liệu; lỗi JWKS trả 503.
+- `scripts/check_env.py`: qua; `pip check`: không có dependency hỏng.
+- Script `demo_interview.py` chạy qua entry point CLI sau khi ghép đã thành công;
+  cả entry point root và `backend/app/main.py` dùng cùng một ASGI app. Server
+  kiểm tra đã dừng; DB thử nằm trong `data/private/`, không được đưa vào commit.
+- Kiểm tra tên file private và các mẫu credential phổ biến trước khi commit
+  không phát hiện credential thật trong source; không in giá trị secret.
+- Một warning deprecation từ Starlette TestClient dùng HTTPX; không làm test fail.
+- Kiểm tra cấu hình chỉ in boolean: **chưa có AI key thật, Supabase runtime URL
+  hoặc publishable key** trong cấu hình ứng dụng. PAT MCP không dùng làm credential
+  cho app. Chưa xác minh đăng nhập thật hoặc chất lượng model thật.
+- `eval/run.py` cũ vẫn không phải bộ đánh giá interview; không dùng 0% của bộ
+  câu hỏi lab cũ để kết luận chất lượng phần tích hợp này.
 
 ## Đã xong trong bản local
 
@@ -51,18 +111,26 @@ catalog PostgreSQL đều cho thấy **public có 0 bảng / 0 view**; chưa th�
 Do đó hiện chưa có bảng interview thật để ánh xạ adapter. Kết quả này không cho
 biết bạn Database đã có bản thiết kế/script chưa; cần kiểm tra lại lúc ghép.
 
-1. **AI thật:** nối adapter với hàm của Phúc Duy, rubric/nguồn thực tế, đặt timeout;
-   mock hiện chấm theo số từ, không dùng để kết luận năng lực ứng viên.
+1. **Chạy dịch vụ AI thật:** adapter, rubric/evidence và timeout đã có; cần key
+   local hợp lệ, xác minh model và đánh giá chất lượng. Mock chấm theo số từ,
+   không dùng để kết luận năng lực. Ngân hàng câu hỏi/nguồn thực tế chưa ghép.
 2. **Database nhóm:** ánh xạ repository sang schema PostgreSQL đã thống nhất,
    migrations và quyền truy cập. Chưa nối Supabase; không tạo bảng vào DB chung.
-3. **Auth thật:** nối session cookie, expiry/revocation, CSRF/HTTPS; Argon2id ở phần
-   đăng nhập của bạn Auth. Cookie local không thay thế đăng nhập thật.
-4. **Frontend:** gọi API thay localStorage, map Job/CV, gửi cookie, polling tiến độ,
-   xử lý loading, revision conflict và lỗi chấm. UI hiện chưa gọi backend này.
+3. **Auth deployment:** adapter token theo nhánh Supabase đã có; cần public config
+   của project để thử login thật, đối chiếu lại thiết kế cookie cũ với nhóm.
+   Legacy HS256 và kiểm tra thu hồi session tức thì chưa hỗ trợ. HTTPS/CORS và
+   tài khoản thử trên môi trường nhóm chưa được kiểm chứng.
+4. **Các phần frontend/backend ngoài phạm vi:** luồng interview đã nối; API danh
+   sách toàn bộ lịch sử, Profile/CV, rename/delete, report endpoint riêng và khảo
+   sát vẫn chờ người phụ trách. Storage hiện dùng ID cache trên browser; không
+   khẳng định khôi phục toàn bộ lịch sử sau khi xóa browser storage.
 5. **Chấm bền vững khi server lỗi:** hiện có thể gửi lại đáp án pending để retry;
    chưa có hàng đợi tự khôi phục tác vụ bị mất khi tiến trình dừng.
 6. **Ghép và review:** đối chiếu API/schema với nhóm, tạo/liên kết GitHub issue thật,
    PR và teammate review, kiểm thử tích hợp trên Render rồi mới merge/deploy.
+
+7. **Chính sách CV:** draft frontend ghi CV không rời máy, trong khi code AI nhận
+   CV. Giữ mặc định không forward CV tới provider cho đến khi nhóm thống nhất.
 
 Các mục Profile/CV API riêng, lịch sử, API report riêng và khảo sát vẫn thuộc phần
 Backend còn lại theo cách chia người dùng đã chốt. PDF parsing/upload, tải URL JD

@@ -13,7 +13,10 @@ shared database writes, deployment or messages to teammates are authorized.
   Keep demo authentication explicitly local and separate from the production path.
 - [x] Wire the team's interview UI to the API: creation, answers, resume,
   grading progress and finalize; test the integrated browser flow with fake data.
-- [ ] Document completed checkpoints and remaining integration decisions.
+- [x] Document completed checkpoints and remaining integration decisions.
+
+Verification: 114 tests passed, including 5 real headless-browser flows. The
+checkpoints and limitations are recorded in `docs/backend-progress.md`.
 
 Wait for coordination: team PostgreSQL schema/migrations, actual provider keys,
 CV data policy confirmation, live Auth configuration, PR review and deployment.
