@@ -794,11 +794,165 @@
 
     // ==========================================================
     // CV SECTION MANAGEMENT
-    // Preserve your existing CV management implementation here.
     // ==========================================================
 
-    // The existing CV management code from your original
-    // profile-page implementation should remain unchanged.
+    const cvStatus = $("#cv-status");
+    const pdfStatus = $("#pdf-status");
+    const pdfError = $("#pdf-error");
+
+    const cvDropzone = $("#cv-pdf-dropzone");
+    const cvFileInput = $("#cv-pdf-file-input");
+    const cvPdfCard = $("#cv-pdf-card");
+    const pdfFileName = $("#pdf-file-name");
+    const pdfFileSize = $("#pdf-file-size");
+    const pdfFileDate = $("#pdf-file-date");
+    const profCvRawInput = $("#prof-cv-raw");
+
+    // Helper to clear raw CV text when user chooses PDF input
+    function clearCvSections() {
+      if (profCvRawInput) profCvRawInput.value = "";
+      account.cv = ["", "", "", ""];
+      account.cvMode = "pdf";
+      save();
+      if (cvStatus) cvStatus.textContent = "";
+    }
+
+    // Helper to clear PDF when user types in raw CV text
+    function clearPdfFile() {
+      if (account.cvPdf) {
+        account.cvPdf = null;
+        account.cvMode = "text";
+        if (cvFileInput) cvFileInput.value = "";
+        renderPdfState();
+        if (pdfStatus) pdfStatus.textContent = "";
+        save();
+      }
+    }
+
+    // Populate Raw CV Textarea (cleared if account has active PDF CV)
+    const isPdfActive = Boolean(account.cvPdf || account.cvMode === "pdf");
+    if (profCvRawInput) {
+      profCvRawInput.value = isPdfActive
+        ? ""
+        : (account.cv || []).filter(s => typeof s === "string" && s.trim()).join("\n\n");
+      profCvRawInput.addEventListener("input", () => {
+        clearPdfFile();
+        saveCV();
+        if (cvStatus) cvStatus.textContent = "Changes saved.";
+      });
+    }
+
+    const saveCvBtn = $("#save-cv-btn");
+    if (saveCvBtn) {
+      saveCvBtn.addEventListener("click", () => {
+        clearPdfFile();
+        saveCV();
+        if (cvStatus) cvStatus.textContent = "CV saved successfully.";
+      });
+    }
+
+    // Render PDF Card State
+    function renderPdfState() {
+      if (account.cvPdf) {
+        cvDropzone?.classList.add("is-hidden");
+        cvPdfCard?.classList.remove("is-hidden");
+        if (pdfFileName) pdfFileName.textContent = account.cvPdf.name;
+        if (pdfFileSize) pdfFileSize.textContent = account.cvPdf.size;
+        if (pdfFileDate) pdfFileDate.textContent = "Uploaded " + (account.cvPdf.date || "recently");
+      } else {
+        cvDropzone?.classList.remove("is-hidden");
+        cvPdfCard?.classList.add("is-hidden");
+      }
+    }
+
+    renderPdfState();
+
+    // PDF Upload handling
+    function handlePdfFile(file) {
+      if (pdfError) {
+        pdfError.hidden = true;
+        pdfError.textContent = "";
+      }
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+        error("#pdf-error", "Please upload a valid PDF file (.pdf).");
+        return;
+      }
+      clearCvSections();
+      const sizeStr = file.size > 1024 * 1024
+        ? (file.size / (1024 * 1024)).toFixed(1) + " MB"
+        : Math.round(file.size / 1024) + " KB";
+
+      account.cvPdf = {
+        name: file.name,
+        size: sizeStr,
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      };
+      account.cvMode = "pdf";
+      save();
+      renderPdfState();
+      if (pdfStatus) pdfStatus.textContent = `PDF "${file.name}" saved! Raw text cleared.`;
+    }
+
+    const browsePdfBtn = $("#browse-pdf-btn");
+    if (browsePdfBtn) {
+      browsePdfBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        clearCvSections();
+        cvFileInput?.click();
+      });
+    }
+    if (cvDropzone) {
+      cvDropzone.addEventListener("click", () => {
+        clearCvSections();
+        cvFileInput?.click();
+      });
+      ["dragenter", "dragover"].forEach(eventName => {
+        cvDropzone.addEventListener(eventName, e => {
+          e.preventDefault();
+          e.stopPropagation();
+          cvDropzone.classList.add("drag-over");
+        });
+      });
+      ["dragleave", "drop"].forEach(eventName => {
+        cvDropzone.addEventListener(eventName, e => {
+          e.preventDefault();
+          e.stopPropagation();
+          cvDropzone.classList.remove("drag-over");
+        });
+      });
+      cvDropzone.addEventListener("drop", e => {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handlePdfFile(e.dataTransfer.files[0]);
+        }
+      });
+    }
+    if (cvFileInput) {
+      cvFileInput.addEventListener("change", () => {
+        if (cvFileInput.files && cvFileInput.files[0]) {
+          handlePdfFile(cvFileInput.files[0]);
+        }
+      });
+    }
+
+    // Replace and Remove PDF
+    const replacePdfBtn = $("#replace-pdf-btn");
+    if (replacePdfBtn) {
+      replacePdfBtn.addEventListener("click", () => {
+        clearCvSections();
+        cvFileInput?.click();
+      });
+    }
+    const removePdfBtn = $("#remove-pdf-btn");
+    if (removePdfBtn) {
+      removePdfBtn.addEventListener("click", () => {
+        account.cvPdf = null;
+        account.cvMode = "text";
+        save();
+        renderPdfState();
+        if (pdfStatus) pdfStatus.textContent = "PDF removed.";
+      });
+    }
   }
 
   // ============================================================
