@@ -232,7 +232,7 @@ def create_app(*, service: InterviewService | None = None,
     def unknown_api(unknown: str):
         raise InterviewError(404, "not_found", "API endpoint not found")
 
-    app.mount("/app", StaticFiles(directory=REPO_ROOT / "frontend", html=True), name="team_frontend")
+    app.mount("/app", StaticFiles(directory=REPO_ROOT / "ui", html=True), name="team_frontend")
     app.mount("/prototype", StaticFiles(directory=REPO_ROOT / "ui", html=True), name="prototype")
     app.mount("/", StaticFiles(directory=REPO_ROOT / "ui", html=True), name="ui")
     return app

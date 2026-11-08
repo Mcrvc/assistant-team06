@@ -6,8 +6,8 @@
   <meta name="description" content="Page not found — Yourin Interview AI Assistant.">
   <meta name="robots" content="noindex">
   <title>Page not found · Yourin</title>
-  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body data-page="not-found">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -26,7 +26,7 @@
       </p>
 
       <div class="not-found-actions">
-        <a class="btn" href="/dashboard.html">Back to home <span aria-hidden="true">→</span></a>
+        <a class="btn" href="dashboard.html">Back to home <span aria-hidden="true">→</span></a>
       </div>
     </section>
   </main>
@@ -34,16 +34,5 @@
   <footer class="site-footer">
     <span>Yourin · Interview AI Assistant</span>
   </footer>
-
-  <script>
-    // Vercel serves this page for missing paths at any depth, so links point at the
-    // site root. When the file is opened directly from disk, rewrite them to paths
-    // beside this file so the preview still works.
-    if (window.location.protocol === "file:") {
-      document.querySelectorAll('link[rel="icon"], link[rel="stylesheet"], a[href^="/"]').forEach(function (element) {
-        element.setAttribute("href", element.getAttribute("href").slice(1));
-      });
-    }
-  </script>
 </body>
 </html>

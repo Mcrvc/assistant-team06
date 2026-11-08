@@ -15,7 +15,7 @@ $env:INTERVIEW_DEMO_ENABLED = "1"
 .\.venv\Scripts\python.exe -m assistant --interview-api
 ```
 
-Open **http://127.0.0.1:8000/app/**, sign in with `demo_user` / `demo12345`, then create an interview.
+Open **http://127.0.0.1:8000/** (or `/app/`), sign in with `demo_user` / `demo12345`, then create an interview.
 This explicitly labeled local demo uses SQLite and mock AI without cloud keys.
 Progress, answers and reports come from the backend. See [completed checkpoints and remaining work](docs/backend-progress.md).
 
