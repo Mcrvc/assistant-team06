@@ -224,6 +224,28 @@
     account.cvMode = "text";
   }
 
+  // Restore CV from the backend when this browser has no (or stale) copy.
+  // Runs after local state is loaded; updates the profile form on reload.
+  (async () => {
+    if (!window.YourinAPI || typeof window.YourinAPI.getCV !== "function") return;
+    const response = await window.YourinAPI.getCV();
+    if (!response || !response.ok || !response.data) return;
+    const before = JSON.stringify({
+      cv: account.cv, cvMode: account.cvMode, cvPdf: account.cvPdf
+    });
+    account.cv = Array.isArray(response.data.cv) ? response.data.cv : account.cv;
+    account.cvMode = response.data.cvMode || account.cvMode;
+    account.cvPdf =
+      response.data.cvPdf === undefined ? account.cvPdf : response.data.cvPdf;
+    const after = JSON.stringify({
+      cv: account.cv, cvMode: account.cvMode, cvPdf: account.cvPdf
+    });
+    if (before !== after) {
+      save();
+      if (page === "profile") window.location.reload();
+    }
+  })();
+
   // Save local application data.
   function save() {
     state.updatedAt = Date.now();
@@ -2313,10 +2335,29 @@
   // ============================================================
 
   if (page === "report") {
-    const interview = reportInterview();
+    (async () => {
+      let interview = reportInterview();
 
-    if (interview) {
-      if (!interview.report) {
+      if (
+        interview &&
+        !interview.report &&
+        interview.backend &&
+        window.YourinAPI?.getReport
+      ) {
+        const reportResponse = await window.YourinAPI.getReport(interview.id);
+        if (reportResponse?.ok && reportResponse.data?.report) {
+          interview.report = reportResponse.data.report;
+          if (reportResponse.data.name) interview.name = reportResponse.data.name;
+          save();
+        }
+      }
+
+      interview = reportInterview();
+
+      if (!interview) return;
+
+      if (interview) {
+        if (!interview.report) {
         $(".report-stack")?.setAttribute("hidden", "");
         apiError(new Error("This interview has no completed report yet. Finish grading and finalize it first."));
         return;
@@ -2387,6 +2428,7 @@
         });
       }
     }
+    })();
   }
 
   // ============================================================

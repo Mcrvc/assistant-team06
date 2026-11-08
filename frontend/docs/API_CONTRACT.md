@@ -10,10 +10,10 @@ grading, GET progress polls counts, and finalize aggregates already-graded answe
 GET by ID returns the canonical object directly. Demo cookies work only in explicit
 local demo mode; the non-demo path verifies Supabase Bearer tokens.
 
-The remaining text below is the original team draft. Its list/CV/report-specific/
-feedback APIs are not implemented by the interview lifecycle work. Its finalize-time
-grading and payload shapes do not describe the current `/app/` integration.
-PDF metadata is not treated as an uploaded CV; real-provider CV forwarding is opt-in.
+The remaining text below is the original team draft. The interview lifecycle, CV, history,
+report and feedback APIs listed below are now implemented by the backend work; rename/delete
+and async job polling are still not implemented. PDF metadata is not treated as an uploaded CV;
+real-provider CV forwarding is opt-in.
 
 Base URL: Render service (`src/assistant/web.py`). Frontend resolves it via `RENDER_API_URL`
 or `window.location.origin` on localhost. All endpoints return JSON. Protected endpoints
@@ -34,16 +34,20 @@ the backend only verifies the JWT via `SUPABASE_JWKS_URL`.
 - `PUT /api/cv` `{ cv: string[4], cvMode, cvPdf }` → `{ ok: true }`
 
 ## Interviews
-- `GET /api/interviews` → `{ interviews: [{ id, name, date, finished, answers: string[3], cv, cvPdf, cvMode, job }] }`
-- `POST /api/interviews` `{ job, cv, cvMode, cvPdf }` → created interview (with `questions` from AI) `{ id, name, date, finished, answers, cv, cvPdf, cvMode, job, questions }`
-- `GET /api/interviews/:id` → `{ interview }`
-- `PUT /api/interviews/:id` `{ name?, answers?, finished?, job? }` → `{ ok: true }`
-- `DELETE /api/interviews/:id` → `{ ok: true }`
-- `POST /api/interviews/:id/finalize` → `{ report }` (triggers AI grading; may be async → returns `{ queued: true, job_id }` per Domain Focus MVP)
-- `GET /api/interviews/:id/report` → `{ report }`
+- `GET /api/interviews` → `{ interviews: [{ id, name, status, finished, job_profile, created_at, updated_at, progress, has_report }] }` (newest first; owner-only summaries, no questions/answers/report body)
+- `POST /api/interviews` `{ name?, job_profile: { title, description?, domain?, company?, level? }, cv? }` → canonical interview object (`id, owner_id, name, status, questions, answers, current_question, ...`)
+- `GET /api/interviews/{id}` → canonical interview object directly (not wrapped)
+- `POST /api/interviews/{id}/progress` `{ revision, answers?, current_question?, status? }` → canonical interview object
+- `POST /api/interviews/{id}/answers/{index}` `{ revision, text }` → canonical interview object (queues background grading)
+- `GET /api/interviews/{id}/progress` → `{ answered, graded, pending, rejected }`
+- `POST /api/interviews/{id}/finalize` `{ revision, name? }` → canonical interview object with `report` (requires all 3 answers graded)
+- `GET /api/interviews/{id}/report` → `{ id, name, report }` (409 until finalized)
+- Rename/delete endpoints are **not implemented yet**; the frontend disables these actions for backend interviews.
 
 ## Feedback
-- `POST /api/feedback` `{ grade_rating, quality_rating, difficulty, comments, would_recommend }` → `{ ok: true }`
+- `POST /api/feedback` `{ grade_rating: 1-5, quality_rating: 1-5, difficulty?: "too_easy"|"just_right"|"too_hard", comments?: string (<=2000), would_recommend?: boolean, session_id?: string }` → `{ ok: true }` (201)
+- `session_id`, if provided, must belong to the verified user; otherwise 404.
+- CV and feedback are currently stored in an in-memory, per-process store until the Supabase schema is ready.
 
 ## Notes for backend owners
 - Status codes matter for the frontend: 400 → toast, 401 → redirect to sign-in, 500/503/0 → fallback banner.
