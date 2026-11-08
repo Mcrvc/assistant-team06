@@ -1,4 +1,4 @@
-"""FastAPI interview API. Local demo auth is opt-in; production auth is a seam."""
+"""FastAPI interview API with verified Bearer auth and opt-in local demo."""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -50,10 +50,10 @@ def _check_local(request: Request) -> None:
 
 
 def get_current_user(request: Request) -> str:
-    """Replace auth_resolver with the Auth teammate's verified cookie lookup.
+    """Resolve identity through an injected verifier, Supabase JWT, or local demo.
 
     Never accept owner_id/user_id from request JSON or an unverified token.
-    Argon2id password verification belongs to real sign-in, not interview routes.
+    Password verification belongs to the Auth provider, not interview routes.
     """
     resolver = request.app.state.auth_resolver
     if resolver is not None:
@@ -230,7 +230,7 @@ def serve_api(port: int | None = None) -> int:
     enabled = os.environ.get("INTERVIEW_DEMO_ENABLED") == "1"
     host = os.environ.get("HOST", "127.0.0.1")
     if enabled and not _loopback(host):
-        raise ValueError("Local demo must bind to localhost; real auth is not integrated")
+        raise ValueError("Local demo must bind to localhost; disable demo for shared deployments")
     uvicorn.run(create_app(), host=host, port=port or int(os.environ.get("PORT", "8000")),
                 proxy_headers=False)
     return 0

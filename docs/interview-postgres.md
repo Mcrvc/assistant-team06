@@ -95,12 +95,17 @@ Fixture chỉ mô phỏng những cột team đang có mà adapter cần, không
 quyền truy cập hay chính sách RLS trên cloud. Backend dùng direct PostgreSQL cần
 role test phù hợp; owner luôn lấy từ Auth đã xác minh và lọc trong repository.
 
-Đã kiểm thử trên PostgreSQL portable 17.11 chạy riêng tại loopback: 20 tests
-(10 SQLite relational + 10 PostgreSQL), gồm apply đề xuất, Unicode, timezone,
+Đã kiểm thử trên PostgreSQL portable 17.11 chạy riêng tại loopback: 26 tests
+(13 SQLite relational + 13 PostgreSQL), gồm apply đề xuất, Unicode, timezone,
 resume/report qua connection mới, rollback, owner isolation, CAS và chấm đồng thời.
 HTTP test dùng cấu hình runtime PostgreSQL, chấm đủ 3 câu và đọc lại report qua
-hai instance app. Bộ kiểm thử đầy đủ tại checkpoint runtime: **148 passed**,
+hai instance app; retry pending sau mở kết nối mới, rollback create giữa chừng,
+question snapshot/rubric và nhiều trích dẫn được giữ nguyên. Bộ kiểm thử cuối: **154 passed**,
 gồm 8 browser tests; còn một warning TestClient/HTTPX đã có từ trước.
 Binaries/database test ở `data/private/`, bị Git bỏ qua, không thành dependency
 runtime của dự án. Nguồn binaries: [Zonky embedded PostgreSQL](https://github.com/zonkyio/embedded-postgres-binaries);
 adapter dùng [SQLAlchemy psycopg](https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#module-sqlalchemy.dialects.postgresql.psycopg).
+
+Workflow `.github/workflows/interview-tests.yml` đã được chuẩn bị để chạy suite
+với PostgreSQL service và Chromium trên GitHub, không cần key Supabase/AI. Chưa
+push nên chưa có kết quả runner/CI; kết quả 154 ở trên là chạy local trên Windows.

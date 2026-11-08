@@ -4,6 +4,32 @@ Ngày cập nhật: 08/11/2026. Nhánh local: `feat/LOCAL-01-interview-lifecycle
 Đã triển khai và kiểm tra bản ghép local từ các nhánh nhóm. Đã commit checkpoint
 sau từng việc theo yêu cầu người dùng; chưa push, deploy hoặc ghi vào cloud.
 
+## Cập nhật LOCAL-04: phần độc lập đã hoàn thiện thêm
+
+- `ee6ca7d`: adapter PostgreSQL relational + schema bổ sung đề xuất, 18 tests
+  khi lưu checkpoint. Dùng bảng nhóm; lưu session/questions/answers/grades theo
+  transaction, chống ghi đè và giữ question snapshot/báo cáo.
+- `9e5950f`: nối lựa chọn PostgreSQL vào API startup, 148 tests ở checkpoint.
+  `INTERVIEW_STORAGE=postgres` mới dùng DATABASE_URL; mặc định demo giữ SQLite.
+  Không DDL tự động, không fallback SQLite khi DB hỏng; startup errors đã lọc.
+- Kiểm chứng cuối: **154 tests passed**, gồm **13 PostgreSQL thật**, 13 contract
+  tương ứng trên SQLite relational và 8 browser tests. Có full HTTP lifecycle,
+  mở app mới đọc lại report, rollback create/save, owner isolation, CAS, concurrent
+  grading, retry pending, hủy điểm cũ và rubric/multiple evidence không mất.
+  check_env/pip check qua; warning TestClient/HTTPX cũ vẫn còn.
+- SQL đề xuất: `docs/schema-proposals/LOCAL-04-interview.sql`; hướng dẫn/mapping
+  tại `docs/interview-postgres.md`. Thang grades.level chưa được đoán; score
+  local giữ trong result đề xuất. accounts phải do Auth/Profile tạo trước.
+- Workflow CI PostgreSQL/Chromium đã chuẩn bị local, chưa chạy GitHub. Binaries
+  PostgreSQL test/cluster nằm trong data/private và không được đưa vào Git;
+  server test được dừng sau kiểm chứng, không cài Windows service.
+
+**Còn trước khi tuyên bố hoàn tất tích hợp nhóm:** review/apply schema trên DB
+test theo thống nhất với Huy; cấu hình DB/Auth/AI thật; thử toàn luồng với nhóm;
+chốt CV/Auth/thang điểm, teammate review và deploy. Không còn cần chờ người khác
+viết xong frontend/Profile/history/feedback để kiểm thử code interview local.
+Các phần cũ bên dưới là mốc lịch sử, không thay thế cập nhật LOCAL-04 này.
+
 ## Các checkpoint đã hoàn thành
 
 | Commit | Việc đã xong | Kiểm chứng lúc commit |

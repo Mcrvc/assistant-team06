@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, event, func, select
+from sqlalchemy import create_engine, delete, event, func, select, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 
@@ -225,6 +225,67 @@ def test_legacy_session_is_not_falsely_imported(repository):
     with repository.engine.connect() as connection:
         old_id = connection.scalar(select(sessions.c.id))
     assert repository.get(old_id, OWNER) is None
+
+
+def test_pending_job_can_be_retried_after_connection_restart(repository):
+    service, item = create(repository)
+    item, old_job = submit(service, item, 0)
+    repository.engine.dispose()
+    restarted = InterviewService(PostgresInterviewRepository(repository.engine))
+    item = restarted.get(OWNER, item["id"])
+    assert item["answers"][0]["grading_status"] == "pending"
+    item, new_job = submit(restarted, item, 0)
+    restarted.grade_answer(OWNER, item["id"], 0, old_job)
+    assert restarted.get(OWNER, item["id"])["answers"][0]["grading_status"] == "pending"
+    restarted.grade_answer(OWNER, item["id"], 0, new_job)
+    assert restarted.get(OWNER, item["id"])["answers"][0]["grading_status"] == "graded"
+
+
+def test_question_snapshots_and_multiple_evidence_are_preserved(repository):
+    class ReferenceAI(MockInterviewAI):
+        def generate_questions(self, *args):
+            result = super().generate_questions(*args)
+            result["questions"][0].update(source_type="reference", reference={
+                "title": "Fake test source", "locator": "test:question-1", "excerpt": "Testing APIs",
+            }, rubric={"max_score": 10.0, "criteria": [
+                {"name": "Example", "points": 4.0, "good": "A clear example"},
+                {"name": "Result", "points": 6.0, "good": "A measurable result"},
+            ]})
+            return result
+        def grade_answer(self, *args):
+            return {"score": 7.5, "feedback": "Unicode: rõ ràng.",
+                    "evidence": ["Tôi đã viết API", "wrote tests"],
+                    "model": "structured-test", "used_fallback": False}
+    service, item = create(repository, ReferenceAI())
+    snapshot = deepcopy(item["questions"])
+    with repository.engine.begin() as connection:
+        # Editing the bank's display text must not change this session's rubric.
+        connection.execute(update(questions).values(question_text="changed bank question"))
+    item, job = submit(service, item, 0)
+    service.grade_answer(OWNER, item["id"], 0, job)
+    stored = repository.get(item["id"], OWNER)
+    assert stored["questions"] == snapshot
+    assert stored["answers"][0]["grade"]["evidence"] == ["Tôi đã viết API", "wrote tests"]
+    with repository.engine.connect() as connection:
+        row = connection.execute(select(grades)).mappings().one()
+        assert row["result"]["score"] == 7.5 and row["evidence_quoted"] is None
+
+
+def test_creation_failure_rolls_back_questions_and_links(repository, monkeypatch):
+    original = repository._write_answer
+    calls = 0
+    def fail_second(*args):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("simulated creation failure")
+        original(*args)
+    monkeypatch.setattr(repository, "_write_answer", fail_second)
+    with pytest.raises(RuntimeError):
+        create(repository)
+    with repository.engine.connect() as connection:
+        for table in (sessions, questions, session_questions, answers, grades):
+            assert connection.scalar(select(func.count()).select_from(table)) == 0
 
 
 def test_http_runtime_uses_postgres_and_report_survives_app_restart(repository, monkeypatch):

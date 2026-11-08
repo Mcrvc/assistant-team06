@@ -3,6 +3,14 @@
 Ngày 08/11/2026. Đây là thông tin đã kiểm tra và đề xuất để nhóm xác nhận,
 không phải thay đổi schema hoặc quyết định đã được toàn nhóm đồng ý.
 
+Cập nhật LOCAL-04: Trần Bảo Anh đã hoàn thiện adapter PostgreSQL và kiểm thử
+độc lập. Mapping và SQL bổ sung **đề xuất để review** nằm ở
+`docs/interview-postgres.md` / `docs/schema-proposals/LOCAL-04-interview.sql`.
+Có đề xuất `sessions.report` để bên báo cáo đọc kết quả đã finalize và
+`grades.result` giữ score/feedback/evidence/model đầy đủ. Chưa áp dụng lên cloud
+và chưa tự map thang `grades.level`. Các nhận định thiếu cột bên dưới vẫn đúng
+với schema nhóm đã khảo sát; adapter chỉ chạy sau khi có những bổ sung phù hợp.
+
 ## 1. FastAPI và chỗ đặt route
 
 Code đã ghép local dùng một FastAPI app trong `src/assistant/api.py`;

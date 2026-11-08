@@ -10,7 +10,35 @@
 
 ## Cập nhật sau khảo sát: triển khai local đã được cho phép
 
-### Cập nhật LOCAL-03 sau phản hồi giao diện (mới nhất)
+### Cập nhật LOCAL-04: PostgreSQL độc lập (mới nhất)
+
+- Người dùng yêu cầu hoàn thiện phần mình trước, điều chỉnh format với nhóm sau.
+  Đã viết `interview_postgres.py`: relational adapter theo accounts/sessions/
+  questions/session_questions/answers/grades, vẫn giữ service/API/UI hiện có.
+- **Schema bổ sung là đề xuất**, tại `docs/schema-proposals/LOCAL-04-interview.sql`;
+  chưa áp dụng lên Supabase. Thêm session lifecycle/revision/version/report,
+  question_snapshot, answer grading state và grades.result. Không tự đoán/mapping
+  `grades.level`; giữ NULL, score 0–10 và evidence[] đầy đủ trong result đề xuất.
+- `INTERVIEW_STORAGE=auto` giữ cách chạy SQLite demo/local cũ; `postgres` mới
+  dùng DATABASE_URL/psycopg, kiểm tra cột bằng SELECT LIMIT 0 lúc startup. Không
+  tự DDL/migrate/fallback SQLite khi DB lỗi. PostgreSQL không nhận demo identity;
+  cần verified Auth UUID và accounts có sẵn. Runtime mặc định không đổi.
+- Đã thử **PostgreSQL portable 17.11 thật trên loopback**, fixture baseline rồi
+  apply SQL đề xuất trong schema test riêng. **154 tests passed**, gồm 13 test
+  PostgreSQL, 13 cùng contract trên SQLite relational và 8 browser tests. Có HTTP
+  lifecycle, app restart/report, rollback, ownership/CAS, concurrent grading,
+  pending retry, question snapshot và multiple evidence. check_env/pip check qua;
+  một warning TestClient/HTTPX cũ. Không gọi Supabase/provider thật trong suite.
+- Checkpoints: `ee6ca7d` adapter/schema đề xuất (18 tests); `9e5950f` runtime
+  PostgreSQL (148 tests). Tài liệu chuẩn `docs/interview-postgres.md`, backlog
+  `docs/backlog/LOCAL-04-postgres-preparation.md`. CI workflow mới chuẩn bị local
+  tại `.github/workflows/interview-tests.yml`, chưa chạy GitHub vì chưa push.
+- Chưa có DATABASE_URL/AI key/public Auth config thật. Còn cần nhóm review schema,
+  chốt thang điểm/Auth/CV, cấu hình môi trường test, review PR và deploy. Không
+  báo hoàn tất tích hợp cloud. Binaries và cluster test nằm trong data/private,
+  bị Git bỏ qua; PostgreSQL test được dừng sau kiểm chứng, không cài dịch vụ Windows.
+
+### Cập nhật LOCAL-03 sau phản hồi giao diện
 
 - Người dùng yêu cầu báo thiếu câu trả lời nổi bật và hỏi muốn lưu khi rời buổi. Đã lưu checkpoint `ca9d61d` cho validation: khung/icon đỏ cạnh textarea, aria-invalid/role alert và focus vào ô; xóa lỗi khi có nội dung hợp lệ.
 - Đã bỏ autosave khi gõ. Previous chỉ đổi câu trong draft local; Next chủ động submit/lưu câu hiện tại và cập nhật vị trí, không tự ghi các draft khác.

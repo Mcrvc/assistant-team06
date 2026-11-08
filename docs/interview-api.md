@@ -1,5 +1,13 @@
 # Interview backend: bản local để ghép với nhóm
 
+## Cập nhật LOCAL-04: adapter PostgreSQL đã chuẩn bị
+
+Đã có adapter relational theo bảng nhóm, SQL bổ sung **đề xuất** và lựa chọn
+`INTERVIEW_STORAGE=postgres` + `DATABASE_URL`. Đã kiểm thử PostgreSQL thật riêng
+trên máy, chưa áp dụng lên Supabase. Xem `docs/interview-postgres.md` để review
+mapping, cài extra postgres, cấu hình runtime và chạy lại integration tests.
+Runtime không tự tạo bảng/migrate hoặc fallback SQLite khi PostgreSQL lỗi.
+
 ## Cập nhật tích hợp LOCAL-02
 
 Nhánh tính năng đã nhận code từ `origin/frontend` (`08b8ceb`), gồm AI và Auth.
@@ -7,7 +15,7 @@ Một ASGI app dùng chung cho `python -m assistant --interview-api` từ root v
 `uvicorn app.main:app` từ `backend/`. Cài môi trường chuẩn từ root bằng
 `pip install -r requirements.txt`. SQLAlchemy cho phép 2.x để khớp các nhánh.
 API mới vẫn giữ nguyên contract bên dưới; giao diện nhóm ở `/app/`, prototype
-cũ ở `/` và `/prototype/`. Việc nối UI/Auth/AI được thực hiện ở các checkpoint sau.
+cũ ở `/` và `/prototype/`. UI/Auth/AI đã được nối trong các checkpoint LOCAL-02.
 `frontend/js/config.js` lấy config cùng origin, không ghim port 8000; có thể đặt
 `window.YOURIN_API_URL` trước khi load script nếu chạy giao diện ở origin khác.
 
@@ -81,7 +89,8 @@ và dùng SQLite/temp + đáp án giả; không gọi Supabase/NVIDIA thật.
 
 Phạm vi của Trần Bảo Anh: tạo interview, lưu/tiếp tục, nhận đáp án, gọi AI chấm
 nền, kiểm tra bằng chứng và finalize. Bản này chạy độc lập với **AI mẫu + SQLite
-qua SQLAlchemy**. Không cần key hay truy cập Supabase.
+qua SQLAlchemy**. Không cần key hay truy cập Supabase. LOCAL-04 bổ sung tùy chọn
+PostgreSQL riêng, không thay đổi cách chạy demo mặc định này.
 
 Thiết kế cập nhật theo bản Backend người dùng cung cấp: Python 3.10+, FastAPI,
 Uvicorn, Pydantic, SQLAlchemy; mục tiêu ghép PostgreSQL/psycopg và session cookie
@@ -143,8 +152,9 @@ với backend mới; có thể kiểm tra độc lập bằng Swagger và script
 
 ## Contract đề xuất v1
 
-Đây là contract local để các bên tham khảo, chưa khẳng định cả nhóm đã dùng nó.
-Các endpoint cần cookie phiên. Chỉ số câu hỏi bắt đầu từ **0**.
+Đây là contract đang chạy local để các bên tham khảo, chưa khẳng định cả nhóm
+đã dùng nó. Endpoint interview dùng Bearer token ở chế độ thật, cookie local ở
+chế độ demo (hoặc resolver xác minh do caller cung cấp). Chỉ số câu bắt đầu từ **0**.
 
 | Method | Endpoint | Kết quả |
 | --- | --- | --- |
@@ -233,8 +243,8 @@ BackgroundTasks chạy trong tiến trình server, không phải hàng đợi b�
 tắt server giữa lúc chấm, đáp án vẫn còn `pending`. Sau khi bật lại, gửi lại cùng
 text với revision mới nhất để xếp tác vụ mới. Cách này cũng dùng để thử lại câu
 `rejected`. Mã `grading_id` ngăn tác vụ cũ ghi đè câu đã sửa/gửi lại. Chưa có
-timeout hoặc retry tự động cho nhà cung cấp thật; adapter tương lai phải đặt
-network timeout và cần job queue nếu muốn tự khôi phục sau sự cố.
+job queue tự khôi phục sau sự cố; timeout/retry của provider hiện đã được cấu
+hình qua INTERVIEW_AI_TIMEOUT_S và AI_RETRIES như phần adapter phía trên.
 
 ### Finalize
 
@@ -272,16 +282,16 @@ level tối đa 200. API không nhận owner ID của client.
 
 | Phần | Đã có | Còn cần ghép |
 | --- | --- | --- |
-| AI | `InterviewAI` trong `interview_ai.py`, validation + fallback | Adapter gọi hàm của Phúc Duy trong `ai.py`; timeout; rubric/nguồn thật |
-| Database | `InterviewRepository` trong `interviews.py`, adapter SQLAlchemy local | Schema PostgreSQL, migrations và quyền truy cập của nhóm |
-| Auth | `get_current_user`, `auth_resolver`, lọc quyền sở hữu | Session cookie thật và tích hợp Auth/Argon2id của nhóm |
-| Frontend | Contract, `/docs`, script thử HTTP | Gọi API thay localStorage, gửi cookie, polling/loading/error |
+| AI | Adapter code nhóm, rubric/evidence, timeout/retry, fallback | Key và xác minh chất lượng model thật; ngân hàng nguồn |
+| Database | SQLite demo + adapter PostgreSQL đã kiểm thử, schema bổ sung đề xuất | Review schema và quyền kết nối môi trường nhóm |
+| Auth | Verified Supabase JWT/JWKS, dependency chung, owner filtering | Thử login thật; nhóm đối chiếu thiết kế cookie cũ |
+| Frontend | `/app/` đã gọi lifecycle API, polling/retry và lựa chọn lưu khi rời | Đối chiếu contract với nhóm; các API của Backend còn lại |
 | Deploy | ASGI factory `create_app(...)`; demo tắt mặc định | Cấu hình Render, CORS origin cụ thể, HTTPS và DB production |
 
 Không chạy `metadata.create_all()` vào database chung. Table `local_interviews`
 lưu JSON snapshot phục vụ phát triển độc lập, chưa phải schema production. Có
-thể thay repository bằng adapter schema nhóm mà giữ service/API. Extra `postgres`
-cài psycopg cho giai đoạn tích hợp; chưa có kết nối cloud trong bản này.
+thể chọn adapter PostgreSQL LOCAL-04 mà giữ service/API, sau khi schema đề xuất
+được review. Extra `postgres` cài psycopg; chưa có kiểm thử cloud trong bản này.
 
 API legacy `/api/health`, `/api/config`, `/api/answer` vẫn có trên server mới.
 Health chỉ phản ánh cấu hình, không phải bài test kết nối AI/DB.

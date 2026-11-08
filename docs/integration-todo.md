@@ -22,14 +22,17 @@ Nguồn đã ghép: `origin/frontend` (`08b8ceb`), chứa `AI` (`32d6f69`) và
    incomplete grading; evidence sai chặn báo cáo; đăng xuất đợi lưu draft.
    LOCAL-03 thay autosave bằng lựa chọn Save & exit / Leave without saving /
    Keep answering; chỉ lưu khi người dùng chọn hoặc submit bằng Next.
-5. [x] **Kiểm thử bản ghép local.** 117 tests passed, gồm 8 browser tests Chrome
+5. [x] **Kiểm thử bản ghép local.** LOCAL-04: 154 tests passed, gồm 13 PostgreSQL
+   thật, 13 contract SQLite relational và 8 browser tests Chrome
    headless/Uvicorn/SQLite với network ngoài loopback bị chặn. Test provider code
    qua HTTP bằng completion giả; test JWT bằng key sinh riêng. check_env và
    pip check qua. Chi tiết checkpoint tại `docs/backend-progress.md`.
 
 ## Còn cần thông tin hoặc phối hợp trước khi tích hợp thật
 
-6. [ ] **Đối chiếu schema/migrations với Huy.** Supabase MCP chỉ đọc đã kết nối;
+6. [ ] **Đối chiếu schema/migrations với Huy.** Đã hoàn thiện adapter PostgreSQL
+   và kiểm thử SQL bổ sung đề xuất trên DB local (`docs/interview-postgres.md`).
+   Còn review/apply lên môi trường test nhóm. Supabase MCP chỉ đọc đã kết nối;
    lần kiểm tra mới nhất đã có 9 bảng (xem `docs/backend-handoff.md`). Schema
    còn lệch session/report/CV local; cần chốt mapping rồi test trên PostgreSQL local,
    rồi mới ghép môi trường nhóm theo quyền đã thống nhất. Không tự tạo bảng chung.
