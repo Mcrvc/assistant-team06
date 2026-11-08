@@ -246,5 +246,21 @@ class PostgresInterviewRepository:
                 self._write_answer(connection, interview["id"], link.question_id,
                                    interview["answers"][link.display_order])
 
+    def delete(self, interview_id: str, owner_id: str) -> None:
+        try:
+            owner = str(UUID(owner_id))
+        except ValueError:
+            return
+        with self.engine.begin() as connection:
+            connection.execute(delete(grades).where(
+                grades.c.session_id == interview_id))
+            connection.execute(delete(answers).where(
+                answers.c.session_id == interview_id))
+            connection.execute(delete(session_questions).where(
+                session_questions.c.session_id == interview_id))
+            connection.execute(delete(sessions).where(
+                sessions.c.id == interview_id, sessions.c.user_id == owner,
+                sessions.c.interview_format == 1))
+
     def close(self) -> None:
         self.engine.dispose()

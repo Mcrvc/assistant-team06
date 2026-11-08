@@ -146,7 +146,31 @@ def test_history_lists_only_own_interviews_newest_first(client):
     assert not {"questions", "answers", "cv", "report", "owner_id"} & set(items[0])
 
 
-# ---------------------------------------------------------------- report
+def test_rename_and_delete_interview(client):
+    interview_id = make_interview(client, finish=False, name="Before")
+
+    renamed = client.put(f"/api/interviews/{interview_id}", json={"name": "After"},
+                        headers=ALICE)
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "After"
+
+    # A finalized interview cannot be renamed.
+    finished_id = make_interview(client, finish=True, name="Finished")
+    conflict = client.put(f"/api/interviews/{finished_id}", json={"name": "Nope"},
+                         headers=ALICE)
+    assert conflict.status_code == 409
+
+    # Ownership is enforced.
+    other = make_interview(client, headers=BOB, finish=False)
+    assert client.put(f"/api/interviews/{other}", json={"name": "Hack"},
+                     headers=ALICE).status_code == 404
+
+    deleted = client.delete(f"/api/interviews/{interview_id}", headers=ALICE)
+    assert deleted.status_code == 204
+    assert client.get(f"/api/interviews/{interview_id}", headers=ALICE).status_code == 404
+
+    # Deleting another user's interview is forbidden.
+    assert client.delete(f"/api/interviews/{other}", headers=ALICE).status_code == 404
 
 
 def test_report_of_finalized_interview(client):

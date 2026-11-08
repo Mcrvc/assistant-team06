@@ -22,6 +22,7 @@ class InterviewRepository(Protocol):
     def create(self, interview: dict) -> None: ...
     def get(self, interview_id: str, owner_id: str) -> dict | None: ...
     def save(self, interview: dict, expected_version: int) -> None: ...
+    def delete(self, interview_id: str, owner_id: str) -> None: ...
     def list_for_owner(self, owner_id: str) -> list[dict]: ...
 
 
@@ -75,6 +76,18 @@ class InterviewService:
     def list(self, owner_id: str) -> list[dict]:
         """Every interview of `owner_id`, newest first (used by the history API)."""
         return self.repository.list_for_owner(owner_id)
+
+    def rename(self, owner_id: str, interview_id: str, name: str) -> dict:
+        interview = self.get(owner_id, interview_id)
+        if interview["status"] == "finalized":
+            raise InterviewError(409, "already_finalized", "A finalized interview cannot be renamed")
+        def change(item: dict) -> None:
+            item["name"] = name
+        return self._change(owner_id, interview_id, interview["revision"], change)
+
+    def delete(self, owner_id: str, interview_id: str) -> None:
+        self.get(owner_id, interview_id)  # 404 for unknown or foreign interviews
+        self.repository.delete(interview_id, owner_id)
 
     def _change(self, owner_id: str, interview_id: str, revision: int,
                 change: Callable[[dict], None]) -> dict:

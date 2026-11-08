@@ -2139,7 +2139,6 @@
         `;
 
         function openRenameEditor() {
-          if (interview.backend) return;
           colName.replaceChildren();
 
           const editor = document.createElement("div");
@@ -2191,16 +2190,45 @@
 
           let closed = false;
 
-          function commitRename() {
+          async function commitRename() {
             if (closed) return;
 
             closed = true;
 
             const newName = input.value.trim();
 
-            if (newName) {
+            if (newName && newName !== interview.name) {
+              const previousName = interview.name;
               interview.name = newName;
               save();
+
+              if (interview.backend && window.YourinAPI?.updateInterview) {
+                try {
+                  const response = await window.YourinAPI.updateInterview(
+                    interview.id,
+                    { name: newName }
+                  );
+
+                  if (!response?.ok) {
+                    interview.name = previousName;
+                    save();
+                    renderInterviews();
+                    if (window.YourinErrors?.showToast) {
+                      window.YourinErrors.showToast(
+                        "Could not rename this interview.",
+                        { type: "error" }
+                      );
+                    }
+                    return;
+                  }
+                } catch (err) {
+                  interview.name = previousName;
+                  save();
+                  renderInterviews();
+                  if (typeof apiError === "function") apiError(err);
+                  return;
+                }
+              }
             }
 
             renderInterviews();
@@ -2296,14 +2324,35 @@
         deleteBtn.type = "button";
         deleteBtn.textContent = "Delete";
         deleteBtn.title = "Delete this interview";
-        if (interview.backend) {
-          editBtn.disabled = true;
-          editBtn.title = "Renaming is not available yet.";
-          deleteBtn.disabled = true;
-          deleteBtn.title = "Deletion is not available yet.";
-        }
 
-        deleteBtn.addEventListener("click", () => {
+        deleteBtn.addEventListener("click", async () => {
+          if (interview.backend && window.YourinAPI?.deleteInterview) {
+            deleteBtn.disabled = true;
+            try {
+              const response = await window.YourinAPI.deleteInterview(interview.id);
+              if (response?.ok) {
+                account.interviews = account.interviews.filter(
+                  item => item.id !== interview.id
+                );
+                if (account.activeId === interview.id) {
+                  account.activeId = null;
+                }
+                save();
+                renderInterviews();
+              } else if (window.YourinErrors?.showToast) {
+                window.YourinErrors.showToast(
+                  "Could not delete this interview.",
+                  { type: "error" }
+                );
+              }
+            } catch (err) {
+              if (typeof apiError === "function") apiError(err);
+            } finally {
+              deleteBtn.disabled = false;
+            }
+            return;
+          }
+
           account.interviews.splice(index, 1);
 
           if (account.activeId === interview.id) {

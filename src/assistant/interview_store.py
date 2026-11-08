@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
-from sqlalchemy import Column, Integer, JSON, MetaData, String, Table, create_engine, select, update
+from sqlalchemy import Column, Integer, JSON, MetaData, String, Table, create_engine, select, update, delete as sa_delete
 from sqlalchemy.engine import Engine, URL
 
 
@@ -67,6 +67,12 @@ class SQLAlchemyInterviewRepository:
             ).values(version=interview["version"], payload=interview)).rowcount
             if changed != 1:
                 raise StoreConflict()
+
+    def delete(self, interview_id: str, owner_id: str) -> None:
+        with self.engine.begin() as connection:
+            connection.execute(sa_delete(interviews).where(
+                interviews.c.id == interview_id, interviews.c.owner_id == owner_id,
+            ))
 
     def close(self) -> None:
         self.engine.dispose()

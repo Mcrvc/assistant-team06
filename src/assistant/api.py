@@ -21,7 +21,7 @@ from assistant.db import get_env_config, get_public_config, load_env_file
 from assistant.auth import SupabaseBearerAuth
 from assistant.interview_schemas import (
     CreatedInterview, CreateInterview, FinalizeInterview, InterviewView,
-    Progress, SaveProgress, SubmitAnswer,
+    Progress, RenameInterview, SaveProgress, SubmitAnswer,
 )
 from assistant.interview_runtime import configured_repository
 from assistant.interviews import InterviewError, InterviewService, progress, public_view
@@ -118,7 +118,7 @@ def create_app(*, service: InterviewService | None = None,
     origins = [origin.strip() for origin in os.environ.get("CORS_ORIGIN", "").split(",")
                if origin.strip() and origin.strip() != "*"]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True,
-                       allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+                       allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
                        allow_headers=["Content-Type", "Authorization"])
 
     @app.exception_handler(InterviewError)
@@ -214,12 +214,21 @@ def create_app(*, service: InterviewService | None = None,
     def finalize_interview(interview_id: UUID, payload: FinalizeInterview, user: User, service: Service):
         return public_view(service.finalize(user, str(interview_id), payload))
 
+    @app.put("/api/interviews/{interview_id}", response_model=InterviewView, tags=["Interviews"])
+    def rename_interview(interview_id: UUID, payload: RenameInterview, user: User, service: Service):
+        return public_view(service.rename(user, str(interview_id), payload.name))
+
+    @app.delete("/api/interviews/{interview_id}", status_code=204, tags=["Interviews"])
+    def delete_interview(interview_id: UUID, user: User, service: Service):
+        service.delete(user, str(interview_id))
+        return Response(status_code=204)
+
     # Profile/CV, history, report and feedback (Trương Bảo Anh), sharing the same
     # verified user and interview store. Must be registered before the catch-all.
     app.include_router(build_user_router(get_current_user, get_service))
 
     # API paths must never fall through to a static HTML error page.
-    @app.api_route("/api/{unknown:path}", methods=["GET", "POST", "PUT"], include_in_schema=False)
+    @app.api_route("/api/{unknown:path}", methods=["GET", "POST", "PUT", "DELETE"], include_in_schema=False)
     def unknown_api(unknown: str):
         raise InterviewError(404, "not_found", "API endpoint not found")
 

@@ -106,6 +106,10 @@ class SubmitAnswer(VersionedRequest):
         return self
 
 
+class RenameInterview(Contract):
+    name: ShortText
+
+
 class FinalizeInterview(VersionedRequest):
     name: ShortText | None = None
 
