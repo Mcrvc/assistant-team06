@@ -50,6 +50,15 @@ class SQLAlchemyInterviewRepository:
             )).first()
         return deepcopy(row[0]) if row else None
 
+    def list_for_owner(self, owner_id: str) -> list[dict]:
+        """All interviews of one owner, newest first (history page)."""
+        with self.engine.connect() as connection:
+            rows = connection.execute(select(interviews.c.payload).where(
+                interviews.c.owner_id == owner_id,
+            )).all()
+        items = [deepcopy(row[0]) for row in rows]
+        return sorted(items, key=lambda item: item.get("created_at", ""), reverse=True)
+
     def save(self, interview: dict, expected_version: int) -> None:
         with self.engine.begin() as connection:
             changed = connection.execute(update(interviews).where(
