@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import logging
 from typing import Callable, Protocol
 from uuid import uuid4
-from assistant.interview_ai import InterviewAI, SafeInterviewAI
+from assistant.interview_ai import InterviewAI, SafeInterviewAI, configured_ai
 from assistant.interview_schemas import CreateInterview, FinalizeInterview, SaveProgress, SubmitAnswer
 from assistant.interview_store import StoreConflict
 
@@ -48,7 +48,7 @@ def public_view(interview: dict) -> dict:
 class InterviewService:
     def __init__(self, repository: InterviewRepository, ai: InterviewAI | None = None) -> None:
         self.repository = repository
-        self.ai = SafeInterviewAI(ai)
+        self.ai = SafeInterviewAI(ai if ai is not None else configured_ai())
 
     def create(self, owner_id: str, request: CreateInterview) -> dict:
         generated = self.ai.generate_questions(request.job_profile.model_dump(), request.cv)

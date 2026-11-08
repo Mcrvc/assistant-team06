@@ -11,6 +11,23 @@ cũ ở `/` và `/prototype/`. Việc nối UI/Auth/AI được thực hiện �
 `frontend/js/config.js` lấy config cùng origin, không ghim port 8000; có thể đặt
 `window.YOURIN_API_URL` trước khi load script nếu chạy giao diện ở origin khác.
 
+### Adapter AI đã ghép
+
+`INTERVIEW_AI_PROVIDER=mock` là mặc định để chạy offline. Đặt `nvidia` và key
+`NVIDIA_API_KEY` (hoặc `LLM_API_KEY`) trong `.env` local để dùng code AI của nhóm.
+Không cần TinyFish cho luồng này: adapter gọi generator trực tiếp, không bật
+vòng research/fetch web. Provider tạo đúng 3 câu, rubric phải có tổng trọng số
+10; toàn bộ rubric được lưu cùng câu hỏi. Grader mới yêu cầu JSON có bằng chứng
+nguyên văn từ model, rồi backend kiểm tra; không tạo evidence giả để hợp thức hóa
+điểm. Output lỗi, thiếu điểm hoặc thiếu bằng chứng dùng fallback có cờ rõ ràng.
+
+`INTERVIEW_AI_TIMEOUT_S` mặc định 20, giới hạn 1–60 giây mỗi HTTP attempt.
+`AI_RETRIES`/`AI_RETRY_DELAY_S` điều khiển retry của code nhóm, example đặt 0 để
+tránh chờ lâu khi demo. CV không chuyển tới provider trừ khi người dùng chủ động
+đặt `INTERVIEW_ALLOW_CV_TO_AI=1`; cần thống nhất chính sách CV với nhóm trước khi
+dùng dữ liệu thật. Đây là đường code đã kiểm thử bằng provider giả, chưa có
+key để xác minh chất lượng hoặc tính khả dụng của dịch vụ NVIDIA thật.
+
 Phạm vi của Trần Bảo Anh: tạo interview, lưu/tiếp tục, nhận đáp án, gọi AI chấm
 nền, kiểm tra bằng chứng và finalize. Bản này chạy độc lập với **AI mẫu + SQLite
 qua SQLAlchemy**. Không cần key hay truy cập Supabase.

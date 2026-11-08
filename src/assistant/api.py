@@ -153,7 +153,8 @@ def create_app(*, service: InterviewService | None = None,
 
     @app.get("/api/config", tags=["Existing API"])
     def config():
-        return {**get_public_config(), "interviewDemoEnabled": enabled}
+        return {**get_public_config(), "interviewDemoEnabled": enabled,
+                "interviewCvEnabled": enabled or os.environ.get("INTERVIEW_ALLOW_CV_TO_AI") == "1"}
 
     @app.post("/api/answer", tags=["Existing API"])
     def legacy_answer(payload: dict):

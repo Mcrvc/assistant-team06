@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+import math
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -38,11 +39,29 @@ class Reference(Contract):
     excerpt: str = Field(min_length=1, max_length=8000)
 
 
+class RubricCriterion(Contract):
+    name: ShortText
+    points: float = Field(gt=0, le=10, allow_inf_nan=False)
+    good: str = Field(min_length=1, max_length=2000)
+
+
+class Rubric(Contract):
+    max_score: float = Field(default=10.0, ge=10, le=10)
+    criteria: list[RubricCriterion] = Field(min_length=1, max_length=6)
+
+    @model_validator(mode="after")
+    def total_matches(self) -> Rubric:
+        if not math.isclose(sum(c.points for c in self.criteria), self.max_score):
+            raise ValueError("Rubric criteria points must sum to 10")
+        return self
+
+
 class Question(Contract):
     text: str = Field(min_length=1, max_length=4000)
     source_type: Literal["open", "reference"]
     reference: Reference | None = None
     criteria: list[Annotated[str, Field(min_length=1, max_length=1000)]] = Field(min_length=1, max_length=6)
+    rubric: Rubric | None = None
 
     @model_validator(mode="after")
     def source_matches(self) -> Question:

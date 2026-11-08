@@ -7,7 +7,7 @@ shared database writes, deployment or messages to teammates are authorized.
 - [x] Preserve the tested local lifecycle as checkpoint `3d89d55` (41 tests).
 - [x] Bring in origin/frontend (including AI/authen), expose one ASGI app and a
   consistent install/configuration path while preserving the original prototype.
-- [ ] Add an opt-in real AI adapter, weighted rubrics, model-generated evidence,
+- [x] Add an opt-in real AI adapter, weighted rubrics, model-generated evidence,
   safe timeouts/fallback and explicit CV forwarding controls. Test without keys.
 - [ ] Add verified Supabase Bearer authentication matching the existing branches.
   Keep demo authentication explicitly local and separate from the production path.

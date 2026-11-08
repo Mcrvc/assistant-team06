@@ -234,12 +234,9 @@ def get_config() -> ServiceConfig:
         if candidate.is_file():
             _load_env_file(candidate)
             break
-    key = (
-        _env("NVIDIA_API_KEY")
-        or _env("NVAPI_KEY")
-        or _env("NVIDIA_KEY")
-        or _env("LLM_API_KEY")
-    )
+    key = next((_env(name) for name in (
+        "NVIDIA_API_KEY", "NVAPI_KEY", "NVIDIA_KEY", "LLM_API_KEY"
+    ) if _is_real_value(_env(name))), "")
     search_key = (
         _env("TINYFISH_API_KEY")
         or _env("TINYFISH_KEY")
