@@ -53,6 +53,9 @@ def test_http_full_lifecycle_and_progress(client):
 
 def test_cookie_required_and_demo_disabled_by_default(service, monkeypatch):
     monkeypatch.delenv("INTERVIEW_DEMO_ENABLED", raising=False)
+    # This case intentionally tests *unconfigured* real Auth. A developer's
+    # SUPABASE_URL/.env must not silently turn it into the configured JWT case.
+    monkeypatch.setenv("SUPABASE_URL", "")
     with client_for(create_app(service=service, demo_enabled=False)) as client:
         assert client.post("/api/demo/session").status_code == 404
         assert client.post("/api/interviews", json=JOB).status_code == 503
@@ -62,6 +65,23 @@ def test_cookie_required_and_demo_disabled_by_default(service, monkeypatch):
         assert "HttpOnly" in login.headers["set-cookie"]
         assert "SameSite=strict" in login.headers["set-cookie"]
         assert client.post("/api/interviews", json=JOB).status_code == 201
+
+
+def test_configured_supabase_without_token_is_401(service, monkeypatch):
+    # No real account/key or network request is needed to reject a missing token.
+    monkeypatch.setenv("SUPABASE_URL", "https://unit-test.supabase.co")
+    monkeypatch.setenv("SUPABASE_JWKS_URL", "")
+    app = create_app(service=service, demo_enabled=False)
+    assert app.state.token_auth is not None
+    def no_jwks_request(*args, **kwargs):
+        pytest.fail("Missing-token rejection must not contact Supabase")
+    monkeypatch.setattr(app.state.token_auth.jwks_client,
+                        "get_signing_key_from_jwt", no_jwks_request)
+    with client_for(app) as client:
+        response = client.post("/api/interviews", json=JOB)
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "authentication_required"
+        assert client.post("/api/demo/session").status_code == 404
 
 
 def test_demo_rejects_remote_clients_and_cross_origin_requests(service):
