@@ -1,5 +1,8 @@
 # assistant-team06 — Smart Virtual Assistant
 
+Yourin interview backend (local demo): see [the FastAPI walkthrough and API contract](docs/interview-api.md).
+This adds a separate `python -m assistant --interview-api` entry point; the CLI and `--ui` below still work.
+
 Small rule-based study assistant for CSC10014 Lab 1. Follow the steps below and it must run without extra help.
 
 ## Setup
