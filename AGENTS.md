@@ -10,6 +10,24 @@
 
 ## Cập nhật sau khảo sát: triển khai local đã được cho phép
 
+### Review PR #41 (mới nhất)
+
+- Người dùng chuyển yêu cầu review của Trương Bảo Anh. Đã review PR #41 head
+  `6ebf1b3` / base `cb94194` trong worktree data/private/review-pr41. Không merge,
+  approve hoặc đăng comment/tin nhắn. Báo cáo: `docs/reviews/PR-41.md`.
+- PR thêm user_api.py, list_for_owner và router trước catch-all. Suite nguyên
+  trạng **192 passed**, gồm 13 PostgreSQL thật và 8 browser tests. CI head success.
+- Hai P2 đã tái hiện: feedback nhận session_id của user khác mà không kiểm tra
+  ownership (201); khởi tạo InMemoryProfileStore lazy bị race khiến một CV mất
+  ngay sau hai PUT đầu đều 200. Cần tác giả sửa, không tự báo PR được chấp thuận.
+- Lỗi test khi có SUPABASE_URL có sẵn cả ở base. Đã sửa test trên nhánh mình ở
+  `f8dd859`: case unconfigured đặt URL rỗng; test riêng configured/no-token →401
+  không network. 44 tests API/Auth qua khi URL được bật; PR + fix thử **193 passed**.
+- Đã kiểm tra thêm PostgreSQL list owner/order/legacy-filter. Các regression
+  probes nằm data/private/test_review_pr41.py, không đưa test fail vào suite base.
+  CV/feedback của PR chỉ RAM là WIP đã khai báo; chưa trở thành tính năng của
+  nhánh base vì PR chưa merge. Còn chờ tác giả chỉnh hai findings và review lại.
+
 ### Chia sẻ nhánh WIP theo yêu cầu mới nhất
 
 - Người dùng đã **cho phép push nhánh riêng** `feat/LOCAL-01-interview-lifecycle`
