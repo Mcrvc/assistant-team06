@@ -215,6 +215,19 @@ class PostgresInterviewRepository:
             raise StorageFormatError("Interview answers are incomplete")
         return deepcopy(item)
 
+    def list_for_owner(self, owner_id: str) -> list[dict]:
+        """All interviews of one owner, newest first (history page)."""
+        try:
+            owner = str(UUID(owner_id))
+        except ValueError:
+            return []
+        with self.engine.connect() as connection:
+            ids = connection.execute(select(sessions.c.id).where(
+                sessions.c.user_id == owner, sessions.c.interview_format == 1,
+            ).order_by(sessions.c.created.desc())).scalars().all()
+        items = [self.get(interview_id, owner) for interview_id in ids]
+        return [item for item in items if item is not None]
+
     def save(self, interview: dict, expected_version: int) -> None:
         with self.engine.begin() as connection:
             changed = connection.execute(update(sessions).where(

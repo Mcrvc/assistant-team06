@@ -22,6 +22,7 @@ class InterviewRepository(Protocol):
     def create(self, interview: dict) -> None: ...
     def get(self, interview_id: str, owner_id: str) -> dict | None: ...
     def save(self, interview: dict, expected_version: int) -> None: ...
+    def list_for_owner(self, owner_id: str) -> list[dict]: ...
 
 
 def _now() -> str:
@@ -70,6 +71,10 @@ class InterviewService:
         if interview is None:
             raise InterviewError(404, "not_found", "Interview not found")
         return interview
+
+    def list(self, owner_id: str) -> list[dict]:
+        """Every interview of `owner_id`, newest first (used by the history API)."""
+        return self.repository.list_for_owner(owner_id)
 
     def _change(self, owner_id: str, interview_id: str, revision: int,
                 change: Callable[[dict], None]) -> dict:

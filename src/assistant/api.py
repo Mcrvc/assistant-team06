@@ -25,6 +25,7 @@ from assistant.interview_schemas import (
 )
 from assistant.interview_runtime import configured_repository
 from assistant.interviews import InterviewError, InterviewService, progress, public_view
+from assistant.user_api import build_router as build_user_router
 from assistant.web import handle_api_answer
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -117,7 +118,7 @@ def create_app(*, service: InterviewService | None = None,
     origins = [origin.strip() for origin in os.environ.get("CORS_ORIGIN", "").split(",")
                if origin.strip() and origin.strip() != "*"]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True,
-                       allow_methods=["GET", "POST", "OPTIONS"],
+                       allow_methods=["GET", "POST", "PUT", "OPTIONS"],
                        allow_headers=["Content-Type", "Authorization"])
 
     @app.exception_handler(InterviewError)
@@ -213,8 +214,12 @@ def create_app(*, service: InterviewService | None = None,
     def finalize_interview(interview_id: UUID, payload: FinalizeInterview, user: User, service: Service):
         return public_view(service.finalize(user, str(interview_id), payload))
 
+    # Profile/CV, history, report and feedback (Trương Bảo Anh), sharing the same
+    # verified user and interview store. Must be registered before the catch-all.
+    app.include_router(build_user_router(get_current_user, get_service))
+
     # API paths must never fall through to a static HTML error page.
-    @app.api_route("/api/{unknown:path}", methods=["GET", "POST"], include_in_schema=False)
+    @app.api_route("/api/{unknown:path}", methods=["GET", "POST", "PUT"], include_in_schema=False)
     def unknown_api(unknown: str):
         raise InterviewError(404, "not_found", "API endpoint not found")
 
