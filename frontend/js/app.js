@@ -1467,6 +1467,24 @@
   ) {
     const interview = activeInterview() || startInterview();
 
+    if (
+      interview.backend &&
+      window.YourinInterviews &&
+      typeof window.YourinInterviews.restore === "function"
+    ) {
+      const hasLocalAnswers = (interview.answers || []).some(text =>
+        String(text || "").trim()
+      );
+
+      if (!hasLocalAnswers) {
+        try {
+          await window.YourinInterviews.restore(interview);
+        } catch (err) {
+          if (typeof apiError === "function") apiError(err);
+        }
+      }
+    }
+
     const questions = interview.questions || DATA.questions || [
       "Imagine you're tasked with curating a time capsule that defines the year 2026 for an alien civilization. What are three objects you put inside?",
       "To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles, and by opposing end them.",
@@ -2377,10 +2395,56 @@
     }
 
     renderInterviews();
+
+    (async () => {
+      if (!window.YourinAPI?.getInterviews) return;
+      const response = await window.YourinAPI.getInterviews();
+      if (!response?.ok || !Array.isArray(response.data?.interviews)) return;
+
+      let changed = false;
+      const byId = new Map(
+        account.interviews.map(item => [item.id, item])
+      );
+
+      for (const item of response.data.interviews) {
+        const local = byId.get(item.id);
+        if (local) {
+          if (local.name !== item.name) {
+            local.name = item.name;
+            changed = true;
+          }
+          if (local.finished !== item.finished) {
+            local.finished = item.finished;
+            changed = true;
+          }
+          if (!local.backend) {
+            local.backend = true;
+            changed = true;
+          }
+        } else {
+          account.interviews.unshift({
+            id: item.id,
+            name: item.name,
+            date: new Date(item.created_at).toLocaleDateString("en-GB"),
+            finished: item.finished,
+            answers: ["", "", ""],
+            cv: ["", "", "", ""],
+            cvPdf: null,
+            cvMode: "text",
+            job: item.job_profile || {},
+            backend: true
+          });
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        save();
+        renderInterviews();
+      }
+    })();
   }
 
-  // ============================================================
-  // REPORT PAGE
   // ============================================================
 
   if (page === "report") {
