@@ -314,7 +314,7 @@ def call_with_retry(
             last_error = exc
             if attempt > tries:
                 break
-            _log(f"{label} failed ({type(exc).__name__}: {exc}); "
+            _log(f"{label} failed ({type(exc).__name__}); "
                  f"retry {attempt}/{tries} in {delay:g}s")
             time.sleep(delay)
         except Exception as exc:  # noqa: BLE001 - re-raise non-retryable faults
@@ -344,16 +344,13 @@ def _http_json(
         with urllib.request.urlopen(request, timeout=timeout_s) as response:
             return response.status, json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", "replace")
-        try:
-            body = json.loads(raw)
-        except json.JSONDecodeError:
-            body = {"_raw": raw[:2000]}
+        # Provider bodies may echo credentials or user content; never log/return them.
+        exc.close()
         if exc.code == 429:
-            raise AiUnavailableError(f"rate limited by {url}: {_short(body)}") from exc
+            raise AiUnavailableError("AI provider rate limited the request") from exc
         if 500 <= exc.code < 600:
-            raise AiUnavailableError(f"server error {exc.code} from {url}: {_short(body)}") from exc
-        raise AiResponseError(f"HTTP {exc.code} from {url}: {_short(body)}") from exc
+            raise AiUnavailableError(f"AI provider returned HTTP {exc.code}") from exc
+        raise AiResponseError(f"AI provider returned HTTP {exc.code}") from exc
     except urllib.error.URLError as exc:
         if isinstance(exc.reason, TimeoutError) or "timed out" in str(exc.reason).lower():
             raise AiTimeoutError(f"{method} {url} timed out after {timeout_s:g}s") from exc
@@ -596,7 +593,7 @@ def _fallback_answer(question: str, error: BaseException | None) -> AiAnswer:
         model="stub-rules",
         used_fallback=True,
         usage=None,
-        error=(f"{type(error).__name__}: {error}" if error else None),
+        error=(type(error).__name__ if error else None),
     )
 
 

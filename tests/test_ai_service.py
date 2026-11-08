@@ -404,4 +404,16 @@ def test_placeholder_values_are_not_keys():
     for placeholder in ("fake_key", "faeke_key", "_insert_your_key_here",
                         "insert_key", "your_key", "changeme"):
         assert ai._is_real_value(placeholder) is False
+
+
+def test_retry_logs_and_public_fallback_do_not_echo_private_provider_errors(monkeypatch, capsys):
+    private = "private-key-or-cv-must-not-be-echoed"
+    def fail(*args, **kwargs):
+        raise AiUnavailableError(private)
+    monkeypatch.setattr(ai, "_chat_completion", fail)
+    monkeypatch.setenv("AI_RETRIES", "1")
+    result = answer("hi")
+    assert private not in capsys.readouterr().out
+    assert private not in result.error
+    assert result.error == "AiUnavailableError"
     assert ai._is_real_value("sk-or-really-a-key") is True
