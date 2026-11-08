@@ -189,3 +189,20 @@ def test_browser_fabricated_evidence_blocks_report(running_app, browser_page):
     ready(page)
     assert page.locator(".report-evidence").count() == 3
     assert errors == []
+
+
+def test_browser_sign_out_saves_current_draft_before_clearing_session(running_app, browser_page):
+    base, app = running_app
+    page, context, errors = browser_page
+    sign_in(page, base)
+    create_interview(page, base)
+    page.locator("#answer").fill("Draft saved even when signing out immediately.")
+    page.locator("[data-sign-out]").click()
+    page.locator("#exit-modal-confirm-btn").click()
+    page.wait_for_url("**/sign-in.html")
+    ready(page)
+    sign_in(page, base)
+    page.goto(base + "/app/interview.html")
+    ready(page)
+    assert page.locator("#answer").input_value() == "Draft saved even when signing out immediately."
+    assert errors == []

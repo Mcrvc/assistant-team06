@@ -113,3 +113,41 @@ def test_placeholder_nvidia_key_does_not_hide_the_shared_llm_key(monkeypatch):
     monkeypatch.setenv("NVIDIA_API_KEY", "insert_your_key_here")
     monkeypatch.setenv("LLM_API_KEY", "unit-test-key-not-real")
     assert ai.get_config().nvidia_api_key == "unit-test-key-not-real"
+
+
+def test_team_generator_and_grader_integrate_through_http_to_non_mock_report(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    from assistant.api import create_app
+    from assistant.interviews import InterviewService
+    from assistant.interview_store import SQLAlchemyInterviewRepository
+    calls = []
+    monkeypatch.setenv("NVIDIA_MODEL", "unit-team-provider")
+    def complete(messages, **options):
+        calls.append(messages)
+        if "keys score" in messages[0]["content"]:
+            payload = {"score": 7.0, "feedback": "Clear actions", "evidence": ["wrote tests"]}
+        else:
+            payload = generation()
+        return ai.Completion(text=json.dumps(payload), model="unit-team-provider")
+    monkeypatch.setattr(aiworker, "complete", complete)
+    repository = SQLAlchemyInterviewRepository.local(tmp_path / "provider-http.sqlite")
+    try:
+        app = create_app(service=InterviewService(repository, TeamInterviewAI()), demo_enabled=True)
+        with TestClient(app, base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
+            client.post("/api/demo/session")
+            created = client.post("/api/interviews", json={"job_profile": JOB}).json()
+            path = f'/api/interviews/{created["id"]}'
+            revision = 0
+            for index in range(3):
+                result = client.post(path + f"/answers/{index}", json={
+                    "revision": revision, "text": "I wrote tests and checked the result.",
+                })
+                assert result.status_code == 202
+                revision = result.json()["revision"]
+            completed = client.post(path + "/finalize", json={"revision": revision})
+            assert completed.status_code == 200
+            assert completed.json()["report"]["used_fallback"] is False
+            assert completed.json()["report"]["items"][0]["question"]["rubric"]["criteria"][0]["points"] == 6
+            assert len(calls) == 4
+    finally:
+        repository.close()

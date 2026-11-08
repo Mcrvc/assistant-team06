@@ -70,6 +70,15 @@ def test_missing_token_and_unknown_kid(signer):
         with pytest.raises(InterviewError) as exc:
             verifier.authenticate(header)
         assert exc.value.status == 401
+    import base64
+    import json
+    parts = sign().split(".")
+    header = jwt.get_unverified_header(".".join(parts))
+    header["kid"] = "unknown-key"
+    parts[0] = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
+    with pytest.raises(InterviewError) as exc:
+        verifier.authenticate("Bearer " + ".".join(parts))
+    assert exc.value.status == 401
 
 
 def test_jwks_outage_is_retryable_503(signer):

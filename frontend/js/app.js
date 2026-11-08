@@ -443,6 +443,8 @@
   // Sign out through Supabase.
   $$("[data-sign-out]").forEach(link => {
     link.addEventListener("click", async event => {
+      // The interview exit flow must persist the draft before ending the session.
+      if (page === "interview") return;
       event.preventDefault();
 
       try {
@@ -1798,6 +1800,14 @@
 
           exitModalConfirmBtn.href = destination;
           exitModalConfirmBtn.textContent = "Proceed";
+          exitModalConfirmBtn.onclick = async event => {
+            if (destination !== "sign-in.html") return;
+            event.preventDefault();
+            try {
+              await window.YourinAPI.signOut();
+              go(destination);
+            } catch (err) { apiError(err); }
+          };
         }
 
         exitModal.classList.remove("is-hidden");
