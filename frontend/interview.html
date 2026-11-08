@@ -166,7 +166,11 @@
           <span class="composer-word-count" id="answer-char-count">0 characters</span>
         </div>
         <div class="field answer-field">
-          <textarea id="answer" data-answer="0" rows="6" maxlength="10000" placeholder="Type or record your answer..."></textarea>
+          <textarea id="answer" data-answer="0" rows="6" maxlength="10000" placeholder="Type or record your answer..." aria-invalid="false" aria-describedby="answer-char-count answer-error"></textarea>
+          <p class="answer-validation-error" id="answer-error" role="alert" aria-atomic="true" hidden>
+            <span class="answer-error-icon" aria-hidden="true">!</span>
+            <span id="answer-error-text"></span>
+          </p>
         </div>
 
         <!-- Prominent Voice Recording Dock -->

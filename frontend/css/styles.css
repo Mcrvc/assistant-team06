@@ -63,6 +63,9 @@ h3 { font-size: 18px; font-weight: 600; }
 input::placeholder, textarea::placeholder { color: #82918f; opacity: 1; }
 .form-error { color: #943c34; background: #fbede8; border-left: 3px solid #b76c5e; border-radius: 5px; padding: 10px 12px; font-size: 14px; }
 .form-status { color: #33635a; font-size: 14px; }
+.answer-validation-error { display: flex; align-items: flex-start; gap: 12px; margin: 4px 0 0; padding: 16px; border: 2px solid #b42318; border-radius: 10px; background: #fff1f0; color: #861b13; font-size: 16px; font-weight: 700; line-height: 1.5; }
+.answer-error-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px; height: 24px; border-radius: 50%; background: #b42318; color: #fff; font-weight: 800; }
+#answer[aria-invalid="true"] { border: 2px solid #b42318; box-shadow: 0 0 0 4px rgb(180 35 24 / 15%); }
 .demo-note { font-size: 12px; color: var(--muted); line-height: 1.6; }
 .auth-page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(400px, 1fr); }
 .auth-brand {

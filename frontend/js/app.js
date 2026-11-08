@@ -1499,6 +1499,20 @@
     const questionBadge = $("#question-badge");
     const questionText = $("#question-text");
     const answerInput = $("#answer");
+    const answerError = $("#answer-error");
+    function clearAnswerError() {
+      if (answerError) answerError.hidden = true;
+      answerInput?.setAttribute("aria-invalid", "false");
+    }
+    function requireAnswer() {
+      if (answerInput?.value.trim()) return true;
+      $("#answer-error-text").textContent = `Please enter an answer to Question ${currentStep + 1} before continuing.`;
+      answerError.hidden = false;
+      answerInput.setAttribute("aria-invalid", "true");
+      answerInput.focus();
+      answerInput.scrollIntoView({ block: "center" });
+      return false;
+    }
     const charCountEl = $("#answer-char-count");
     const prevBtn = $("#prev-question-btn");
     const nextBtn = $("#next-question-btn");
@@ -1688,6 +1702,7 @@
 
     if (answerInput) {
       answerInput.addEventListener("input", () => {
+        if (answerInput.value.trim()) clearAnswerError();
         interview.answers[currentStep] = answerInput.value;
         interview.dirty = true;
         save();
@@ -1754,6 +1769,7 @@
     if (nextBtn) {
       nextBtn.addEventListener("click", async () => {
         if (savingAction) return;
+        if (!requireAnswer()) return;
         if (answerInput) {
           interview.answers[currentStep] = answerInput.value;
         }

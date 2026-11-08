@@ -148,9 +148,13 @@ def test_browser_draft_autosave_survives_reload_and_empty_answer_is_blocked(runn
     sign_in(page, base)
     create_interview(page, base)
     page.locator("#next-question-btn").click()
-    page.wait_for_selector("#interview-api-error")
-    assert "Please answer" in page.locator("#interview-api-error").inner_text()
+    page.wait_for_selector("#answer-error")
+    assert "Please enter an answer" in page.locator("#answer-error").inner_text()
+    assert page.locator("#answer").get_attribute("aria-invalid") == "true"
+    assert page.locator("#answer").evaluate("element => element === document.activeElement")
     page.locator("#answer").fill("Draft persisted by the autosave request.")
+    assert page.locator("#answer-error").is_hidden()
+    assert page.locator("#answer").get_attribute("aria-invalid") == "false"
     page.wait_for_function("JSON.parse(localStorage.getItem('yourin-poc-v2:local-demo')).accounts[0].interviews[0].dirty === false")
     page.reload()
     ready(page)
