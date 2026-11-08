@@ -29,8 +29,9 @@ Nguồn đã ghép: `origin/frontend` (`08b8ceb`), chứa `AI` (`32d6f69`) và
 
 ## Còn cần thông tin hoặc phối hợp trước khi tích hợp thật
 
-6. [ ] **Schema/migrations từ Huy.** Supabase MCP chỉ đọc đã kết nối; lần khảo sát
-   public có 0 bảng. Khi có schema, map repository và test trên PostgreSQL local,
+6. [ ] **Đối chiếu schema/migrations với Huy.** Supabase MCP chỉ đọc đã kết nối;
+   lần kiểm tra mới nhất đã có 9 bảng (xem `docs/backend-handoff.md`). Schema
+   còn lệch session/report/CV local; cần chốt mapping rồi test trên PostgreSQL local,
    rồi mới ghép môi trường nhóm theo quyền đã thống nhất. Không tự tạo bảng chung.
 7. [ ] **AI key và thử model thật.** Đường code đã có, chưa có API key thực tế để
    xác minh provider/chất lượng. Ngân hàng câu hỏi có nguồn/research chưa được bật.

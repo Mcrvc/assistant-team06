@@ -55,6 +55,10 @@
 
 ### Supabase MCP: đã xác nhận kết nối chỉ đọc
 
+- **Snapshot mới nhất khi trả lời Trương Bảo Anh:** public hiện đã có **9 bảng**: accounts, domains, rubrics, questions, sessions, session_questions, answers, grades, feedback. RLS bật. Đã đọc lại columns/FK, không đọc rows. Nhận định public=0 phía dưới là snapshot cũ.
+- Handoff/đề xuất cho Backend còn lại tại `docs/backend-handoff.md`. CV hiện chỉ thấy `sessions.parsed_cv`, chưa có CV mặc định trong accounts. Report tổng hợp từ sessions/questions/answers/grades; grades có level/competency/evidence_quoted/accepted, chưa đủ nguyên report local. Feedback đã có đúng field grade_rating/quality_rating/difficulty/comments/would_recommend theo draft contract, nhưng UI còn 4 câu tự do: cần nhóm chốt, không tự ép text thành điểm.
+- Schema mới chưa được nối vào runtime local và còn lệch snapshot/session/report local; cần thống nhất mapping/migration, không tự ghi cloud. Teammate hỏi nơi viết API, CV/report/feedback, env và dùng chung token/branch; câu trả lời là đề xuất dùng chung FastAPI và verifier đã có. Các commits vẫn local, chưa push cho teammate pull.
+
 - Project nhóm: `ct-team06`, ref `qutiahnegjzgbxjopsqe`.
 - OAuth từ tài khoản người dùng bị chặn bởi yêu cầu Owner/Admin của tổ chức. Không coi lời mời thành viên là đủ để approve ứng dụng OAuth.
 - Người dùng đã tạo và copy PAT giới hạn một project, **Database Read**, thời hạn 7 ngày (đã xem trang review quyền, không xem giá trị token).

@@ -3,6 +3,7 @@
 This directory contains documentation related to the Smart Virtual Assistant project:
 - `interview-api.md`: Local FastAPI interview lifecycle, background grading/evidence guard, API examples and integration handoff.
 - `backend-progress.md`: Completed local functionality, verification results and remaining integration work.
+- `backend-handoff.md`: Verified new Supabase schema and proposed shared API/Auth boundaries for the other backend owner.
 - `integration-todo.md`: Ordered plan for joining the local interview lifecycle with AI, Auth, Frontend and the future team database schema.
 - `backlog/LOCAL-01-interview-lifecycle.md`: Local backlog scope and acceptance criteria for the interview backend.
 - `team.md`: Team members' information and assigned tasks.

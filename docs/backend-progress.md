@@ -114,6 +114,11 @@ hộp cảnh báo của browser. Kiểm chứng mới nhất **117 tests, 8 brow
 
 ## Còn cần làm trước khi gọi là tích hợp hoàn chỉnh
 
+**Cập nhật sau khi Trương Bảo Anh hỏi điểm ghép:** đã đọc lại Supabase và public
+hiện có **9 bảng**, không còn là snapshot rỗng. Columns/FK và các điểm chưa
+khớp CV/report/feedback được ghi tại [backend-handoff.md](backend-handoff.md).
+Chưa sửa cloud hoặc ánh xạ repository runtime sang các bảng mới.
+
 Cập nhật khảo sát Supabase ngày 08/11/2026: **đã kết nối MCP chỉ đọc thành công**
 vào project `ct-team06` (`qutiahnegjzgbxjopsqe`). Server xác nhận
 `transaction_read_only=on`, role `supabase_read_only_user`. `list_tables` và
