@@ -19,8 +19,17 @@
   function updateVersion(item, data) {
     item.serverRevision = data.revision;
     item.serverAnswers = data.answers;
+    item.serverCurrentQuestion = data.current_question;
     item.progress = data.progress;
     item.report = data.report;
+  }
+  function hasUnsavedChanges(item) {
+    return item.answers.some((text, index) => text !== item.serverAnswers?.[index]?.text);
+  }
+  function discard(item) {
+    item.answers = item.serverAnswers.map(answer => answer.text);
+    item.currentQuestion = item.serverCurrentQuestion || 0;
+    item.dirty = false;
   }
   function apply(item, data) {
     Object.assign(item, {
@@ -59,15 +68,16 @@
   async function restore(item) {
     return apply(item, checked(await window.YourinAPI.getInterview(item.id)));
   }
-  function save(item, currentQuestion, status = "in_progress") {
+  function save(item, currentQuestion, status = "in_progress", includeAnswers = true) {
     const answers = [...item.answers];
     return enqueue(async () => {
       const data = checked(await window.YourinAPI.saveProgress(item.id, {
-        revision: item.serverRevision, answers, current_question: currentQuestion, status,
+        revision: item.serverRevision, ...(includeAnswers ? { answers } : {}),
+        current_question: currentQuestion, status,
       }));
       updateVersion(item, data);
       item.currentQuestion = currentQuestion;
-      if (JSON.stringify(item.answers) === JSON.stringify(answers)) item.dirty = false;
+      item.dirty = hasUnsavedChanges(item);
       return data;
     });
   }
@@ -79,7 +89,7 @@
       const key = JSON.stringify([item.id, index, text]);
       if (!force && known?.text === text && (known.grading_status === "graded"
           || (known.grading_status === "pending" && submittedHere.has(key)))) {
-        item.dirty = false;
+        item.dirty = hasUnsavedChanges(item);
         return;
       }
       const data = checked(await window.YourinAPI.submitAnswer(item.id, index, {
@@ -87,7 +97,7 @@
       }));
       updateVersion(item, data);
       submittedHere.add(key);
-      if (item.answers[index] === text) item.dirty = false;
+      item.dirty = hasUnsavedChanges(item);
     });
   }
   async function retryPending(item) {
@@ -117,5 +127,5 @@
     }));
     return apply(item, data);
   }
-  window.YourinInterviews = { create, restore, save, submit, finalize, retryPending };
+  window.YourinInterviews = { create, restore, save, submit, finalize, retryPending, hasUnsavedChanges, discard };
 })();

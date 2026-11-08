@@ -55,8 +55,15 @@ Tạo Job Profile, gửi từng đáp án, Save & Exit, Continue và View Report
 backend. Câu hỏi, feedback, bằng chứng và điểm lấy từ dữ liệu server; giao diện
 hiển thị rõ khi có mock/fallback. Không dùng timer để giả lập việc tạo buổi/chấm.
 
-Draft tự lưu sau 700ms ngừng nhập; Next/Previous/Save & Exit chờ lưu thành công.
-Draft chưa lưu có cảnh báo khi đóng tab. Chấm nền có số answered/graded/pending;
+Theo cập nhật LOCAL-03, draft **không tự lưu lên server khi gõ**. Next gửi/lưu
+câu hiện tại và cập nhật vị trí; Previous chỉ di chuyển giữa các draft trên máy.
+Rời trang qua menu/đăng xuất/Back hỏi **Save & exit / Leave without saving /
+Keep answering**. Chỉ Save & exit gửi toàn bộ draft/vị trí lên server; discard
+dùng snapshot đã xác nhận gần nhất, không cần request server và giữ các câu đã
+submit trước đó. Cancel/Escape giữ nguyên draft và đưa focus về ô trả lời.
+Nếu lưu lỗi, giữ hộp hỏi và thông báo rõ, không tự thoát hoặc xóa phiên đăng nhập.
+Đóng tab/reload với draft chưa lưu dùng hộp cảnh báo native của browser, không
+thể hiển thị ba lựa chọn tùy chỉnh ở bước đóng trang. Chấm nền có số answered/graded/pending;
 View Report chờ chấm tối đa 90 giây rồi giữ người dùng ở trang hoàn tất nếu lỗi.
 Nút Retry incomplete grading gửi lại các câu chưa chấm hợp lệ; không ghi đè
 các câu đã graded. Guard từ chối evidence bịa vẫn ngăn hiển thị báo cáo.

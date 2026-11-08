@@ -1994,6 +1994,11 @@ td:first-child { max-width: 320px; overflow-wrap: anywhere; }
 .dialog-backdrop { position: fixed; z-index: 200; inset: 0; width: 100vw; height: 100vh; background: rgb(24 42 46 / 45%); display: grid; place-items: center; padding: 30px; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
 .saved-dialog { max-width: 480px; width: 100%; border: 1px solid var(--line); background: var(--cream); text-align: center; border-radius: 20px; padding: 44px; box-shadow: 0 24px 80px rgb(0 0 0 / 16%); }
 .saved-dialog h1 { font-size: 26px; letter-spacing: -.5px; line-height: 1.5; margin: 22px 0 36px; overflow-wrap: anywhere; }
+.interview-exit-dialog { max-width: 540px; padding: clamp(24px, 5vw, 40px); }
+.interview-exit-dialog h2 { margin: 22px 0 16px; font-size: 26px; line-height: 1.3; }
+.exit-dialog-actions { display: grid; gap: 12px; margin-top: 24px; }
+.exit-dialog-actions .btn { width: 100%; }
+.interview-exit-dialog .form-error { text-align: left; }
 .completion-page { display: grid; place-items: center; }
 .completion { width: 100%; max-width: 680px; padding: 64px; text-align: center; }
 .completion h1 { line-height: 1.25; margin-bottom: 24px; }

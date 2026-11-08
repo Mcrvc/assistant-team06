@@ -17,10 +17,12 @@ Nguồn đã ghép: `origin/frontend` (`08b8ceb`), chứa `AI` (`32d6f69`) và
 3. [x] **Adapter Supabase Auth.** Xác minh Bearer token/JWKS, chữ ký RSA/ECDSA,
    issuer/audience/expiry/role/user ID và lọc quyền sở hữu. Demo cookie local giữ
    riêng. Chưa chứng minh đăng nhập thật với project nhóm.
-4. [x] **Frontend interview.** Tạo buổi, lấy câu hỏi/ID server, autosave, Next/Prev,
+4. [x] **Frontend interview.** Tạo buổi, lấy câu hỏi/ID server, Next/Prev,
    lưu dở/tiếp tục, chấm từng câu, polling, finalize và báo cáo đã lưu. Retry
    incomplete grading; evidence sai chặn báo cáo; đăng xuất đợi lưu draft.
-5. [x] **Kiểm thử bản ghép local.** 114 tests passed, gồm 5 browser tests Chrome
+   LOCAL-03 thay autosave bằng lựa chọn Save & exit / Leave without saving /
+   Keep answering; chỉ lưu khi người dùng chọn hoặc submit bằng Next.
+5. [x] **Kiểm thử bản ghép local.** 117 tests passed, gồm 8 browser tests Chrome
    headless/Uvicorn/SQLite với network ngoài loopback bị chặn. Test provider code
    qua HTTP bằng completion giả; test JWT bằng key sinh riêng. check_env và
    pip check qua. Chi tiết checkpoint tại `docs/backend-progress.md`.

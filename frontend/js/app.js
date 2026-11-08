@@ -1468,10 +1468,9 @@
     window.addEventListener("pagehide", () => clearInterval(progressTimer));
 
     let currentStep = interview.currentQuestion || 0;
-    let autosaveTimer = null;
     let savingAction = false;
-    const persist = (status = "in_progress", position = currentStep) =>
-      window.YourinInterviews.save(interview, position, status).then(() => save());
+    const persist = (status = "in_progress", position = currentStep, includeAnswers = true) =>
+      window.YourinInterviews.save(interview, position, status, includeAnswers).then(() => save());
     window.addEventListener("beforeunload", event => {
       if (interview.dirty) { event.preventDefault(); event.returnValue = ""; }
     });
@@ -1523,6 +1522,10 @@
     const exitModal = $("#interview-exit-modal");
     const exitModalName = $("#saved-name");
     const exitModalConfirmBtn = $("#exit-modal-confirm-btn");
+    const exitModalDiscardBtn = $("#exit-modal-discard-btn");
+    const exitModalCancelBtn = $("#exit-modal-cancel-btn");
+    const exitModalError = $("#exit-modal-error");
+    let exitDestination = "dashboard.html";
 
     const robotStage = $("#robot-stage");
     const robotReplayBtn = $("#robot-replay-btn");
@@ -1651,6 +1654,7 @@
     }
 
     function renderStep(index) {
+      clearAnswerError();
       currentStep = Math.max(
         0,
         Math.min(index, totalQuestions - 1)
@@ -1704,12 +1708,10 @@
       answerInput.addEventListener("input", () => {
         if (answerInput.value.trim()) clearAnswerError();
         interview.answers[currentStep] = answerInput.value;
-        interview.dirty = true;
+        interview.dirty = window.YourinInterviews.hasUnsavedChanges(interview);
         save();
         updateCharCount();
         updateGazeOnTyping();
-        clearTimeout(autosaveTimer);
-        autosaveTimer = setTimeout(() => persist().catch(apiError), 700);
       });
 
       answerInput.addEventListener("focus", () => {
@@ -1755,13 +1757,9 @@
             interview.answers[currentStep] = answerInput.value;
           }
 
-          savingAction = true;
-          clearTimeout(autosaveTimer);
-          try {
-            await persist("in_progress", currentStep - 1);
-            renderStep(currentStep - 1);
-          } catch (err) { apiError(err); }
-          finally { savingAction = false; }
+          // Moving back keeps drafts on this device; it does not submit or save them.
+          renderStep(currentStep - 1);
+          save();
         }
       });
     }
@@ -1777,11 +1775,10 @@
         savingAction = true;
         nextBtn.disabled = true;
         if (answerInput) answerInput.disabled = true;
-        clearTimeout(autosaveTimer);
         try {
           await window.YourinInterviews.submit(interview, currentStep);
           if (currentStep < totalQuestions - 1) {
-            await persist("in_progress", currentStep + 1);
+            await persist("in_progress", currentStep + 1, false);
             renderStep(currentStep + 1);
           } else {
             save();
@@ -1792,55 +1789,73 @@
       });
     }
 
-    // Save and exit handling.
-    async function triggerSaveAndExit(targetHref) {
+    // Ask first. No server write happens until the user chooses Save & exit.
+    function triggerSaveAndExit(targetHref) {
       if (savingAction) return;
       if (answerInput) {
         interview.answers[currentStep] = answerInput.value;
       }
 
-      clearTimeout(autosaveTimer);
+      exitDestination = targetHref || "dashboard.html";
+      exitModalName.textContent = interview.name;
+      exitModalError.hidden = true;
+      exitModal.classList.remove("is-hidden");
+      [$(".site-header"), $("main"), $(".site-footer")].forEach(element => {
+        if (element) element.inert = true;
+      });
+      exitModalCancelBtn.focus();
+    }
+
+    function cancelExit() {
+      if (savingAction) return;
+      exitModal.classList.add("is-hidden");
+      [$(".site-header"), $("main"), $(".site-footer")].forEach(element => {
+        if (element) element.inert = false;
+      });
+      answerInput.focus();
+    }
+
+    async function finishExit(shouldSave) {
+      if (savingAction) return;
       savingAction = true;
-      try { await persist("interrupted"); }
-      catch (err) { apiError(err); return; }
-      finally { savingAction = false; }
-
-      if (exitModal) {
-        if (exitModalName) {
-          exitModalName.textContent = interview.name;
+      const buttons = [exitModalConfirmBtn, exitModalDiscardBtn, exitModalCancelBtn];
+      buttons.forEach(button => { button.disabled = true; });
+      exitModalError.hidden = true;
+      try {
+        if (shouldSave) {
+          await persist("interrupted");
+        } else {
+          // Revert to the last confirmed snapshot; discard must also work offline.
+          window.YourinInterviews.discard(interview);
+          save();
         }
-
-        if (exitModalConfirmBtn) {
-          const destination =
-            targetHref || "dashboard.html";
-
-          exitModalConfirmBtn.href = destination;
-          exitModalConfirmBtn.textContent = "Proceed";
-          exitModalConfirmBtn.onclick = async event => {
-            if (destination !== "sign-in.html") return;
-            event.preventDefault();
-            try {
-              await window.YourinAPI.signOut();
-              go(destination);
-            } catch (err) { apiError(err); }
-          };
-        }
-
-        exitModal.classList.remove("is-hidden");
-
-        const header = $(".site-header");
-        const mainPanel = $(".interview-panel");
-        const footer = $(".site-footer");
-
-        if (header) header.inert = true;
-        if (mainPanel) mainPanel.inert = true;
-        if (footer) footer.inert = true;
-
-        exitModalConfirmBtn?.focus();
-      } else {
-        go("interview-interrupt.html");
+        if (exitDestination === "sign-in.html") await window.YourinAPI.signOut();
+        go(exitDestination);
+      } catch (err) {
+        exitModalError.textContent = err.message || "Could not leave safely. Please try again.";
+        exitModalError.hidden = false;
+        exitModalError.focus();
+      } finally {
+        savingAction = false;
+        buttons.forEach(button => { button.disabled = false; });
       }
     }
+    exitModalConfirmBtn.addEventListener("click", () => finishExit(true));
+    exitModalDiscardBtn.addEventListener("click", () => finishExit(false));
+    exitModalCancelBtn.addEventListener("click", cancelExit);
+    exitModal.addEventListener("keydown", event => {
+      if (event.key === "Escape") { event.preventDefault(); cancelExit(); }
+      if (event.key === "Tab") {
+        const enabled = [...exitModal.querySelectorAll("button:not(:disabled)")];
+        const first = enabled[0], last = enabled[enabled.length - 1];
+        if (!first) { event.preventDefault(); return; }
+        if (event.shiftKey && (document.activeElement === first || !enabled.includes(document.activeElement))) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !enabled.includes(document.activeElement))) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    });
 
     $$(".site-header a").forEach(link => {
       link.addEventListener("click", event => {
@@ -1856,6 +1871,7 @@
       history.pushState({ interview: true }, "");
 
       window.addEventListener("popstate", () => {
+        history.pushState({ interview: true }, "");
         triggerSaveAndExit("dashboard.html");
       });
     } catch (_) {
@@ -1912,10 +1928,7 @@
               ? answerInput.value.trim() + " "
               : "") + addition;
 
-          interview.answers[currentStep] = answerInput.value;
-
-          save();
-          updateCharCount();
+          answerInput.dispatchEvent(new Event("input", { bubbles: true }));
         }
       }, 2400);
     }

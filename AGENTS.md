@@ -10,7 +10,15 @@
 
 ## Cập nhật sau khảo sát: triển khai local đã được cho phép
 
-### Trạng thái mới nhất sau LOCAL-02 (ưu tiên hơn snapshot cũ bên dưới)
+### Cập nhật LOCAL-03 sau phản hồi giao diện (mới nhất)
+
+- Người dùng yêu cầu báo thiếu câu trả lời nổi bật và hỏi muốn lưu khi rời buổi. Đã lưu checkpoint `ca9d61d` cho validation: khung/icon đỏ cạnh textarea, aria-invalid/role alert và focus vào ô; xóa lỗi khi có nội dung hợp lệ.
+- Đã bỏ autosave khi gõ. Previous chỉ đổi câu trong draft local; Next chủ động submit/lưu câu hiện tại và cập nhật vị trí, không tự ghi các draft khác.
+- Menu điều hướng/đăng xuất/Back mở modal **Save & exit / Leave without saving / Keep answering** trước mọi thao tác ghi. Chỉ Save & exit lưu toàn bộ draft/vị trí. Discard khôi phục snapshot đã xác nhận trong cache mà không gọi server; giữ các câu đã submit. Cancel/Escape giữ draft và focus textarea. Lỗi lưu giữ modal và không tự thoát/đăng xuất.
+- Native đóng tab/reload dùng beforeunload của trình duyệt khi có draft chưa lưu; không hứa custom modal ba nút ở thao tác đóng browser. Voice/demo input cũng phải cập nhật dirty state.
+- Kiểm chứng cuối LOCAL-03: **117 tests passed, gồm 8 browser tests**, thêm no-autosave/no-write-on-open, Cancel, Discard không network, Save lỗi, Back và focus trap. Docs API/report/checklist đã cập nhật. User yêu cầu tiếp tục commit sau mỗi việc; chưa push.
+
+### Mốc sau LOCAL-02 (snapshot trước LOCAL-03)
 
 - Kiểm chứng cuối: **114 tests passed**, gồm 5 browser tests; `f641cb8` thêm việc không echo lỗi provider ra log/response. Script HTTP chạy qua CLI sau ghép thành công, entry point root/backend cùng một ASGI app; server kiểm tra đã dừng. Các số 113/111/107 bên dưới là mốc kiểm tra tại từng checkpoint.
 

@@ -142,7 +142,7 @@ def test_browser_creation_failure_stays_on_form_without_fake_session(running_app
     assert errors == []
 
 
-def test_browser_draft_autosave_survives_reload_and_empty_answer_is_blocked(running_app, browser_page):
+def test_browser_validation_is_visible_and_draft_requires_save_choice(running_app, browser_page):
     base, app = running_app
     page, context, errors = browser_page
     sign_in(page, base)
@@ -152,13 +152,30 @@ def test_browser_draft_autosave_survives_reload_and_empty_answer_is_blocked(runn
     assert "Please enter an answer" in page.locator("#answer-error").inner_text()
     assert page.locator("#answer").get_attribute("aria-invalid") == "true"
     assert page.locator("#answer").evaluate("element => element === document.activeElement")
-    page.locator("#answer").fill("Draft persisted by the autosave request.")
+    writes = []
+    page.on("request", lambda request: writes.append(request.url)
+            if request.method == "POST" and "/api/interviews/" in request.url else None)
+    page.locator("#answer").fill("Draft saved only after I choose Save & exit.")
     assert page.locator("#answer-error").is_hidden()
     assert page.locator("#answer").get_attribute("aria-invalid") == "false"
-    page.wait_for_function("JSON.parse(localStorage.getItem('yourin-poc-v2:local-demo')).accounts[0].interviews[0].dirty === false")
+    page.wait_for_timeout(1000)  # Proves the previous 700ms autosave is gone.
+    assert writes == []
+    page.locator('.site-header a[href="dashboard.html"]').first.click()
+    page.wait_for_selector("#interview-exit-modal:not(.is-hidden)")
+    assert writes == []
+    page.locator("#exit-modal-cancel-btn").click()
+    assert page.url.endswith("interview.html")
+    assert page.locator("#answer").input_value() == "Draft saved only after I choose Save & exit."
+    assert page.locator("#answer").evaluate("element => element === document.activeElement")
+    page.locator('.site-header a[href="dashboard.html"]').first.click()
+    page.locator("#exit-modal-confirm-btn").click()
+    page.wait_for_url("**/dashboard.html")
+    assert len(writes) == 1
+    page.goto(base + "/app/interview.html")
+    ready(page)
     page.reload()
     ready(page)
-    assert page.locator("#answer").input_value() == "Draft persisted by the autosave request."
+    assert page.locator("#answer").input_value() == "Draft saved only after I choose Save & exit."
     assert errors == []
 
 
@@ -209,4 +226,81 @@ def test_browser_sign_out_saves_current_draft_before_clearing_session(running_ap
     page.goto(base + "/app/interview.html")
     ready(page)
     assert page.locator("#answer").input_value() == "Draft saved even when signing out immediately."
+    assert errors == []
+
+
+def test_browser_discard_preserves_submitted_answers_but_drops_unsubmitted_draft(running_app, browser_page):
+    base, app = running_app
+    page, context, errors = browser_page
+    sign_in(page, base)
+    create_interview(page, base)
+    page.locator("#answer").fill("My submitted first answer stays saved.")
+    page.locator("#next-question-btn").click()
+    page.wait_for_function("document.querySelector('#answer').value === ''")
+    page.locator("#answer").fill("Discard this unsent second answer.")
+    session_id = page.evaluate("JSON.parse(localStorage.getItem('yourin-poc-v2:local-demo')).accounts[0].activeId")
+    read_path = base + "/api/interviews/" + session_id
+    page.route(read_path, lambda route: route.abort())
+    reads = []
+    page.on("request", lambda request: reads.append(request.url) if request.url == read_path else None)
+    writes = []
+    page.on("request", lambda request: writes.append(request.url)
+            if request.method == "POST" and "/api/interviews/" in request.url else None)
+    page.locator('.site-header a[href="dashboard.html"]').first.click()
+    page.locator("#exit-modal-discard-btn").click()
+    page.wait_for_url("**/dashboard.html")
+    assert writes == [] and reads == []
+    page.unroute(read_path)
+    page.goto(base + "/app/interview.html")
+    ready(page)
+    assert page.locator("#answer").input_value() == ""
+    page.locator("#prev-question-btn").click()
+    assert page.locator("#answer").input_value() == "My submitted first answer stays saved."
+    assert errors == []
+
+
+def test_browser_save_failure_keeps_exit_prompt_and_draft(running_app, browser_page):
+    base, app = running_app
+    page, context, errors = browser_page
+    sign_in(page, base)
+    create_interview(page, base)
+    page.locator("#answer").fill("Do not lose this draft when saving fails.")
+    pattern = "**/api/interviews/*/progress"
+    page.route(pattern, lambda route: route.fulfill(status=503, content_type="application/json",
+        body='{"error":{"code":"storage_unavailable","message":"Saving is temporarily unavailable"}}')
+        if route.request.method == "POST" else route.continue_())
+    page.locator('.site-header a[href="dashboard.html"]').first.click()
+    page.locator("#exit-modal-confirm-btn").click()
+    page.wait_for_selector("#exit-modal-error:not([hidden])")
+    assert "Saving is temporarily unavailable" in page.locator("#exit-modal-error").inner_text()
+    assert page.url.endswith("interview.html")
+    page.locator("#exit-modal-cancel-btn").click()
+    assert page.locator("#answer").input_value() == "Do not lose this draft when saving fails."
+    page.unroute(pattern)
+    page.locator('.site-header a[href="dashboard.html"]').first.click()
+    page.locator("#exit-modal-confirm-btn").click()
+    page.wait_for_url("**/dashboard.html")
+    assert errors == []
+
+
+def test_browser_back_and_keyboard_keep_user_in_interview_until_choice(running_app, browser_page):
+    base, app = running_app
+    page, context, errors = browser_page
+    sign_in(page, base)
+    create_interview(page, base)
+    page.locator("#answer").fill("Unsaved keyboard test draft.")
+    page.go_back()
+    page.wait_for_selector("#interview-exit-modal:not(.is-hidden)")
+    assert page.locator("#exit-modal-cancel-btn").evaluate("element => element === document.activeElement")
+    page.keyboard.press("Tab")
+    assert page.locator("#exit-modal-confirm-btn").evaluate("element => element === document.activeElement")
+    page.keyboard.press("Shift+Tab")
+    assert page.locator("#exit-modal-cancel-btn").evaluate("element => element === document.activeElement")
+    page.keyboard.press("Escape")
+    assert page.locator("#interview-exit-modal").is_hidden()
+    assert page.locator("#answer").input_value() == "Unsaved keyboard test draft."
+    page.go_back()
+    page.wait_for_selector("#interview-exit-modal:not(.is-hidden)")
+    page.locator("#exit-modal-discard-btn").click()
+    page.wait_for_url("**/dashboard.html")
     assert errors == []

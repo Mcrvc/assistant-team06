@@ -23,9 +23,18 @@ và phần còn thiếu được cập nhật ở các mục bên dưới.
 
 ## Hiện có thể làm được trên máy
 
+LOCAL-03 sau khi người dùng thử giao diện: thiếu đáp án hiển thị khung đỏ có
+icon ngay cạnh ô nhập, viền invalid và focus vào textarea (`ca9d61d`). Rời buổi
+hỏi Save & exit / Leave without saving / Keep answering; không tự lưu khi gõ
+hoặc khi vừa mở hộp hỏi. Discard hoạt động từ snapshot đã xác nhận, không cần
+request server; lỗi Save giữ hộp hỏi và draft. Native tab-close/reload chỉ có
+hộp cảnh báo của browser. Kiểm chứng mới nhất **117 tests, 8 browser tests**.
+
 - Demo giao diện không cần CDN Supabase, tài khoản thật hay API key; vẫn gắn nhãn demo.
-- Tạo buổi lấy ID/câu hỏi từ server; lưu draft sau 700ms và lưu trước Next/Previous/
-  Save & Exit/đăng xuất; khôi phục câu/vị trí sau reload hoặc đăng nhập demo lại.
+- Tạo buổi lấy ID/câu hỏi từ server; Next submit câu hiện tại, Previous giữ draft
+  trên máy. LOCAL-03 bỏ autosave khi gõ, hỏi Save & exit / Leave without saving /
+  Keep answering trước khi rời. Save thành công mới thoát/đăng xuất; discard
+  giữ các câu đã submit và bỏ phần chưa gửi, không cần gọi server.
 - Gửi từng đáp án trả 202 rồi chấm nền; hiển thị số đã lưu/đã chấm/đang chờ.
 - Finalize chờ đủ kết quả hợp lệ và hiển thị điểm, nhận xét, bằng chứng đã lưu;
   không dùng timer hay feedback mẫu giả làm kết quả provider. Nút Retry incomplete
@@ -40,11 +49,13 @@ và phần còn thiếu được cập nhật ở các mục bên dưới.
 
 ## Kiểm chứng mới nhất
 
-- **114 tests passed**, trong đó 5 tests chạy Chrome headless với server Uvicorn
+- **117 tests passed**, trong đó 8 tests chạy Chrome headless với server Uvicorn
   và DB temp thật. Chặn network ngoài loopback trong browser tests.
 - Browser: toàn luồng tạo → lưu dở → tiếp tục → chấm → report → reload; tạo buổi
-  gặp 503 không sinh session giả; draft autosave; không cho bỏ trống đáp án;
+  gặp 503 không sinh session giả; draft chỉ lưu sau lựa chọn; không cho bỏ trống đáp án;
   từ chối evidence bịa rồi retry khi provider phục hồi; lưu draft trước đăng xuất.
+- Thêm kiểm tra Cancel không ghi, Discard không request server và vẫn giữ câu
+  đã submit, Save lỗi không rời trang; Back/Tab/Shift+Tab/Escape hoạt động trong modal.
 - Provider adapter: gọi generator/grader thật của nhóm bằng completion giả qua
   HTTP, giữ rubric và metadata, ra report `used_fallback=false` đúng contract.
   Không có request tới NVIDIA/TinyFish thật.

@@ -171,6 +171,7 @@
             <span class="answer-error-icon" aria-hidden="true">!</span>
             <span id="answer-error-text"></span>
           </p>
+          <p class="small muted">Your draft is saved when you continue or choose Save &amp; exit.</p>
         </div>
 
         <!-- Prominent Voice Recording Dock -->
@@ -213,12 +214,18 @@
 </main>
 <footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
 
-<!-- Auto-triggered Save and Exit Modal (Full-Page Blur Overlay) -->
-<div class="dialog-backdrop is-hidden" id="interview-exit-modal" role="dialog" aria-modal="true" aria-labelledby="saved-title">
-  <section class="saved-dialog">
-    <span class="badge">SAVED</span>
-    <h1 id="saved-title">Your interview has been saved as <span id="saved-name">interview 1</span></h1>
-    <a class="btn" id="exit-modal-confirm-btn" href="dashboard.html" autofocus>Proceed</a>
+<!-- Explicit choice before persisting a draft or leaving the interview. -->
+<div class="dialog-backdrop is-hidden" id="interview-exit-modal" role="dialog" aria-modal="true" aria-labelledby="saved-title" aria-describedby="exit-modal-description">
+  <section class="saved-dialog interview-exit-dialog">
+    <span class="badge">LEAVE INTERVIEW</span>
+    <h2 id="saved-title">Save your changes before leaving?</h2>
+    <p id="exit-modal-description">Save your draft and position in <strong id="saved-name">this interview</strong> so you can continue later. Leaving without saving discards only changes you have not submitted.</p>
+    <p class="form-error" id="exit-modal-error" role="alert" tabindex="-1" hidden></p>
+    <div class="exit-dialog-actions">
+      <button class="btn" id="exit-modal-confirm-btn" type="button">Save &amp; exit</button>
+      <button class="btn btn-danger" id="exit-modal-discard-btn" type="button">Leave without saving</button>
+      <button class="btn btn-secondary" id="exit-modal-cancel-btn" type="button">Keep answering</button>
+    </div>
   </section>
 </div>
 <noscript><p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p></noscript>
