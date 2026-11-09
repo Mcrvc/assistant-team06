@@ -1146,7 +1146,7 @@
             answers: interview.answers
           }),
           loading: false,
-          notify: false
+          notify: true
         });
         if (result.ok && result.data) applyServerView(interview, result.data);
         else if (result.status === 409) await refreshServerInterview();
@@ -1200,7 +1200,7 @@
       if (!Array.isArray(interview.answerErrors)) interview.answerErrors = [null, null, null];
       if (!Array.isArray(interview.submittedTexts)) interview.submittedTexts = ["", "", ""];
       try {
-        const initial = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, { loading: false, notify: false });
+        const initial = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, { loading: false, notify: true });
         if (initial.ok && initial.data) applyServerView(interview, initial.data);
       } catch (_) {}
       if (Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
@@ -1686,7 +1686,7 @@
 
   if (page === "storage") {
     try {
-      const listResult = await api.request("/api/interviews", { loading: false, notify: false });
+      const listResult = await api.request("/api/interviews", { loading: false, notify: true });
         if (listResult.ok && Array.isArray(listResult.data)) {
           account.interviews = listResult.data.map(view => {
             const answers = Array.isArray(view.answers)
@@ -1898,7 +1898,7 @@
         try {
           const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
             loading: true,
-            notify: false
+            notify: true
           });
           if (viewResult.ok && viewResult.data) {
             const view = viewResult.data;
@@ -1994,7 +1994,7 @@
             }
             const viewResult = await api.request(`/api/interviews/${encodeURIComponent(result.data.id)}`, {
               loading: false,
-              notify: false
+              notify: true
             });
             const view = viewResult.ok ? viewResult.data : null;
             addServerInterview(result.data, view, {
