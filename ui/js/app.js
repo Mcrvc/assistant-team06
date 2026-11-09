@@ -204,6 +204,62 @@
     save();
     return item;
   }
+  function buildCvText(value) {
+    const parts = Array.isArray(value) ? value : [value];
+    return parts
+      .map(part => typeof part === "string" ? part.trim() : "")
+      .filter(Boolean)
+      .join("\n\n")
+      .slice(0, 40000) || null;
+  }
+  function addServerInterview(created, view, options = {}) {
+    const details = Array.isArray(view && view.questions) && view.questions.length
+      ? view.questions
+      : (created && created.question ? [created.question] : []);
+    const answers = Array.isArray(view && view.answers)
+      ? view.answers.map(answer => (answer && typeof answer.text === "string" ? answer.text : ""))
+      : ["", "", ""];
+    while (answers.length < 3) answers.push("");
+    answers.length = 3;
+
+    const name = typeof view?.name === "string" && view.name.trim()
+      ? view.name.trim()
+      : (options.name || "New Interview");
+    const item = {
+      id: created.id,
+      name: name.slice(0, 200),
+      date: new Date().toLocaleDateString("en-GB"),
+      finished: view?.status === "finalized",
+      answers,
+      cv: Array.isArray(options.cv) && options.cv.length === 4
+        ? options.cv.map(part => typeof part === "string" ? part : "")
+        : ["", "", "", ""],
+      cvPdf: options.cvPdf || null,
+      cvMode: options.cvMode || "text",
+      job: options.job && typeof options.job === "object" ? { ...options.job } : { ...account.job },
+      jobProfile: view?.job_profile || options.jobProfile || null,
+      questions: details.map(question => (
+        typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")
+      )),
+      questionDetails: details,
+      totalQuestions: Number.isInteger(created.total_questions) && created.total_questions > 0
+        ? created.total_questions
+        : 3,
+      revision: Number.isInteger(view?.revision) ? view.revision : (Number.isInteger(created.revision) ? created.revision : 0),
+      status: view?.status || created.status || "in_progress",
+      currentQuestion: Number.isInteger(view?.current_question)
+        ? view.current_question
+        : (Number.isInteger(created.current_question) ? created.current_question : 0),
+      progress: view?.progress || null,
+      report: view?.report || null,
+      questionGeneration: view?.question_generation || created.question_generation || null,
+      server: true
+    };
+    account.interviews.unshift(item);
+    account.activeId = item.id;
+    save();
+    return item;
+  }
   function saveJob() {
     account.job = Object.fromEntries(jobKeys.map(key => {
       const el = $("#" + key);
@@ -823,7 +879,7 @@
       });
     }
 
-    $("#job-form").addEventListener("submit", event => {
+    $("#job-form").addEventListener("submit", async event => {
       event.preventDefault();
       const jobError = $("#job-error");
       if (jobError) jobError.hidden = true;
@@ -839,54 +895,325 @@
         }
       }
 
-      if (!isCvOpen) {
-        startInterview(null, null, "none");
-      } else if (cvInputMode === "custom") {
-        if (interviewPdf) {
-          startInterview(["", "", "", ""], interviewPdf, "custom");
-        } else {
-          const rawText = jobCvRawInput ? jobCvRawInput.value.trim() : "";
-          if (!rawText) {
-            return error("#job-error", "Paste your CV text or upload a PDF resume, or switch back to saved CV.");
+      let cvText = null;
+      let cvLocal = ["", "", "", ""];
+      let cvPdf = null;
+      let cvMode = "text";
+
+      if (isCvOpen) {
+        if (cvInputMode === "custom") {
+          if (interviewPdf) {
+            // The backend accepts CV text. PDF extraction is not part of this checkout yet.
+            cvPdf = { ...interviewPdf };
+            cvMode = "pdf";
+          } else {
+            const rawText = jobCvRawInput ? jobCvRawInput.value.trim() : "";
+            if (!rawText) {
+              return error("#job-error", "Paste your CV text or upload a PDF resume, or switch back to saved CV.");
+            }
+            cvLocal = [rawText, "", "", ""];
+            cvText = buildCvText(rawText);
+            cvMode = "text";
           }
-          startInterview([rawText, "", "", ""], null, "custom");
+        } else if (syncCvCheckbox && syncCvCheckbox.checked) {
+          if (account.cvPdf || account.cvMode === "pdf") {
+            cvPdf = account.cvPdf ? { ...account.cvPdf } : null;
+            cvMode = "pdf";
+          } else {
+            cvLocal = [...account.cv];
+            cvText = buildCvText(account.cv);
+            cvMode = "text";
+          }
         }
-      } else if (syncCvCheckbox && syncCvCheckbox.checked) {
-        if (account.cvPdf || account.cvMode === "pdf") {
-          startInterview(["", "", "", ""], account.cvPdf, "saved");
-        } else {
-          startInterview([...account.cv], null, "saved");
-        }
-      } else {
-        startInterview(null, null, "none");
       }
-      go("interview.html");
+
+      const jobTitle = (account.job["job-title"] || "").trim();
+      const jobProfile = {
+        title: jobTitle.slice(0, 200),
+        domain: (account.job.domain || "").trim().slice(0, 200),
+        company: (account.job.company || "").trim().slice(0, 200),
+        level: (account.job.position || "").trim().slice(0, 200),
+        description: (jobInputMode === "paste" ? (account.job["job-source"] || "").trim() : "").slice(0, 20000)
+      };
+      const payload = {
+        job_profile: jobProfile,
+        cv: cvText,
+        name: (jobTitle || "New Interview " + (account.interviews.length + 1)).slice(0, 200)
+      };
+
+      const submitButton = $("#job-form button[type='submit']");
+      const originalButtonText = submitButton ? submitButton.textContent : "";
+      let loading = null;
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Creating interview...";
+      }
+      if (window.YourinUI?.loading?.show) {
+        loading = window.YourinUI.loading.show({
+          title: "Creating your interview",
+          eyebrow: "Please wait",
+          detail: "Reading the role and writing your first questions.",
+          steps: [
+            "Reading the job profile...",
+            "Finding role-specific themes...",
+            "Writing three interview questions...",
+            "Preparing your interview..."
+          ],
+          coldStartAfter: 5000
+        });
+      }
+
+      try {
+        const result = await api.request("/api/interviews", {
+          method: "POST",
+          body: JSON.stringify(payload),
+          loading: false
+        });
+        if (!result.ok || !result.data || !result.data.id) {
+          const message = window.YourinErrors?.messageFromPayload?.(result.data) ||
+            "Unable to create the interview. Please try again.";
+          error("#job-error", message);
+          return;
+        }
+
+        const created = result.data;
+        const viewResult = await api.request(`/api/interviews/${encodeURIComponent(created.id)}`, {
+          loading: false
+        });
+        if (viewResult.status === 401) return;
+        const view = viewResult.ok ? viewResult.data : null;
+        if (!view) {
+          window.YourinErrors?.showToast?.(
+            "Interview created, but the full question list could not be loaded. Reopen it from Your Interview.",
+            { type: "warning" }
+          );
+        }
+
+        addServerInterview(created, view, {
+          name: payload.name,
+          cv: cvLocal,
+          cvPdf,
+          cvMode,
+          job: { ...account.job },
+          jobProfile
+        });
+        go("interview.html");
+      } catch (err) {
+        console.error("Interview creation failed:", err);
+        error("#job-error", "Unable to create the interview. Please try again.");
+      } finally {
+        if (loading) loading.hide();
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = originalButtonText;
+        }
+      }
     });
     $$("[data-save-job]").forEach(link => link.addEventListener("click", saveJob));
   }
 
   if (page === "interview" || page === "interview-1" || page === "interview-2" || page === "interview-3" || $("#interview-step-track")) {
     const interview = activeInterview() || startInterview();
-    const questions = DATA.questions || [
+
+    function isServerInterview() {
+      return Boolean(interview && interview.server === true && interview.id);
+    }
+
+    function applyServerView(target, view) {
+      if (!target || !view) return;
+      if (typeof view.name === "string" && view.name.trim()) target.name = view.name.trim();
+      if (typeof view.status === "string") target.status = view.status;
+      if (Number.isInteger(view.revision)) target.revision = view.revision;
+      if (Number.isInteger(view.current_question)) target.currentQuestion = view.current_question;
+      if (Array.isArray(view.questions)) {
+        target.questionDetails = view.questions;
+        target.questions = view.questions.map(question => (
+          typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")
+        ));
+        target.totalQuestions = view.questions.length || target.totalQuestions || 3;
+      }
+      target.report = view.report || target.report || null;
+      const answers = Array.isArray(view.answers) ? view.answers : [];
+      const texts = [];
+      const statuses = [];
+      const grades = [];
+      const errors = [];
+      for (let i = 0; i < 3; i++) {
+        const answer = answers[i] || {};
+        texts.push(typeof answer.text === "string" ? answer.text : "");
+        statuses.push(typeof answer.grading_status === "string" ? answer.grading_status : "unanswered");
+        grades.push(answer.grade || null);
+        errors.push(answer.error_code || null);
+      }
+      target.answers = texts;
+      target.answerStatuses = statuses;
+      target.answerGrades = grades;
+      target.answerErrors = errors;
+      target.submittedTexts = texts.slice();
+      save();
+    }
+
+    async function refreshServerInterview() {
+      if (!isServerInterview()) return null;
+      const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+        loading: false,
+        notify: false
+      });
+      if (result.ok && result.data) applyServerView(interview, result.data);
+      else if (result.status === 409) {
+        // keep local state; backend may have moved
+      }
+      return result;
+    }
+
+    async function submitCurrentAnswer(index) {
+      if (!isServerInterview()) return true;
+      const text = String(interview.answers[index] || "");
+      if (!text.trim()) return true;
+      const status = Array.isArray(interview.answerStatuses) ? interview.answerStatuses[index] : "";
+      const submitted = Array.isArray(interview.submittedTexts) ? String(interview.submittedTexts[index] || "") : "";
+      if ((status === "graded" || status === "pending") && text === submitted) {
+        return true;
+      }
+      try {
+        const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/answers/${index}`, {
+          method: "POST",
+          body: JSON.stringify({ revision: interview.revision, text }),
+          loading: false
+        });
+        if (!result.ok || !result.data) {
+          if (result.status === 409) await refreshServerInterview();
+          if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function") {
+            window.YourinErrors.handleStatus(result.status, result.data);
+          }
+          return false;
+        }
+        applyServerView(interview, result.data);
+        startGradingPoll();
+        updateAnswerStatusUI();
+        return true;
+      } catch (err) {
+        console.error("Submit answer failed:", err);
+        return false;
+      }
+    }
+
+    async function saveProgressToServer(targetStep) {
+      if (!isServerInterview()) return;
+      try {
+        const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/progress`, {
+          method: "POST",
+          body: JSON.stringify({
+            revision: interview.revision,
+            current_question: Math.max(0, Math.min(2, targetStep)),
+            status: "in_progress",
+            answers: interview.answers
+          }),
+          loading: false,
+          notify: false
+        });
+        if (result.ok && result.data) applyServerView(interview, result.data);
+        else if (result.status === 409) await refreshServerInterview();
+      } catch (_) { /* network errors are surfaced by the shared layer */ }
+    }
+
+    let gradingPoll = null;
+    function startGradingPoll() {
+      if (!isServerInterview() || gradingPoll) return;
+      gradingPoll = window.setInterval(async () => {
+        const hasPending = Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending");
+        if (!hasPending) {
+          window.clearInterval(gradingPoll);
+          gradingPoll = null;
+          return;
+        }
+        await refreshServerInterview();
+        updateAnswerStatusUI();
+      }, 3000);
+    }
+
+    function updateAnswerStatusUI() {
+      const status = Array.isArray(interview.answerStatuses) ? (interview.answerStatuses[currentStep] || "") : "";
+      let element = document.getElementById("answer-status");
+      if (!element) {
+        element = document.createElement("span");
+        element.id = "answer-status";
+        element.style.marginLeft = "0.75rem";
+        element.style.fontSize = "0.85rem";
+        const badge = document.getElementById("question-badge");
+        if (badge && badge.parentNode) badge.parentNode.insertBefore(element, badge.nextSibling);
+      }
+      const grade = Array.isArray(interview.answerGrades) ? interview.answerGrades[currentStep] : null;
+      if (status === "graded" && grade && typeof grade.score === "number") {
+        element.textContent = `Graded: ${grade.score}/10`;
+      } else if (status === "pending") {
+        element.textContent = "Grading...";
+      } else if (status === "rejected") {
+        const code = Array.isArray(interview.answerErrors) ? interview.answerErrors[currentStep] : null;
+        element.textContent = code ? `Rejected (${code})` : "Rejected - resubmit";
+      } else if (status === "draft") {
+        element.textContent = "Draft";
+      } else {
+        element.textContent = "";
+      }
+    }
+
+    if (isServerInterview()) {
+      if (!Array.isArray(interview.answerStatuses)) interview.answerStatuses = ["unanswered", "unanswered", "unanswered"];
+      if (!Array.isArray(interview.answerGrades)) interview.answerGrades = [null, null, null];
+      if (!Array.isArray(interview.answerErrors)) interview.answerErrors = [null, null, null];
+      if (!Array.isArray(interview.submittedTexts)) interview.submittedTexts = ["", "", ""];
+      try {
+        const initial = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, { loading: false, notify: false });
+        if (initial.ok && initial.data) applyServerView(interview, initial.data);
+      } catch (_) {}
+      if (Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
+        startGradingPoll();
+      }
+    }
+
+    const fallbackQuestions = DATA.questions || [
       "Imagine you're tasked with curating a time capsule that defines the year 2026 for an alien civilization. What are three objects you put inside?",
       "To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles, and by opposing end them.",
       "Wat een wartaa. Het is echt niet alsof ik bezorgd om je was ofzo. Mijn colonne verplaatste zich puur toevallig langs deze strategische route, dus haal je maar niks in je hoofd, begrepen?"
     ];
-    const totalQuestions = questions.length;
+    const storedQuestions = Array.isArray(interview.questions)
+      ? interview.questions.filter(question => typeof question === "string")
+      : [];
+    const usesStoredQuestions = interview.server === true || storedQuestions.length > 0;
+    const questions = usesStoredQuestions ? storedQuestions : fallbackQuestions;
+    const totalQuestions = usesStoredQuestions
+      ? (Number.isInteger(interview.totalQuestions) && interview.totalQuestions > 0
+        ? interview.totalQuestions
+        : Math.max(3, questions.length))
+      : questions.length;
 
     let currentStep = 0;
     try {
       const params = new URLSearchParams(window.location.search);
       const qParam = parseInt(params.get("q"), 10);
-      if (!isNaN(qParam) && qParam >= 1 && qParam <= totalQuestions) {
+      if (!isNaN(qParam) && qParam >= 1 && qParam <= Math.max(1, questions.length)) {
         currentStep = qParam - 1;
       }
     } catch (_) {}
 
-    while (interview.answers.length < totalQuestions) {
+    const answerSlots = 3;
+    while (interview.answers.length < answerSlots) {
       interview.answers.push("");
     }
-
+    interview.answers.length = answerSlots;
+    if (!Array.isArray(interview.answerStatuses)) interview.answerStatuses = ["unanswered", "unanswered", "unanswered"];
+    if (!Array.isArray(interview.answerGrades)) interview.answerGrades = [null, null, null];
+    if (!Array.isArray(interview.answerErrors)) interview.answerErrors = [null, null, null];
+    if (!Array.isArray(interview.submittedTexts)) interview.submittedTexts = ["", "", ""];
+    while (interview.answerStatuses.length < answerSlots) interview.answerStatuses.push("unanswered");
+    while (interview.answerGrades.length < answerSlots) interview.answerGrades.push(null);
+    while (interview.answerErrors.length < answerSlots) interview.answerErrors.push(null);
+    while (interview.submittedTexts.length < answerSlots) interview.submittedTexts.push("");
+    interview.answerStatuses.length = answerSlots;
+    interview.answerGrades.length = answerSlots;
+    interview.answerErrors.length = answerSlots;
+    interview.submittedTexts.length = answerSlots;
     const questionTitle = $("#question-title");
     const questionBadge = $("#question-badge");
     const questionText = $("#question-text");
@@ -987,8 +1314,13 @@
 
       if (questionTitle) questionTitle.textContent = `Question ${currentStep + 1}`;
       if (questionBadge) questionBadge.textContent = `${currentStep + 1} of ${totalQuestions}`;
-      if (questionText) questionText.textContent = questions[currentStep];
-
+      updateAnswerStatusUI();
+      if (questionText) {
+        const text = questions[currentStep];
+        questionText.textContent = typeof text === "string" && text.trim()
+          ? text
+          : "This question is not available yet. Please reopen the interview from Your Interview.";
+      }
       if (answerInput) {
         answerInput.dataset.answer = currentStep;
         answerInput.value = interview.answers[currentStep] || "";
@@ -1004,6 +1336,9 @@
       }
 
       if (nextBtn) {
+        const hasCurrent = typeof questions[currentStep] === "string" && questions[currentStep].trim();
+        const hasNext = typeof questions[currentStep + 1] === "string" && questions[currentStep + 1].trim();
+        nextBtn.disabled = !hasCurrent || (currentStep < totalQuestions - 1 && !hasNext);
         if (currentStep === totalQuestions - 1) {
           nextBtn.textContent = "Finalize Interview";
         } else {
@@ -1047,23 +1382,38 @@
     }
 
     if (prevBtn) {
-      prevBtn.addEventListener("click", () => {
+      prevBtn.addEventListener("click", async () => {
         if (currentStep > 0) {
           if (answerInput) interview.answers[currentStep] = answerInput.value;
           save();
+          if (isServerInterview()) {
+            await submitCurrentAnswer(currentStep);
+            await saveProgressToServer(currentStep - 1);
+          }
           renderStep(currentStep - 1);
+          updateAnswerStatusUI();
         }
       });
     }
 
     if (nextBtn) {
-      nextBtn.addEventListener("click", () => {
+      nextBtn.addEventListener("click", async () => {
         if (answerInput) interview.answers[currentStep] = answerInput.value;
         save();
 
+        if (isServerInterview()) {
+          await submitCurrentAnswer(currentStep);
+        }
+
         if (currentStep < totalQuestions - 1) {
+          if (isServerInterview()) await saveProgressToServer(currentStep + 1);
           renderStep(currentStep + 1);
+          updateAnswerStatusUI();
         } else {
+          if (isServerInterview()) {
+            await submitCurrentAnswer(currentStep);
+            await saveProgressToServer(currentStep);
+          }
           interview.finished = true;
           save();
           go("done-interview.html");
@@ -1075,6 +1425,9 @@
     function triggerSaveAndExit(targetHref) {
       if (answerInput) interview.answers[currentStep] = answerInput.value;
       save();
+      if (isServerInterview()) {
+        saveProgressToServer(currentStep).catch(() => {});
+      }
 
       if (exitModal) {
         if (exitModalName) exitModalName.textContent = interview.name;
@@ -1166,9 +1519,18 @@
     $$("[data-save-answer]").forEach(link => link.addEventListener("click", () => {
       if (answerInput) interview.answers[currentStep] = answerInput.value;
       save();
+      if (isServerInterview()) saveProgressToServer(currentStep).catch(() => {});
     }));
 
+    window.addEventListener("pagehide", () => {
+      if (gradingPoll) window.clearInterval(gradingPoll);
+    }, { once: true });
+
     renderStep(currentStep);
+    updateAnswerStatusUI();
+    if (isServerInterview() && Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
+      startGradingPoll();
+    }
   }
 
   if (page === "interview-interrupt") {
