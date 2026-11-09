@@ -42,7 +42,8 @@ def test_local_and_render_host_defaults(monkeypatch, render):
     assert config.port == (10000 if render else 8000)
     paths = set(config.app.openapi()['paths'])
     assert '/api/interviews/{interview_id}/finalize' in paths
-    assert '/api/cv' not in paths and '/api/demo/session' not in paths
+    assert '/api/demo/session' not in paths
+    assert {'/api/cv', '/api/feedback'} <= paths  # Profile/feedback router (user_api.py)
 
 
 def test_startup_failure_returns_nonzero(monkeypatch):

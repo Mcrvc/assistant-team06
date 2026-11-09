@@ -65,8 +65,12 @@ def test_unconfigured_auth_never_trusts_browser_owner(service):
         response = client.post('/api/interviews', json={**JOB, 'owner_id': 'browser-user'})
         assert response.status_code in (400, 503)
         assert client.post('/api/interviews', json=JOB).status_code == 503
-        for path in ('/api/demo/session', '/api/cv', '/api/feedback'):
-            assert client.post(path).status_code == 404
+        assert client.post('/api/demo/session').status_code == 404
+        # Profile/feedback routes exist, but still refuse while sign-in is not configured.
+        assert client.get('/api/cv').status_code == 503
+        feedback = {'grade_rating': 4, 'quality_rating': 4, 'user_id': 'browser-user'}
+        assert client.post('/api/feedback', json=feedback).status_code in (400, 503)
+        assert client.post('/api/feedback', json={'grade_rating': 4, 'quality_rating': 4}).status_code == 503
 
 
 def test_foreign_owner_cannot_access_or_change_interview(service):

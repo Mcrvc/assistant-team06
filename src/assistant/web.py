@@ -27,6 +27,7 @@ from assistant.interview_schemas import (
 )
 from assistant.interview_runtime import configured_repository
 from assistant.interviews import InterviewError, InterviewService, progress, public_view
+from assistant.user_api import ProfileStore, build_router as build_user_router, configured_profile_store
 from assistant.ai import answer
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -74,26 +75,34 @@ QuestionIndex = Annotated[int, ApiPath(ge=0, le=2)]
 def create_app(*, service: InterviewService | None = None,
                auth_resolver: Callable[[Request], str] | None = None,
                token_auth: SupabaseUserAuth | None = None,
-               ui_dir: Path | None = None) -> FastAPI:
+               ui_dir: Path | None = None,
+               profile_store: ProfileStore | None = None) -> FastAPI:
     load_env_file()
     ui_root = Path(ui_dir) if ui_dir is not None else UI_DIR
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         owned_store = None
+        owned_profile = False
         try:
             if app.state.interview_service is None:
                 owned_store = configured_repository()
                 if owned_store is not None:
                     app.state.interview_service = InterviewService(owned_store)
+            if app.state.profile_store is None:
+                app.state.profile_store = configured_profile_store()
+                owned_profile = True
             yield
         finally:
             if owned_store:
                 owned_store.close()
                 app.state.interview_service = None
+            if owned_profile:
+                app.state.profile_store = None
 
     app = FastAPI(title="Yourin Interview Backend", version="0.1.0", lifespan=lifespan)
     app.state.interview_service = service
+    app.state.profile_store = profile_store
     app.state.auth_resolver = auth_resolver
     app.state.token_auth = (token_auth or SupabaseUserAuth.from_config(get_env_config())
                            if auth_resolver is None else None)
@@ -180,6 +189,9 @@ def create_app(*, service: InterviewService | None = None,
     @app.post("/api/interviews/{interview_id}/finalize", response_model=InterviewView, tags=["Interviews"])
     def finalize_interview(interview_id: UUID, payload: FinalizeInterview, user: User, service: Service):
         return public_view(service.finalize(user, str(interview_id), payload))
+
+    # Profile CV + system feedback (Trương Bảo Anh); before the catch-all and static mounts.
+    app.include_router(build_user_router(get_current_user))
 
     # API paths must never fall through to a static HTML error page.
     @app.api_route("/api/{unknown:path}", methods=["GET", "POST", "PUT", "DELETE"], include_in_schema=False)
