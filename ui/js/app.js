@@ -1,22 +1,100 @@
-/* Offline PoC only. No network calls, real authentication or password storage. */
-(() => {
+/* Yourin application controller. Authentication uses Supabase; interview data will move to the API. */
+(async () => {
   "use strict";
+
+  const page = document.body.dataset.page;
+  const PUBLIC_PAGES = ["sign-in", "sign-up"];
+
+  function showStartupError(message) {
+    const authError = (page === "sign-in" || page === "sign-up")
+      ? document.querySelector("#auth-error")
+      : null;
+
+    if (authError) {
+      authError.textContent = message;
+      authError.hidden = false;
+    } else {
+      const main = document.querySelector("main") || document.body;
+      main.textContent = "";
+      const card = document.createElement("section");
+      card.className = "panel";
+      card.style.maxWidth = "680px";
+      card.style.margin = "80px auto";
+      card.style.padding = "32px";
+      const heading = document.createElement("h1");
+      heading.textContent = "Authentication unavailable";
+      const copy = document.createElement("p");
+      copy.textContent = message;
+      const link = document.createElement("a");
+      link.className = "btn";
+      link.href = "sign-in.html";
+      link.textContent = "Back to sign in";
+      card.append(heading, copy, link);
+      main.appendChild(card);
+    }
+
+    document.querySelectorAll('button[type="submit"]').forEach(button => {
+      button.disabled = true;
+    });
+  }
+
+  try {
+    await window.YourinAPIReady;
+  } catch (err) {
+    console.error("Authentication initialization failed:", err);
+    showStartupError(err?.message || "Authentication is not configured. Please contact the team.");
+    return;
+  }
+
+  const api = window.YourinAPI;
+  if (!api) {
+    showStartupError("The authentication API could not be initialized.");
+    return;
+  }
+
+  let authenticatedUser = null;
+  try {
+    authenticatedUser = await api.getCurrentUser();
+  } catch (err) {
+    console.error("Session verification failed:", err);
+    showStartupError(err?.message || "Unable to verify your session. Please refresh the page.");
+    return;
+  }
+
+  if (!PUBLIC_PAGES.includes(page) && !authenticatedUser) {
+    try {
+      sessionStorage.setItem("yourin:redirectAfterLogin", window.location.pathname + window.location.search);
+    } catch (_) { /* Session storage may be unavailable. */ }
+    window.location.replace("sign-in.html");
+    return;
+  }
+
+  if (PUBLIC_PAGES.includes(page) && authenticatedUser) {
+    window.location.replace("dashboard.html");
+    return;
+  }
+
   const DATA = window.POC_DATA;
-  const KEY = "yourin-poc-v2";
-  const PREFIX = "yourin-poc:";
+  if (!DATA) {
+    showStartupError("Application data is unavailable.");
+    return;
+  }
+
+  const USER_ID = authenticatedUser?.id || "anonymous";
+  const KEY = `yourin-poc-v2:${USER_ID}`;
+  const PREFIX = `yourin-poc:${USER_ID}:`;
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
-  const page = document.body.dataset.page;
   const jobKeys = ["job-source", "job-title", "domain", "company", "position"];
   const manualJobKeys = ["job-title", "domain", "company", "position"];
   const strings = (value, length) => Array.isArray(value) && value.length === length && value.every(item => typeof item === "string");
-  const identity = name => name.trim().toLocaleLowerCase();
+  const identity = name => String(name || "").trim().toLocaleLowerCase();
   const go = url => { window.location.href = url; };
+  const authenticatedUsername = authenticatedUser?.user_metadata?.username || "User";
 
   function newAccount(username) {
     return {
       username,
-      password: "123",
       cv: ["", "", "", ""],
       job: {},
       syncCV: true,
@@ -32,7 +110,7 @@
       }))
     };
   }
-  // Ignore corrupt or incompatible demo state instead of breaking the presentation.
+  // Ignore corrupt or incompatible stored state instead of breaking the page.
   function validState(value) {
     return value && value.version === 2 && Number.isFinite(value.updatedAt) &&
       typeof value.currentAccount === "string" && Array.isArray(value.accounts) &&
@@ -46,8 +124,8 @@
           (interview.cv === null || strings(interview.cv, 4))));
   }
   let state = {
-    version: 2, updatedAt: 0, currentAccount: "Eric Arthur Blair",
-    accounts: [newAccount("Eric Arthur Blair")]
+    version: 2, updatedAt: 0, currentAccount: authenticatedUsername,
+    accounts: [newAccount(authenticatedUsername)]
   };
   const candidates = [];
   try { candidates.push(JSON.parse(localStorage.getItem(KEY))); } catch (_) { /* Storage may be disabled. */ }
@@ -57,11 +135,17 @@
   for (const candidate of candidates) {
     if (validState(candidate) && candidate.updatedAt >= state.updatedAt) state = candidate;
   }
-  let account = state.accounts.find(item => identity(item.username) === identity(state.currentAccount)) || state.accounts[0];
-  state.currentAccount = account.username;
-
-  // Fallback defaults for demo account extensions
-  if (!account.password) account.password = "123";
+  let account = state.accounts.find(item => identity(item.username) === identity(authenticatedUsername));
+  if (!account && state.accounts.length === 1) {
+    // The Supabase user id is the storage key, so a username change must keep the same local data.
+    account = state.accounts[0];
+  }
+  if (!account) {
+    account = newAccount(authenticatedUsername);
+    state.accounts.push(account);
+  }
+  account.username = authenticatedUsername;
+  state.currentAccount = authenticatedUsername;
   if (!account.cvMode) account.cvMode = "text";
 
   function save() {
@@ -164,9 +248,15 @@
     if (activeLink) activeLink.classList.add("is-active");
   }
 
-  $$("[data-sign-out]").forEach(link => link.addEventListener("click", () => {
-    state.currentAccount = "";
-    save();
+  $$("[data-sign-out]").forEach(link => link.addEventListener("click", async event => {
+    event.preventDefault();
+    try {
+      await api.signOut();
+    } catch (err) {
+      console.error("Sign out failed:", err);
+    }
+    try { sessionStorage.removeItem("yourin:redirectAfterLogin"); } catch (_) { /* Ignore. */ }
+    window.location.replace("sign-in.html");
   }));
 
   // Toggle password visibility (show/hide)
@@ -191,25 +281,56 @@
 
   const authForms = $$("#auth-form, #sign-in-form, #sign-up-form, .auth-form");
   authForms.forEach(authForm => {
-    authForm.addEventListener("submit", event => {
+    authForm.addEventListener("submit", async event => {
       event.preventDefault();
-      const usernameInput = $("#username");
-      const username = usernameInput ? usernameInput.value.trim() : "";
-      if (!username) return error("#auth-error", "Enter a username to continue.");
-      const passwordInput = $("#password");
-      const confirmInput = $("#confirm-password");
-      if (page === "sign-up" && passwordInput && confirmInput && passwordInput.value !== confirmInput.value) {
+
+      const authError = $("#auth-error");
+      if (authError) {
+        authError.hidden = true;
+        authError.textContent = "";
+      }
+
+      const username = ($("#username")?.value || "").trim();
+      const password = $("#password")?.value || "";
+      const confirmPassword = $("#confirm-password")?.value || "";
+
+      if (!username || !password) {
+        return error("#auth-error", "Enter your username and password.");
+      }
+      if (page === "sign-up" && password !== confirmPassword) {
         return error("#auth-error", "Passwords do not match.");
       }
-      const existing = state.accounts.find(item => identity(item.username) === identity(username));
-      if (page === "sign-up" && existing) {
-        return error("#auth-error", "This demo username already exists. Please sign in.");
+
+      const submitButton = authForm.querySelector('[type="submit"]');
+      if (submitButton) submitButton.disabled = true;
+
+      try {
+        if (page === "sign-up") {
+          const result = await api.signUp(username, password, confirmPassword);
+          if (result.requiresEmailConfirmation) {
+            error("#auth-error", "Account created, but Supabase requires email confirmation. Ask the team to disable confirmation for @yourin.app accounts.");
+            return;
+          }
+        } else {
+          await api.signIn(username, password);
+        }
+
+        let target = "dashboard.html";
+        try {
+          const saved = sessionStorage.getItem("yourin:redirectAfterLogin");
+          sessionStorage.removeItem("yourin:redirectAfterLogin");
+          if (saved && saved.startsWith("/") && !saved.startsWith("//") &&
+              !saved.includes("sign-in.html") && !saved.includes("sign-up.html")) {
+            target = saved;
+          }
+        } catch (_) { /* Session storage may be unavailable. */ }
+
+        window.location.replace(target);
+      } catch (err) {
+        error("#auth-error", err?.message || "Authentication failed. Please try again.");
+      } finally {
+        if (submitButton) submitButton.disabled = false;
       }
-      account = existing || newAccount(username);
-      if (!existing) state.accounts.push(account);
-      state.currentAccount = account.username;
-      save();
-      go("dashboard.html");
     });
   });
 
@@ -227,68 +348,112 @@
     const passwordUnlockBox = $("#password-unlock-box");
     const profileStatus = $("#profile-status");
     const profileError = $("#profile-error");
+    const profileForm = $("#profile-form");
 
     let isPasswordUnlocked = false;
 
-    // Prefill username and account password
-    usernameInput.value = account.username;
-    passwordInput.value = account.password || "123";
+    function clearProfileError() {
+      if (profileError) {
+        profileError.hidden = true;
+        profileError.textContent = "";
+      }
+    }
 
-    // Unlock password verification
-    unlockBtn.addEventListener("click", () => {
-      const entered = verifyPasswordInput.value.trim();
-      const currentPassword = account.password || "123";
+    if (usernameInput) {
+      usernameInput.value = authenticatedUsername;
+      usernameInput.readOnly = true;
+    }
+    if (passwordInput) {
+      passwordInput.value = "";
+      passwordInput.placeholder = "Enter a new password";
+      passwordInput.readOnly = true;
+      passwordInput.type = "password";
+    }
+
+    async function unlockProfile() {
+      if (!verifyPasswordInput || !unlockBtn) return;
+
+      const entered = verifyPasswordInput.value;
+      clearProfileError();
+      if (profileStatus) profileStatus.textContent = "";
+
       if (!entered) {
-        error("#profile-error", "Enter current password to unlock.");
-        verifyPasswordInput.focus();
-        return;
-      }
-      if (entered !== currentPassword) {
-        error("#profile-error", "Incorrect password. Please try again.");
+        error("#profile-error", "Enter your current password to unlock.");
         verifyPasswordInput.focus();
         return;
       }
 
-      // Success: unlock password view & edit
-      profileError.hidden = true;
-      isPasswordUnlocked = true;
-      passwordInput.type = "text";
-      passwordInput.readOnly = false;
-      passwordUnlockBox.classList.add("is-unlocked");
-      passwordUnlockBox.innerHTML = `<p class="unlock-hint" style="color: #245b65; font-weight: 600; margin: 0;">✓ Password unlocked — you can now view and edit your password above.</p>`;
-      profileStatus.textContent = "Password unlocked. You can now edit your credentials.";
-      passwordInput.focus();
-    });
-
-    // Save profile (Username + Password)
-    $("#profile-form").addEventListener("submit", event => {
-      event.preventDefault();
-      profileError.hidden = true;
-      const newUsername = usernameInput.value.trim();
-      if (!newUsername) return error("#profile-error", "Enter a username.");
-
-      if (state.accounts.some(item => item !== account && identity(item.username) === identity(newUsername))) {
-        return error("#profile-error", "That demo username is already in use.");
+      unlockBtn.disabled = true;
+      try {
+        await api.unlockEditing(entered);
+        isPasswordUnlocked = true;
+        if (usernameInput) usernameInput.readOnly = false;
+        if (passwordInput) passwordInput.readOnly = false;
+        if (passwordUnlockBox) passwordUnlockBox.hidden = true;
+        if (profileStatus) profileStatus.textContent = "Editing unlocked. Update your username or set a new password.";
+        if (passwordInput) passwordInput.focus();
+      } catch (err) {
+        error("#profile-error", err?.message || "Password verification failed.");
+        verifyPasswordInput.focus();
+      } finally {
+        unlockBtn.disabled = false;
       }
+    }
 
-      account.username = newUsername;
-      state.currentAccount = newUsername;
+    if (unlockBtn) unlockBtn.addEventListener("click", unlockProfile);
 
-      if (isPasswordUnlocked) {
-        const newPassword = passwordInput.value.trim();
-        if (newPassword) {
-          account.password = newPassword;
+    if (profileForm) {
+      profileForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        clearProfileError();
+        if (profileStatus) profileStatus.textContent = "";
+
+        if (!isPasswordUnlocked) {
+          return error("#profile-error", "Verify your current password before saving changes.");
         }
-        // Lock password back
-        passwordInput.type = "password";
-        passwordInput.readOnly = true;
-        isPasswordUnlocked = false;
-      }
 
-      save();
-      $$("[data-username]").forEach(el => { el.textContent = account.username; });
-      profileStatus.textContent = "Account information saved.";
-    });
+        const newUsername = usernameInput ? usernameInput.value.trim().toLowerCase() : "";
+        const newPassword = passwordInput ? passwordInput.value : "";
+
+        if (!/^[a-z0-9_]{3,60}$/.test(newUsername)) {
+          return error("#profile-error", "Username must contain 3-60 characters: lowercase letters, numbers, or underscores.");
+        }
+        if (newPassword && (newPassword.length < 8 || newPassword.length > 128)) {
+          return error("#profile-error", "A new password must contain 8-128 characters.");
+        }
+
+        const saveButton = $("#save-profile");
+        if (saveButton) saveButton.disabled = true;
+
+        try {
+          await api.updateAccount({ username: newUsername, password: newPassword || undefined });
+          authenticatedUser = await api.getCurrentUser();
+
+          account.username = newUsername;
+          state.currentAccount = newUsername;
+          save();
+
+          $$("[data-username]").forEach(element => { element.textContent = newUsername; });
+
+          if (usernameInput) usernameInput.readOnly = true;
+          if (passwordInput) {
+            passwordInput.value = "";
+            passwordInput.readOnly = true;
+            passwordInput.type = "password";
+            passwordInput.placeholder = "Enter a new password";
+          }
+          if (verifyPasswordInput) verifyPasswordInput.value = "";
+          if (passwordUnlockBox) passwordUnlockBox.hidden = false;
+          isPasswordUnlocked = false;
+
+          if (profileStatus) profileStatus.textContent = "Account information saved.";
+        } catch (err) {
+          error("#profile-error", err?.message || "Unable to save account changes.");
+        } finally {
+          if (saveButton) saveButton.disabled = false;
+        }
+      });
+    }
 
     // CV Section Management
     const cvStatus = $("#cv-status");
@@ -1262,4 +1427,8 @@
 
   // Preserve state between separate file:// documents in the same tab.
   window.addEventListener("pagehide", save);
-})();
+})().catch(error => {
+  console.error("Application initialization failed:", error);
+  const main = document.querySelector("main") || document.body;
+  main.textContent = "Unable to start the application. Please refresh the page.";
+});

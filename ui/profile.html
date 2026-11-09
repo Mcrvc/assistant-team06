@@ -9,6 +9,7 @@
   <script src="js/data.js" defer></script>
   <script src="js/ui.js" defer></script>
   <script src="js/errors.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="js/api.js" defer></script>
   <script src="js/app.js" defer></script>
 </head>
@@ -28,7 +29,7 @@
     <div class="header-right">
       <a class="profile-link is-active" href="profile.html" aria-label="Profile" title="Profile" data-nav="profile">
         <img class="header-avatar" src="assets/avatar.svg" alt="">
-        <span class="profile-name" data-username>Eric Arthur Blair</span>
+        <span class="profile-name" data-username>User</span>
       </a>
       <span class="header-divider" aria-hidden="true"></span>
       <a class="header-logout-link" href="sign-in.html" data-sign-out aria-label="Sign out" title="Sign out">
@@ -49,19 +50,19 @@
       <div class="profile-avatar-wrapper">
         <img class="profile-avatar" src="assets/avatar.svg" alt="">
       </div>
-      <h2 data-username>Eric Arthur Blair</h2>
+      <h2 data-username>User</h2>
     </div>
 
     <form id="profile-form" action="#">
       <div class="field">
         <label for="profile-username">Username</label>
-        <input id="profile-username" type="text" value="Eric Arthur Blair" required maxlength="60" autocomplete="off" placeholder="Your username">
+        <input id="profile-username" type="text" value="" required minlength="3" maxlength="60" pattern="[A-Za-z0-9_]+" title="Use 3-60 letters, numbers, or underscores." autocomplete="off" placeholder="Your username">
       </div>
 
       <!-- Password Field Group -->
       <div class="field">
         <label for="account-password">Password</label>
-        <input id="account-password" type="password" value="123" readonly required autocomplete="off" placeholder="Password">
+        <input id="account-password" type="password" readonly autocomplete="new-password" placeholder="Enter a new password">
       </div>
 
       <!-- Password Unlock Box -->
