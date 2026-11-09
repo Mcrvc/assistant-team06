@@ -148,9 +148,18 @@ def create_app(*, service: InterviewService | None = None,
                 "total_questions": 3, "current_question": 0, "question": item["questions"][0],
                 "question_generation": item["question_generation"]}
 
+    @app.get("/api/interviews", response_model=list[InterviewView], tags=["Interviews"])
+    def list_interviews(user: User, service: Service):
+        return [public_view(item) for item in service.list(user)]
+
     @app.get("/api/interviews/{interview_id}", response_model=InterviewView, tags=["Interviews"])
     def resume_interview(interview_id: UUID, user: User, service: Service):
         return public_view(service.get(user, str(interview_id)))
+
+    @app.delete("/api/interviews/{interview_id}", status_code=204, tags=["Interviews"])
+    def delete_interview(interview_id: UUID, user: User, service: Service):
+        service.delete(user, str(interview_id))
+        return None
 
     @app.post("/api/interviews/{interview_id}/progress", response_model=InterviewView, tags=["Interviews"])
     def save_progress(interview_id: UUID, payload: SaveProgress, user: User, service: Service):

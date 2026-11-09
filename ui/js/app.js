@@ -1,22 +1,100 @@
-/* Offline PoC only. No network calls, real authentication or password storage. */
-(() => {
+/* Yourin application controller. Authentication uses Supabase; interview data will move to the API. */
+(async () => {
   "use strict";
+
+  const page = document.body.dataset.page;
+  const PUBLIC_PAGES = ["sign-in", "sign-up"];
+
+  function showStartupError(message) {
+    const authError = (page === "sign-in" || page === "sign-up")
+      ? document.querySelector("#auth-error")
+      : null;
+
+    if (authError) {
+      authError.textContent = message;
+      authError.hidden = false;
+    } else {
+      const main = document.querySelector("main") || document.body;
+      main.textContent = "";
+      const card = document.createElement("section");
+      card.className = "panel";
+      card.style.maxWidth = "680px";
+      card.style.margin = "80px auto";
+      card.style.padding = "32px";
+      const heading = document.createElement("h1");
+      heading.textContent = "Authentication unavailable";
+      const copy = document.createElement("p");
+      copy.textContent = message;
+      const link = document.createElement("a");
+      link.className = "btn";
+      link.href = "sign-in.html";
+      link.textContent = "Back to sign in";
+      card.append(heading, copy, link);
+      main.appendChild(card);
+    }
+
+    document.querySelectorAll('button[type="submit"]').forEach(button => {
+      button.disabled = true;
+    });
+  }
+
+  try {
+    await window.YourinAPIReady;
+  } catch (err) {
+    console.error("Authentication initialization failed:", err);
+    showStartupError(err?.message || "Authentication is not configured. Please contact the team.");
+    return;
+  }
+
+  const api = window.YourinAPI;
+  if (!api) {
+    showStartupError("The authentication API could not be initialized.");
+    return;
+  }
+
+  let authenticatedUser = null;
+  try {
+    authenticatedUser = await api.getCurrentUser();
+  } catch (err) {
+    console.error("Session verification failed:", err);
+    showStartupError(err?.message || "Unable to verify your session. Please refresh the page.");
+    return;
+  }
+
+  if (!PUBLIC_PAGES.includes(page) && !authenticatedUser) {
+    try {
+      sessionStorage.setItem("yourin:redirectAfterLogin", window.location.pathname + window.location.search);
+    } catch (_) { /* Session storage may be unavailable. */ }
+    window.location.replace("sign-in.html");
+    return;
+  }
+
+  if (PUBLIC_PAGES.includes(page) && authenticatedUser) {
+    window.location.replace("dashboard.html");
+    return;
+  }
+
   const DATA = window.POC_DATA;
-  const KEY = "yourin-poc-v2";
-  const PREFIX = "yourin-poc:";
+  if (!DATA) {
+    showStartupError("Application data is unavailable.");
+    return;
+  }
+
+  const USER_ID = authenticatedUser?.id || "anonymous";
+  const KEY = `yourin-poc-v2:${USER_ID}`;
+  const PREFIX = `yourin-poc:${USER_ID}:`;
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
-  const page = document.body.dataset.page;
   const jobKeys = ["job-source", "job-title", "domain", "company", "position"];
   const manualJobKeys = ["job-title", "domain", "company", "position"];
   const strings = (value, length) => Array.isArray(value) && value.length === length && value.every(item => typeof item === "string");
-  const identity = name => name.trim().toLocaleLowerCase();
+  const identity = name => String(name || "").trim().toLocaleLowerCase();
   const go = url => { window.location.href = url; };
+  const authenticatedUsername = authenticatedUser?.user_metadata?.username || "User";
 
   function newAccount(username) {
     return {
       username,
-      password: "123",
       cv: ["", "", "", ""],
       job: {},
       syncCV: true,
@@ -32,7 +110,7 @@
       }))
     };
   }
-  // Ignore corrupt or incompatible demo state instead of breaking the presentation.
+  // Ignore corrupt or incompatible stored state instead of breaking the page.
   function validState(value) {
     return value && value.version === 2 && Number.isFinite(value.updatedAt) &&
       typeof value.currentAccount === "string" && Array.isArray(value.accounts) &&
@@ -46,8 +124,8 @@
           (interview.cv === null || strings(interview.cv, 4))));
   }
   let state = {
-    version: 2, updatedAt: 0, currentAccount: "Eric Arthur Blair",
-    accounts: [newAccount("Eric Arthur Blair")]
+    version: 2, updatedAt: 0, currentAccount: authenticatedUsername,
+    accounts: [newAccount(authenticatedUsername)]
   };
   const candidates = [];
   try { candidates.push(JSON.parse(localStorage.getItem(KEY))); } catch (_) { /* Storage may be disabled. */ }
@@ -57,11 +135,17 @@
   for (const candidate of candidates) {
     if (validState(candidate) && candidate.updatedAt >= state.updatedAt) state = candidate;
   }
-  let account = state.accounts.find(item => identity(item.username) === identity(state.currentAccount)) || state.accounts[0];
-  state.currentAccount = account.username;
-
-  // Fallback defaults for demo account extensions
-  if (!account.password) account.password = "123";
+  let account = state.accounts.find(item => identity(item.username) === identity(authenticatedUsername));
+  if (!account && state.accounts.length === 1) {
+    // The Supabase user id is the storage key, so a username change must keep the same local data.
+    account = state.accounts[0];
+  }
+  if (!account) {
+    account = newAccount(authenticatedUsername);
+    state.accounts.push(account);
+  }
+  account.username = authenticatedUsername;
+  state.currentAccount = authenticatedUsername;
   if (!account.cvMode) account.cvMode = "text";
 
   function save() {
@@ -120,6 +204,62 @@
     save();
     return item;
   }
+  function buildCvText(value) {
+    const parts = Array.isArray(value) ? value : [value];
+    return parts
+      .map(part => typeof part === "string" ? part.trim() : "")
+      .filter(Boolean)
+      .join("\n\n")
+      .slice(0, 40000) || null;
+  }
+  function addServerInterview(created, view, options = {}) {
+    const details = Array.isArray(view && view.questions) && view.questions.length
+      ? view.questions
+      : (created && created.question ? [created.question] : []);
+    const answers = Array.isArray(view && view.answers)
+      ? view.answers.map(answer => (answer && typeof answer.text === "string" ? answer.text : ""))
+      : ["", "", ""];
+    while (answers.length < 3) answers.push("");
+    answers.length = 3;
+
+    const name = typeof view?.name === "string" && view.name.trim()
+      ? view.name.trim()
+      : (options.name || "New Interview");
+    const item = {
+      id: created.id,
+      name: name.slice(0, 200),
+      date: new Date().toLocaleDateString("en-GB"),
+      finished: view?.status === "finalized",
+      answers,
+      cv: Array.isArray(options.cv) && options.cv.length === 4
+        ? options.cv.map(part => typeof part === "string" ? part : "")
+        : ["", "", "", ""],
+      cvPdf: options.cvPdf || null,
+      cvMode: options.cvMode || "text",
+      job: options.job && typeof options.job === "object" ? { ...options.job } : { ...account.job },
+      jobProfile: view?.job_profile || options.jobProfile || null,
+      questions: details.map(question => (
+        typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")
+      )),
+      questionDetails: details,
+      totalQuestions: Number.isInteger(created.total_questions) && created.total_questions > 0
+        ? created.total_questions
+        : 3,
+      revision: Number.isInteger(view?.revision) ? view.revision : (Number.isInteger(created.revision) ? created.revision : 0),
+      status: view?.status || created.status || "in_progress",
+      currentQuestion: Number.isInteger(view?.current_question)
+        ? view.current_question
+        : (Number.isInteger(created.current_question) ? created.current_question : 0),
+      progress: view?.progress || null,
+      report: view?.report || null,
+      questionGeneration: view?.question_generation || created.question_generation || null,
+      server: true
+    };
+    account.interviews.unshift(item);
+    account.activeId = item.id;
+    save();
+    return item;
+  }
   function saveJob() {
     account.job = Object.fromEntries(jobKeys.map(key => {
       const el = $("#" + key);
@@ -164,9 +304,15 @@
     if (activeLink) activeLink.classList.add("is-active");
   }
 
-  $$("[data-sign-out]").forEach(link => link.addEventListener("click", () => {
-    state.currentAccount = "";
-    save();
+  $$("[data-sign-out]").forEach(link => link.addEventListener("click", async event => {
+    event.preventDefault();
+    try {
+      await api.signOut();
+    } catch (err) {
+      console.error("Sign out failed:", err);
+    }
+    try { sessionStorage.removeItem("yourin:redirectAfterLogin"); } catch (_) { /* Ignore. */ }
+    window.location.replace("sign-in.html");
   }));
 
   // Toggle password visibility (show/hide)
@@ -191,25 +337,56 @@
 
   const authForms = $$("#auth-form, #sign-in-form, #sign-up-form, .auth-form");
   authForms.forEach(authForm => {
-    authForm.addEventListener("submit", event => {
+    authForm.addEventListener("submit", async event => {
       event.preventDefault();
-      const usernameInput = $("#username");
-      const username = usernameInput ? usernameInput.value.trim() : "";
-      if (!username) return error("#auth-error", "Enter a username to continue.");
-      const passwordInput = $("#password");
-      const confirmInput = $("#confirm-password");
-      if (page === "sign-up" && passwordInput && confirmInput && passwordInput.value !== confirmInput.value) {
+
+      const authError = $("#auth-error");
+      if (authError) {
+        authError.hidden = true;
+        authError.textContent = "";
+      }
+
+      const username = ($("#username")?.value || "").trim();
+      const password = $("#password")?.value || "";
+      const confirmPassword = $("#confirm-password")?.value || "";
+
+      if (!username || !password) {
+        return error("#auth-error", "Enter your username and password.");
+      }
+      if (page === "sign-up" && password !== confirmPassword) {
         return error("#auth-error", "Passwords do not match.");
       }
-      const existing = state.accounts.find(item => identity(item.username) === identity(username));
-      if (page === "sign-up" && existing) {
-        return error("#auth-error", "This demo username already exists. Please sign in.");
+
+      const submitButton = authForm.querySelector('[type="submit"]');
+      if (submitButton) submitButton.disabled = true;
+
+      try {
+        if (page === "sign-up") {
+          const result = await api.signUp(username, password, confirmPassword);
+          if (result.requiresEmailConfirmation) {
+            error("#auth-error", "Account created, but Supabase requires email confirmation. Ask the team to disable confirmation for @yourin.app accounts.");
+            return;
+          }
+        } else {
+          await api.signIn(username, password);
+        }
+
+        let target = "dashboard.html";
+        try {
+          const saved = sessionStorage.getItem("yourin:redirectAfterLogin");
+          sessionStorage.removeItem("yourin:redirectAfterLogin");
+          if (saved && saved.startsWith("/") && !saved.startsWith("//") &&
+              !saved.includes("sign-in.html") && !saved.includes("sign-up.html")) {
+            target = saved;
+          }
+        } catch (_) { /* Session storage may be unavailable. */ }
+
+        window.location.replace(target);
+      } catch (err) {
+        error("#auth-error", err?.message || "Authentication failed. Please try again.");
+      } finally {
+        if (submitButton) submitButton.disabled = false;
       }
-      account = existing || newAccount(username);
-      if (!existing) state.accounts.push(account);
-      state.currentAccount = account.username;
-      save();
-      go("dashboard.html");
     });
   });
 
@@ -227,68 +404,112 @@
     const passwordUnlockBox = $("#password-unlock-box");
     const profileStatus = $("#profile-status");
     const profileError = $("#profile-error");
+    const profileForm = $("#profile-form");
 
     let isPasswordUnlocked = false;
 
-    // Prefill username and account password
-    usernameInput.value = account.username;
-    passwordInput.value = account.password || "123";
+    function clearProfileError() {
+      if (profileError) {
+        profileError.hidden = true;
+        profileError.textContent = "";
+      }
+    }
 
-    // Unlock password verification
-    unlockBtn.addEventListener("click", () => {
-      const entered = verifyPasswordInput.value.trim();
-      const currentPassword = account.password || "123";
+    if (usernameInput) {
+      usernameInput.value = authenticatedUsername;
+      usernameInput.readOnly = true;
+    }
+    if (passwordInput) {
+      passwordInput.value = "";
+      passwordInput.placeholder = "Enter a new password";
+      passwordInput.readOnly = true;
+      passwordInput.type = "password";
+    }
+
+    async function unlockProfile() {
+      if (!verifyPasswordInput || !unlockBtn) return;
+
+      const entered = verifyPasswordInput.value;
+      clearProfileError();
+      if (profileStatus) profileStatus.textContent = "";
+
       if (!entered) {
-        error("#profile-error", "Enter current password to unlock.");
-        verifyPasswordInput.focus();
-        return;
-      }
-      if (entered !== currentPassword) {
-        error("#profile-error", "Incorrect password. Please try again.");
+        error("#profile-error", "Enter your current password to unlock.");
         verifyPasswordInput.focus();
         return;
       }
 
-      // Success: unlock password view & edit
-      profileError.hidden = true;
-      isPasswordUnlocked = true;
-      passwordInput.type = "text";
-      passwordInput.readOnly = false;
-      passwordUnlockBox.classList.add("is-unlocked");
-      passwordUnlockBox.innerHTML = `<p class="unlock-hint" style="color: #245b65; font-weight: 600; margin: 0;">✓ Password unlocked — you can now view and edit your password above.</p>`;
-      profileStatus.textContent = "Password unlocked. You can now edit your credentials.";
-      passwordInput.focus();
-    });
-
-    // Save profile (Username + Password)
-    $("#profile-form").addEventListener("submit", event => {
-      event.preventDefault();
-      profileError.hidden = true;
-      const newUsername = usernameInput.value.trim();
-      if (!newUsername) return error("#profile-error", "Enter a username.");
-
-      if (state.accounts.some(item => item !== account && identity(item.username) === identity(newUsername))) {
-        return error("#profile-error", "That demo username is already in use.");
+      unlockBtn.disabled = true;
+      try {
+        await api.unlockEditing(entered);
+        isPasswordUnlocked = true;
+        if (usernameInput) usernameInput.readOnly = false;
+        if (passwordInput) passwordInput.readOnly = false;
+        if (passwordUnlockBox) passwordUnlockBox.hidden = true;
+        if (profileStatus) profileStatus.textContent = "Editing unlocked. Update your username or set a new password.";
+        if (passwordInput) passwordInput.focus();
+      } catch (err) {
+        error("#profile-error", err?.message || "Password verification failed.");
+        verifyPasswordInput.focus();
+      } finally {
+        unlockBtn.disabled = false;
       }
+    }
 
-      account.username = newUsername;
-      state.currentAccount = newUsername;
+    if (unlockBtn) unlockBtn.addEventListener("click", unlockProfile);
 
-      if (isPasswordUnlocked) {
-        const newPassword = passwordInput.value.trim();
-        if (newPassword) {
-          account.password = newPassword;
+    if (profileForm) {
+      profileForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        clearProfileError();
+        if (profileStatus) profileStatus.textContent = "";
+
+        if (!isPasswordUnlocked) {
+          return error("#profile-error", "Verify your current password before saving changes.");
         }
-        // Lock password back
-        passwordInput.type = "password";
-        passwordInput.readOnly = true;
-        isPasswordUnlocked = false;
-      }
 
-      save();
-      $$("[data-username]").forEach(el => { el.textContent = account.username; });
-      profileStatus.textContent = "Account information saved.";
-    });
+        const newUsername = usernameInput ? usernameInput.value.trim().toLowerCase() : "";
+        const newPassword = passwordInput ? passwordInput.value : "";
+
+        if (!/^[a-z0-9_]{3,60}$/.test(newUsername)) {
+          return error("#profile-error", "Username must contain 3-60 characters: lowercase letters, numbers, or underscores.");
+        }
+        if (newPassword && (newPassword.length < 8 || newPassword.length > 128)) {
+          return error("#profile-error", "A new password must contain 8-128 characters.");
+        }
+
+        const saveButton = $("#save-profile");
+        if (saveButton) saveButton.disabled = true;
+
+        try {
+          await api.updateAccount({ username: newUsername, password: newPassword || undefined });
+          authenticatedUser = await api.getCurrentUser();
+
+          account.username = newUsername;
+          state.currentAccount = newUsername;
+          save();
+
+          $$("[data-username]").forEach(element => { element.textContent = newUsername; });
+
+          if (usernameInput) usernameInput.readOnly = true;
+          if (passwordInput) {
+            passwordInput.value = "";
+            passwordInput.readOnly = true;
+            passwordInput.type = "password";
+            passwordInput.placeholder = "Enter a new password";
+          }
+          if (verifyPasswordInput) verifyPasswordInput.value = "";
+          if (passwordUnlockBox) passwordUnlockBox.hidden = false;
+          isPasswordUnlocked = false;
+
+          if (profileStatus) profileStatus.textContent = "Account information saved.";
+        } catch (err) {
+          error("#profile-error", err?.message || "Unable to save account changes.");
+        } finally {
+          if (saveButton) saveButton.disabled = false;
+        }
+      });
+    }
 
     // CV Section Management
     const cvStatus = $("#cv-status");
@@ -658,7 +879,7 @@
       });
     }
 
-    $("#job-form").addEventListener("submit", event => {
+    $("#job-form").addEventListener("submit", async event => {
       event.preventDefault();
       const jobError = $("#job-error");
       if (jobError) jobError.hidden = true;
@@ -674,54 +895,328 @@
         }
       }
 
-      if (!isCvOpen) {
-        startInterview(null, null, "none");
-      } else if (cvInputMode === "custom") {
-        if (interviewPdf) {
-          startInterview(["", "", "", ""], interviewPdf, "custom");
-        } else {
-          const rawText = jobCvRawInput ? jobCvRawInput.value.trim() : "";
-          if (!rawText) {
-            return error("#job-error", "Paste your CV text or upload a PDF resume, or switch back to saved CV.");
+      let cvText = null;
+      let cvLocal = ["", "", "", ""];
+      let cvPdf = null;
+      let cvMode = "text";
+
+      if (isCvOpen) {
+        if (cvInputMode === "custom") {
+          if (interviewPdf) {
+            // The backend accepts CV text. PDF extraction is not part of this checkout yet.
+            cvPdf = { ...interviewPdf };
+            cvMode = "pdf";
+          } else {
+            const rawText = jobCvRawInput ? jobCvRawInput.value.trim() : "";
+            if (!rawText) {
+              return error("#job-error", "Paste your CV text or upload a PDF resume, or switch back to saved CV.");
+            }
+            cvLocal = [rawText, "", "", ""];
+            cvText = buildCvText(rawText);
+            cvMode = "text";
           }
-          startInterview([rawText, "", "", ""], null, "custom");
+        } else if (syncCvCheckbox && syncCvCheckbox.checked) {
+          if (account.cvPdf || account.cvMode === "pdf") {
+            cvPdf = account.cvPdf ? { ...account.cvPdf } : null;
+            cvMode = "pdf";
+          } else {
+            cvLocal = [...account.cv];
+            cvText = buildCvText(account.cv);
+            cvMode = "text";
+          }
         }
-      } else if (syncCvCheckbox && syncCvCheckbox.checked) {
-        if (account.cvPdf || account.cvMode === "pdf") {
-          startInterview(["", "", "", ""], account.cvPdf, "saved");
-        } else {
-          startInterview([...account.cv], null, "saved");
-        }
-      } else {
-        startInterview(null, null, "none");
       }
-      go("interview.html");
+
+      const jobTitle = (account.job["job-title"] || "").trim();
+      const jobProfile = {
+        title: jobTitle.slice(0, 200),
+        domain: (account.job.domain || "").trim().slice(0, 200),
+        company: (account.job.company || "").trim().slice(0, 200),
+        level: (account.job.position || "").trim().slice(0, 200),
+        description: (jobInputMode === "paste" ? (account.job["job-source"] || "").trim() : "").slice(0, 20000)
+      };
+      const payload = {
+        job_profile: jobProfile,
+        cv: cvText,
+        name: (jobTitle || "New Interview " + (account.interviews.length + 1)).slice(0, 200)
+      };
+
+      const submitButton = $("#job-form button[type='submit']");
+      const originalButtonText = submitButton ? submitButton.textContent : "";
+      let loading = null;
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Creating interview...";
+      }
+      if (window.YourinUI?.loading?.show) {
+        loading = window.YourinUI.loading.show({
+          title: "Creating your interview",
+          eyebrow: "Please wait",
+          detail: "Reading the role and writing your first questions.",
+          steps: [
+            "Reading the job profile...",
+            "Finding role-specific themes...",
+            "Writing three interview questions...",
+            "Preparing your interview..."
+          ],
+          coldStartAfter: 5000
+        });
+      }
+
+      try {
+        const result = await api.request("/api/interviews", {
+          method: "POST",
+          body: JSON.stringify(payload),
+          loading: false
+        });
+        if (!result.ok || !result.data || !result.data.id) {
+          const message = window.YourinErrors?.messageFromPayload?.(result.data) ||
+            "Unable to create the interview. Please try again.";
+          error("#job-error", message);
+          return;
+        }
+
+        const created = result.data;
+        const viewResult = await api.request(`/api/interviews/${encodeURIComponent(created.id)}`, {
+          loading: false
+        });
+        if (viewResult.status === 401) return;
+        const view = viewResult.ok ? viewResult.data : null;
+        if (!view) {
+          window.YourinErrors?.showToast?.(
+            "Interview created, but the full question list could not be loaded. Reopen it from Your Interview.",
+            { type: "warning" }
+          );
+        }
+
+        addServerInterview(created, view, {
+          name: payload.name,
+          cv: cvLocal,
+          cvPdf,
+          cvMode,
+          job: { ...account.job },
+          jobProfile
+        });
+        go("interview.html");
+      } catch (err) {
+        console.error("Interview creation failed:", err);
+        error("#job-error", "Unable to create the interview. Please try again.");
+      } finally {
+        if (loading) loading.hide();
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = originalButtonText;
+        }
+      }
     });
     $$("[data-save-job]").forEach(link => link.addEventListener("click", saveJob));
   }
 
   if (page === "interview" || page === "interview-1" || page === "interview-2" || page === "interview-3" || $("#interview-step-track")) {
     const interview = activeInterview() || startInterview();
-    const questions = DATA.questions || [
+
+    function isServerInterview() {
+      return Boolean(interview && interview.server === true && interview.id);
+    }
+
+    function applyServerView(target, view) {
+      if (!target || !view) return;
+      if (typeof view.name === "string" && view.name.trim()) target.name = view.name.trim();
+      if (typeof view.status === "string") target.status = view.status;
+      if (Number.isInteger(view.revision)) target.revision = view.revision;
+      if (Number.isInteger(view.current_question)) target.currentQuestion = view.current_question;
+      if (Array.isArray(view.questions)) {
+        target.questionDetails = view.questions;
+        target.questions = view.questions.map(question => (
+          typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")
+        ));
+        target.totalQuestions = view.questions.length || target.totalQuestions || 3;
+      }
+      target.report = view.report || target.report || null;
+      const answers = Array.isArray(view.answers) ? view.answers : [];
+      const texts = [];
+      const statuses = [];
+      const grades = [];
+      const errors = [];
+      for (let i = 0; i < 3; i++) {
+        const answer = answers[i] || {};
+        texts.push(typeof answer.text === "string" ? answer.text : "");
+        statuses.push(typeof answer.grading_status === "string" ? answer.grading_status : "unanswered");
+        grades.push(answer.grade || null);
+        errors.push(answer.error_code || null);
+      }
+      target.answers = texts;
+      target.answerStatuses = statuses;
+      target.answerGrades = grades;
+      target.answerErrors = errors;
+      target.submittedTexts = texts.slice();
+      save();
+    }
+
+    async function refreshServerInterview() {
+      if (!isServerInterview()) return null;
+      const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+        loading: false,
+        notify: false
+      });
+      if (result.ok && result.data) applyServerView(interview, result.data);
+      else if (result.status === 409) {
+        // keep local state; backend may have moved
+      }
+      return result;
+    }
+
+    async function submitCurrentAnswer(index) {
+      if (!isServerInterview()) return true;
+      const text = String(interview.answers[index] || "");
+      if (!text.trim()) return true;
+      const status = Array.isArray(interview.answerStatuses) ? interview.answerStatuses[index] : "";
+      const submitted = Array.isArray(interview.submittedTexts) ? String(interview.submittedTexts[index] || "") : "";
+      if ((status === "graded" || status === "pending") && text === submitted) {
+        return true;
+      }
+      try {
+        const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/answers/${index}`, {
+          method: "POST",
+          body: JSON.stringify({ revision: interview.revision, text }),
+          loading: false
+        });
+        if (!result.ok || !result.data) {
+          if (result.status === 409) await refreshServerInterview();
+          if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function") {
+            window.YourinErrors.handleStatus(result.status, result.data);
+          }
+          return false;
+        }
+        applyServerView(interview, result.data);
+        startGradingPoll();
+        updateAnswerStatusUI();
+        return true;
+      } catch (err) {
+        console.error("Submit answer failed:", err);
+        return false;
+      }
+    }
+
+    async function saveProgressToServer(targetStep, status) {
+      if (!isServerInterview()) return;
+      const nextStatus = status === "interrupted" ? "interrupted" : "in_progress";
+      try {
+        const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/progress`, {
+          method: "POST",
+          body: JSON.stringify({
+            revision: interview.revision,
+            current_question: Math.max(0, Math.min(2, targetStep)),
+            status: nextStatus,
+            answers: interview.answers
+          }),
+          loading: false,
+          notify: false
+        });
+        if (result.ok && result.data) applyServerView(interview, result.data);
+        else if (result.status === 409) await refreshServerInterview();
+      } catch (_) { /* network errors are surfaced by the shared layer */ }
+    }
+
+    let gradingPoll = null;
+    function startGradingPoll() {
+      if (!isServerInterview() || gradingPoll) return;
+      gradingPoll = window.setInterval(async () => {
+        const hasPending = Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending");
+        if (!hasPending) {
+          window.clearInterval(gradingPoll);
+          gradingPoll = null;
+          return;
+        }
+        await refreshServerInterview();
+        updateAnswerStatusUI();
+      }, 3000);
+    }
+
+    function updateAnswerStatusUI() {
+      const status = Array.isArray(interview.answerStatuses) ? (interview.answerStatuses[currentStep] || "") : "";
+      let element = document.getElementById("answer-status");
+      if (!element) {
+        element = document.createElement("span");
+        element.id = "answer-status";
+        element.style.marginLeft = "0.75rem";
+        element.style.fontSize = "0.85rem";
+        const badge = document.getElementById("question-badge");
+        if (badge && badge.parentNode) badge.parentNode.insertBefore(element, badge.nextSibling);
+      }
+      const grade = Array.isArray(interview.answerGrades) ? interview.answerGrades[currentStep] : null;
+      if (status === "graded" && grade && typeof grade.score === "number") {
+        element.textContent = `Graded: ${grade.score}/10`;
+      } else if (status === "pending") {
+        element.textContent = "Grading...";
+      } else if (status === "rejected") {
+        const code = Array.isArray(interview.answerErrors) ? interview.answerErrors[currentStep] : null;
+        element.textContent = code ? `Rejected (${code})` : "Rejected - resubmit";
+      } else if (status === "draft") {
+        element.textContent = "Draft";
+      } else {
+        element.textContent = "";
+      }
+    }
+
+    if (isServerInterview()) {
+      if (!Array.isArray(interview.answerStatuses)) interview.answerStatuses = ["unanswered", "unanswered", "unanswered"];
+      if (!Array.isArray(interview.answerGrades)) interview.answerGrades = [null, null, null];
+      if (!Array.isArray(interview.answerErrors)) interview.answerErrors = [null, null, null];
+      if (!Array.isArray(interview.submittedTexts)) interview.submittedTexts = ["", "", ""];
+      try {
+        const initial = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, { loading: false, notify: false });
+        if (initial.ok && initial.data) applyServerView(interview, initial.data);
+      } catch (_) {}
+      if (Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
+        startGradingPoll();
+      }
+    }
+
+    const fallbackQuestions = DATA.questions || [
       "Imagine you're tasked with curating a time capsule that defines the year 2026 for an alien civilization. What are three objects you put inside?",
       "To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles, and by opposing end them.",
       "Wat een wartaa. Het is echt niet alsof ik bezorgd om je was ofzo. Mijn colonne verplaatste zich puur toevallig langs deze strategische route, dus haal je maar niks in je hoofd, begrepen?"
     ];
-    const totalQuestions = questions.length;
+    const storedQuestions = Array.isArray(interview.questions)
+      ? interview.questions.filter(question => typeof question === "string")
+      : [];
+    const usesStoredQuestions = interview.server === true || storedQuestions.length > 0;
+    const questions = usesStoredQuestions ? storedQuestions : fallbackQuestions;
+    const totalQuestions = usesStoredQuestions
+      ? (Number.isInteger(interview.totalQuestions) && interview.totalQuestions > 0
+        ? interview.totalQuestions
+        : Math.max(3, questions.length))
+      : questions.length;
 
     let currentStep = 0;
     try {
       const params = new URLSearchParams(window.location.search);
       const qParam = parseInt(params.get("q"), 10);
-      if (!isNaN(qParam) && qParam >= 1 && qParam <= totalQuestions) {
+      if (!isNaN(qParam) && qParam >= 1 && qParam <= Math.max(1, questions.length)) {
         currentStep = qParam - 1;
+      } else if (isServerInterview() && Number.isInteger(interview.currentQuestion)) {
+        currentStep = Math.max(0, Math.min(2, interview.currentQuestion));
       }
     } catch (_) {}
 
-    while (interview.answers.length < totalQuestions) {
+    const answerSlots = 3;
+    while (interview.answers.length < answerSlots) {
       interview.answers.push("");
     }
-
+    interview.answers.length = answerSlots;
+    if (!Array.isArray(interview.answerStatuses)) interview.answerStatuses = ["unanswered", "unanswered", "unanswered"];
+    if (!Array.isArray(interview.answerGrades)) interview.answerGrades = [null, null, null];
+    if (!Array.isArray(interview.answerErrors)) interview.answerErrors = [null, null, null];
+    if (!Array.isArray(interview.submittedTexts)) interview.submittedTexts = ["", "", ""];
+    while (interview.answerStatuses.length < answerSlots) interview.answerStatuses.push("unanswered");
+    while (interview.answerGrades.length < answerSlots) interview.answerGrades.push(null);
+    while (interview.answerErrors.length < answerSlots) interview.answerErrors.push(null);
+    while (interview.submittedTexts.length < answerSlots) interview.submittedTexts.push("");
+    interview.answerStatuses.length = answerSlots;
+    interview.answerGrades.length = answerSlots;
+    interview.answerErrors.length = answerSlots;
+    interview.submittedTexts.length = answerSlots;
     const questionTitle = $("#question-title");
     const questionBadge = $("#question-badge");
     const questionText = $("#question-text");
@@ -822,8 +1317,13 @@
 
       if (questionTitle) questionTitle.textContent = `Question ${currentStep + 1}`;
       if (questionBadge) questionBadge.textContent = `${currentStep + 1} of ${totalQuestions}`;
-      if (questionText) questionText.textContent = questions[currentStep];
-
+      updateAnswerStatusUI();
+      if (questionText) {
+        const text = questions[currentStep];
+        questionText.textContent = typeof text === "string" && text.trim()
+          ? text
+          : "This question is not available yet. Please reopen the interview from Your Interview.";
+      }
       if (answerInput) {
         answerInput.dataset.answer = currentStep;
         answerInput.value = interview.answers[currentStep] || "";
@@ -839,6 +1339,9 @@
       }
 
       if (nextBtn) {
+        const hasCurrent = typeof questions[currentStep] === "string" && questions[currentStep].trim();
+        const hasNext = typeof questions[currentStep + 1] === "string" && questions[currentStep + 1].trim();
+        nextBtn.disabled = !hasCurrent || (currentStep < totalQuestions - 1 && !hasNext);
         if (currentStep === totalQuestions - 1) {
           nextBtn.textContent = "Finalize Interview";
         } else {
@@ -882,23 +1385,38 @@
     }
 
     if (prevBtn) {
-      prevBtn.addEventListener("click", () => {
+      prevBtn.addEventListener("click", async () => {
         if (currentStep > 0) {
           if (answerInput) interview.answers[currentStep] = answerInput.value;
           save();
+          if (isServerInterview()) {
+            await submitCurrentAnswer(currentStep);
+            await saveProgressToServer(currentStep - 1);
+          }
           renderStep(currentStep - 1);
+          updateAnswerStatusUI();
         }
       });
     }
 
     if (nextBtn) {
-      nextBtn.addEventListener("click", () => {
+      nextBtn.addEventListener("click", async () => {
         if (answerInput) interview.answers[currentStep] = answerInput.value;
         save();
 
+        if (isServerInterview()) {
+          await submitCurrentAnswer(currentStep);
+        }
+
         if (currentStep < totalQuestions - 1) {
+          if (isServerInterview()) await saveProgressToServer(currentStep + 1);
           renderStep(currentStep + 1);
+          updateAnswerStatusUI();
         } else {
+          if (isServerInterview()) {
+            await submitCurrentAnswer(currentStep);
+            await saveProgressToServer(currentStep);
+          }
           interview.finished = true;
           save();
           go("done-interview.html");
@@ -910,6 +1428,9 @@
     function triggerSaveAndExit(targetHref) {
       if (answerInput) interview.answers[currentStep] = answerInput.value;
       save();
+      if (isServerInterview()) {
+        saveProgressToServer(currentStep, "interrupted").catch(() => {});
+      }
 
       if (exitModal) {
         if (exitModalName) exitModalName.textContent = interview.name;
@@ -1001,9 +1522,21 @@
     $$("[data-save-answer]").forEach(link => link.addEventListener("click", () => {
       if (answerInput) interview.answers[currentStep] = answerInput.value;
       save();
+      if (isServerInterview()) saveProgressToServer(currentStep).catch(() => {});
     }));
 
+    window.addEventListener("pagehide", () => {
+      if (gradingPoll) window.clearInterval(gradingPoll);
+      if (isServerInterview()) {
+        saveProgressToServer(currentStep, "interrupted").catch(() => {});
+      }
+    }, { once: true });
+
     renderStep(currentStep);
+    updateAnswerStatusUI();
+    if (isServerInterview() && Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
+      startGradingPoll();
+    }
   }
 
   if (page === "interview-interrupt") {
@@ -1020,18 +1553,140 @@
   }
 
   if (page === "done-interview") {
-    $("#done-form").addEventListener("submit", event => {
+    $("#done-form").addEventListener("submit", async event => {
       event.preventDefault();
       const interview = activeInterview() || startInterview();
       const name = $("#interview-name").value.trim();
-      if (name) interview.name = name;
-      interview.finished = true;
-      save();
+      const loading = window.YourinUI?.loading?.show ? window.YourinUI.loading.show({
+        title: "Finalizing your interview",
+        eyebrow: "Please wait",
+        detail: "Checking your answers and building the report.",
+        steps: [
+          "Checking all answers are graded...",
+          "Finalizing your session...",
+          "Preparing your report..."
+        ],
+        coldStartAfter: 5000
+      }) : null;
+
+      try {
+        if (interview && interview.server === true && interview.id) {
+          // Wait for grading to finish before finalizing.
+          let attempts = 0;
+          while (attempts < 60) {
+            const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+              loading: false,
+              notify: false
+            });
+            if (viewResult.ok && viewResult.data) {
+              const statuses = Array.isArray(viewResult.data.answers)
+                ? viewResult.data.answers.map(answer => answer.grading_status)
+                : [];
+              const gradedCount = statuses.filter(status => status === "graded").length;
+              if (gradedCount === 3) break;
+              if (statuses.some(status => status === "rejected")) {
+                if (loading) loading.hide();
+                window.YourinErrors?.showToast?.(
+                  "Some answers were rejected. Resubmit them before finalizing.",
+                  { type: "warning" }
+                );
+                return;
+              }
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            attempts += 1;
+          }
+
+          const finalizeResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/finalize`, {
+            method: "POST",
+            body: JSON.stringify({
+              revision: interview.revision,
+              name: (name || interview.name || "New Interview").slice(0, 200)
+            }),
+            loading: false
+          });
+          if (!finalizeResult.ok || !finalizeResult.data) {
+            if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function") {
+              window.YourinErrors.handleStatus(finalizeResult.status, finalizeResult.data);
+            } else {
+              window.YourinErrors?.showToast?.("Unable to finalize the interview. Please try again.", { type: "error" });
+            }
+            return;
+          }
+
+          const view = finalizeResult.data;
+          interview.name = typeof view.name === "string" ? view.name : interview.name;
+          interview.finished = view.status === "finalized";
+          interview.status = view.status;
+          interview.revision = Number.isInteger(view.revision) ? view.revision : interview.revision;
+          interview.report = view.report || interview.report || null;
+          if (Array.isArray(view.answers)) {
+            interview.answers = view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""));
+            interview.answerStatuses = view.answers.map(answer => (typeof answer.grading_status === "string" ? answer.grading_status : "unanswered"));
+            interview.answerGrades = view.answers.map(answer => answer.grade || null);
+            interview.answerErrors = view.answers.map(answer => answer.error_code || null);
+            interview.submittedTexts = interview.answers.slice();
+          }
+          if (Array.isArray(view.questions)) {
+            interview.questions = view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")));
+            interview.questionDetails = view.questions;
+          }
+          save();
+        } else {
+          if (name) interview.name = name;
+          interview.finished = true;
+          save();
+        }
+      } catch (err) {
+        console.error("Finalize failed:", err);
+        window.YourinErrors?.showToast?.("Unable to finalize the interview. Please try again.", { type: "error" });
+        return;
+      } finally {
+        if (loading) loading.hide();
+      }
+
       go("report.html");
     });
   }
 
   if (page === "storage") {
+    try {
+      const listResult = await api.request("/api/interviews", { loading: false, notify: false });
+        if (listResult.ok && Array.isArray(listResult.data)) {
+          account.interviews = listResult.data.map(view => {
+            const answers = Array.isArray(view.answers)
+              ? view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""))
+              : ["", "", ""];
+            while (answers.length < 3) answers.push("");
+            answers.length = 3;
+            return {
+              id: view.id,
+              name: typeof view.name === "string" ? view.name : "Interview",
+              date: view.created_at ? new Date(view.created_at).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"),
+              finished: view.status === "finalized",
+              answers,
+              cv: ["", "", "", ""],
+              cvPdf: null,
+              cvMode: "text",
+              job: {},
+              jobProfile: view.job_profile || null,
+              questions: Array.isArray(view.questions)
+                ? view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")))
+                : [],
+              questionDetails: Array.isArray(view.questions) ? view.questions : [],
+              totalQuestions: Array.isArray(view.questions) && view.questions.length ? view.questions.length : 3,
+              revision: Number.isInteger(view.revision) ? view.revision : 0,
+              status: view.status,
+              currentQuestion: Number.isInteger(view.current_question) ? view.current_question : 0,
+              progress: view.progress || null,
+              report: view.report || null,
+              server: true
+            };
+          });
+          save();
+        }
+      } catch (_) { /* keep local cache if the API is unavailable */ }
+
     const listContainer = $("#interview-list");
     const emptyContainer = $("#storage-empty");
     const gridHead = $(".storage-grid-head");
@@ -1174,7 +1829,17 @@
         deleteBtn.type = "button";
         deleteBtn.textContent = "Delete";
         deleteBtn.title = "Delete this interview";
-        deleteBtn.addEventListener("click", () => {
+        deleteBtn.addEventListener("click", async () => {
+          if (interview.server === true && interview.id) {
+            const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+              method: "DELETE",
+              loading: false
+            });
+            if (!result.ok && result.status !== 404) {
+              window.YourinErrors?.handleStatus?.(result.status, result.data);
+              return;
+            }
+          }
           account.interviews.splice(index, 1);
           if (account.activeId === interview.id) account.activeId = null;
           save();
@@ -1194,26 +1859,128 @@
   if (page === "report") {
     const interview = reportInterview();
     if (interview) {
+      if (interview.server === true && interview.id) {
+        try {
+          const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+            loading: true,
+            notify: false
+          });
+          if (viewResult.ok && viewResult.data) {
+            const view = viewResult.data;
+            interview.name = typeof view.name === "string" ? view.name : interview.name;
+            interview.status = view.status;
+            interview.revision = Number.isInteger(view.revision) ? view.revision : interview.revision;
+            interview.report = view.report || interview.report || null;
+            if (Array.isArray(view.answers)) {
+              interview.answers = view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""));
+            }
+            if (Array.isArray(view.questions)) {
+              interview.questions = view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")));
+              interview.questionDetails = view.questions;
+            }
+            save();
+          }
+        } catch (err) {
+          console.error("Report load failed:", err);
+        }
+      }
+
       if ($("#report-name")) $("#report-name").textContent = interview.name;
       if ($("#report-date") && interview.date) $("#report-date").textContent = interview.date;
 
-      $$("[data-report-answer]").forEach((element, index) => {
-        element.textContent = interview.answers[index] || "No answer provided.";
+      const report = interview.report || null;
+      const cards = $$(".report-card");
+      cards.forEach((card, index) => {
+        const questionText = Array.isArray(interview.questions) ? interview.questions[index] : "";
+        const questionParagraph = card.querySelector(".report-question p");
+        if (questionParagraph && questionText) questionParagraph.textContent = questionText;
+
+        const answerElement = card.querySelector(`[data-report-answer="${index}"]`) || card.querySelector(".preserve-lines");
+        if (answerElement) {
+          answerElement.textContent = (Array.isArray(interview.answers) && interview.answers[index])
+            ? interview.answers[index]
+            : "No answer provided.";
+        }
+
+        const item = report && Array.isArray(report.items)
+          ? report.items.find(entry => entry.question_index === index)
+          : null;
+        const badge = card.querySelector(`[data-feedback-badge="${index}"]`);
+        if (badge && item) {
+          badge.textContent = item.label;
+          badge.classList.remove("is-good", "is-improve");
+          badge.classList.add(item.label === "Good" ? "is-good" : "is-improve");
+        }
+        const feedbackParagraph = card.querySelector(".feedback-block p");
+        if (feedbackParagraph && item) {
+          feedbackParagraph.textContent = item.feedback;
+        }
       });
 
-      // Retake interview button: creates a fresh interview with the same CV and Job profile
+      if (report) {
+        let overallElement = document.getElementById("report-overall");
+        if (!overallElement) {
+          overallElement = document.createElement("span");
+          overallElement.id = "report-overall";
+          overallElement.style.marginLeft = "1rem";
+          const heroRight = document.querySelector(".report-hero-right");
+          if (heroRight) heroRight.insertBefore(overallElement, heroRight.firstChild);
+        }
+        overallElement.textContent = `Overall: ${report.overall_score}/10 (${report.label})`;
+      }
+
+      // Retake interview button: creates a fresh interview with the same CV and Job profile.
       const retakeBtn = $("#retake-interview-btn");
       if (retakeBtn) {
-        retakeBtn.addEventListener("click", event => {
+        retakeBtn.addEventListener("click", async event => {
           event.preventDefault();
-          const newInt = startInterview(
-            interview.cv,
-            interview.cvPdf,
-            interview.cvMode === "pdf" ? "saved" : (interview.cv && interview.cv.some(s => s && s.trim()) ? "custom" : "none")
-          );
-          if (interview.job) newInt.job = { ...interview.job };
-          save();
-          go("interview.html");
+          if (interview.server === true && interview.id) {
+            const jobProfile = interview.jobProfile || {
+              title: (interview.job && interview.job["job-title"]) || "",
+              domain: (interview.job && interview.job.domain) || "",
+              company: (interview.job && interview.job.company) || "",
+              level: (interview.job && interview.job.position) || "",
+              description: (interview.job && interview.job["job-source"]) || ""
+            };
+            const cvText = Array.isArray(interview.cv) ? buildCvText(interview.cv) : (typeof interview.cv === "string" ? interview.cv : null);
+            const payload = {
+              job_profile: jobProfile,
+              cv: cvText,
+              name: `Retake ${interview.name || "Interview"}`.slice(0, 200)
+            };
+            const result = await api.request("/api/interviews", {
+              method: "POST",
+              body: JSON.stringify(payload),
+              loading: true
+            });
+            if (!result.ok || !result.data || !result.data.id) {
+              window.YourinErrors?.showToast?.("Unable to create a retake interview. Please try again.", { type: "error" });
+              return;
+            }
+            const viewResult = await api.request(`/api/interviews/${encodeURIComponent(result.data.id)}`, {
+              loading: false,
+              notify: false
+            });
+            const view = viewResult.ok ? viewResult.data : null;
+            addServerInterview(result.data, view, {
+              name: payload.name,
+              cv: Array.isArray(interview.cv) ? interview.cv : ["", "", "", ""],
+              cvPdf: interview.cvPdf,
+              cvMode: interview.cvMode || "text",
+              job: interview.job ? { ...interview.job } : {},
+              jobProfile
+            });
+            go("interview.html");
+          } else {
+            const newInt = startInterview(
+              interview.cv,
+              interview.cvPdf,
+              interview.cvMode === "pdf" ? "saved" : (interview.cv && interview.cv.some(s => s && s.trim()) ? "custom" : "none")
+            );
+            if (interview.job) newInt.job = { ...interview.job };
+            save();
+            go("interview.html");
+          }
         });
       }
     }
@@ -1262,4 +2029,8 @@
 
   // Preserve state between separate file:// documents in the same tab.
   window.addEventListener("pagehide", save);
-})();
+})().catch(error => {
+  console.error("Application initialization failed:", error);
+  const main = document.querySelector("main") || document.body;
+  main.textContent = "Unable to start the application. Please refresh the page.";
+});

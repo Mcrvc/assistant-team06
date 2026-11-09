@@ -77,6 +77,10 @@ class InterviewService:
         """Shared storage seam for Trương's history router; no history route here."""
         return self.repository.list_for_owner(owner_id)
 
+    def delete(self, owner_id: str, interview_id: str) -> None:
+        self.get(owner_id, interview_id)
+        self.repository.delete(interview_id, owner_id)
+
     def _change(self, owner_id: str, interview_id: str, revision: int,
                 change: Callable[[dict], None]) -> dict:
         # Background grades change internal version, but not client revision.
