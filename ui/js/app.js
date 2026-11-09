@@ -148,6 +148,18 @@
   state.currentAccount = authenticatedUsername;
   if (!account.cvMode) account.cvMode = "text";
 
+  // Restore the saved CV from the backend when it is available. Keep the local
+  // cache as a fallback for offline/unconfigured runs.
+  try {
+    const cvResult = await api.getCV({ loading: false, notify: false });
+    if (cvResult && cvResult.ok && cvResult.data) {
+      account.cv = Array.isArray(cvResult.data.cv) ? cvResult.data.cv : account.cv;
+      account.cvMode = cvResult.data.cvMode || account.cvMode;
+      account.cvPdf = cvResult.data.cvPdf === undefined ? account.cvPdf : cvResult.data.cvPdf;
+      save();
+    }
+  } catch (_) { /* Keep local CV data if the backend is unavailable. */ }
+
   function save() {
     state.updatedAt = Date.now();
     const serialized = JSON.stringify(state);
@@ -516,6 +528,20 @@
     const pdfStatus = $("#pdf-status");
     const pdfError = $("#pdf-error");
 
+    async function persistCvToBackend() {
+      if (!api || typeof api.saveCV !== "function") return;
+      try {
+        const result = await api.saveCV({
+          cv: Array.isArray(account.cv) ? account.cv : ["", "", "", ""],
+          cvMode: account.cvMode || "text",
+          cvPdf: account.cvPdf || null
+        }, { loading: false, notify: true });
+        if (result && result.ok) {
+          if (cvStatus) cvStatus.textContent = "CV saved to server.";
+        }
+      } catch (_) { /* Shared error handling covers network/server failures. */ }
+    }
+
     const cvDropzone = $("#cv-pdf-dropzone");
     const cvFileInput = $("#cv-pdf-file-input");
     const cvPdfCard = $("#cv-pdf-card");
@@ -562,11 +588,18 @@
       });
     }
 
-    $("#save-cv-btn").addEventListener("click", () => {
-      clearPdfFile();
-      saveCV();
-      cvStatus.textContent = "CV saved successfully.";
-    });
+    const saveCvButton = $("#save-cv-btn");
+    if (saveCvButton) {
+      saveCvButton.addEventListener("click", async () => {
+        clearPdfFile();
+        saveCV();
+        if (cvStatus) cvStatus.textContent = "Saving CV...";
+        await persistCvToBackend();
+        if (cvStatus && cvStatus.textContent !== "CV saved to server.") {
+          cvStatus.textContent = "CV saved successfully.";
+        }
+      });
+    }
 
     // Render PDF Card State
     function renderPdfState() {
@@ -606,6 +639,7 @@
       save();
       renderPdfState();
       pdfStatus.textContent = `PDF "${file.name}" saved! Raw text cleared.`;
+      persistCvToBackend();
     }
 
     $("#browse-pdf-btn").addEventListener("click", (e) => {
@@ -655,6 +689,7 @@
       save();
       renderPdfState();
       pdfStatus.textContent = "PDF removed.";
+      persistCvToBackend();
     });
   }
 
@@ -1986,17 +2021,58 @@
     }
   }
   if (page === "system-feedback") {
-    const inputs = [0, 1, 2, 3].map(i => $("#feedback-" + i));
-    inputs.forEach((input, index) => {
-      input.value = typeof account.feedback[index] === "string" ? account.feedback[index] : "";
-      input.addEventListener("input", () => { account.feedback = inputs.map(item => item.value); save(); });
-    });
-    $("#feedback-form").addEventListener("submit", event => {
-      event.preventDefault();
-      account.feedback = inputs.map(input => input.value);
-      save();
-      go("thank-you.html");
-    });
+    function radioValue(name) {
+      const checked = document.querySelector('input[name="' + name + '"]:checked');
+      return checked ? checked.value : null;
+    }
+
+    const feedbackForm = $("#feedback-form");
+    if (feedbackForm) {
+      feedbackForm.addEventListener("submit", async event => {
+        event.preventDefault();
+
+        const gradeRating = radioValue("grade_rating");
+        const qualityRating = radioValue("quality_rating");
+        if (!gradeRating || !qualityRating) {
+          window.YourinErrors?.showToast?.("Please select a rating for both questions.", { type: "error" });
+          return;
+        }
+
+        const difficulty = radioValue("difficulty");
+        const recommend = radioValue("would_recommend");
+        const payload = {
+          grade_rating: Number(gradeRating),
+          quality_rating: Number(qualityRating),
+          difficulty: difficulty || null,
+          comments: $("#feedback-comments")?.value?.trim() || "",
+          would_recommend: recommend === null ? null : recommend === "true"
+        };
+
+        const submitBtn = feedbackForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        const loading = window.YourinUI?.loading?.show ? window.YourinUI.loading.show({
+          title: "Submitting feedback",
+          detail: "Sending your responses to the server.",
+          coldStartAfter: 5000
+        }) : null;
+
+        try {
+          const result = await api.submitFeedback(payload, { loading: false, notify: false });
+          if (!result || !result.ok) {
+            if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function" && result) {
+              window.YourinErrors.handleStatus(result.status, result.data);
+            }
+            return;
+          }
+          go("thank-you.html");
+        } catch (err) {
+          window.YourinErrors?.showToast?.(err?.message || "Could not submit feedback.", { type: "error" });
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+          if (loading) loading.hide();
+        }
+      });
+    }
   }
   if (page === "dashboard") {
     const cards = $$(".reveal-on-scroll");

@@ -355,6 +355,22 @@
       request("/api/answer", {
         method: "POST",
         body: JSON.stringify({ question })
+      }),
+    getCV: (options = {}) =>
+      request("/api/cv", { loading: false, ...(options || {}) }),
+    saveCV: (payload, options = {}) =>
+      request("/api/cv", {
+        method: "PUT",
+        body: JSON.stringify(payload || {}),
+        loading: false,
+        ...(options || {})
+      }),
+    submitFeedback: (payload, options = {}) =>
+      request("/api/feedback", {
+        method: "POST",
+        body: JSON.stringify(payload || {}),
+        loading: false,
+        ...(options || {})
       })
   };
 
