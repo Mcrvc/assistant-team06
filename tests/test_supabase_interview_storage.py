@@ -32,12 +32,10 @@ class Response(BytesIO):
 def test_supabase_runtime_opt_in_does_not_fall_back(monkeypatch):
     monkeypatch.setenv("INTERVIEW_STORAGE", "supabase")
     monkeypatch.setenv("INTERVIEW_LOCAL_STORAGE", "1")
-    with pytest.raises(ValueError, match="disable interview demo"):
-        configured_repository(demo_enabled=True)
     monkeypatch.setenv("SUPABASE_SECRET_KEY", "")
     monkeypatch.setenv("SUPABASE_URL", CONFIG.supabase_url)
     with pytest.raises(ValueError, match="backend secret key"):
-        configured_repository(demo_enabled=False)
+        configured_repository()
 
 
 def test_api_key_headers_no_redirects_and_connect_probe(monkeypatch):

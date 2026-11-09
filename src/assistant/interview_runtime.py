@@ -10,13 +10,11 @@ from assistant.interview_store import SQLAlchemyInterviewRepository
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def configured_repository(*, demo_enabled: bool = False):
+def configured_repository():
     storage = os.environ.get("INTERVIEW_STORAGE", "auto").strip().lower()
     if storage not in ("auto", "supabase"):
         raise ValueError("INTERVIEW_STORAGE must be auto or supabase")
     if storage == "supabase":
-        if demo_enabled:
-            raise ValueError("Supabase storage requires real authentication; disable interview demo")
         from assistant.interview_supabase import SupabaseInterviewRepository
         return SupabaseInterviewRepository.connect(get_env_config())
     if os.environ.get("INTERVIEW_LOCAL_STORAGE") == "1":

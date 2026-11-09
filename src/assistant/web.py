@@ -4,7 +4,6 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from http import HTTPStatus
-import ipaddress
 import os
 from pathlib import Path
 import threading
@@ -13,7 +12,7 @@ import webbrowser
 from typing import Annotated, Callable
 from uuid import UUID
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Path as ApiPath, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, Path as ApiPath, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -40,15 +39,6 @@ def handle_api_answer(payload: dict) -> tuple[int, dict]:
     if not isinstance(question, str) or not question.strip():
         return HTTPStatus.BAD_REQUEST, {"error": "question must be a non-empty string"}
     return HTTPStatus.OK, asdict(answer(question))
-
-
-def _loopback(host: str) -> bool:
-    if host == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
 
 
 def get_current_user(request: Request) -> str:
