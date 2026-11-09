@@ -3,7 +3,7 @@
   "use strict";
 
   // Set your live Render Web Service URL here once deployed (e.g. "https://assistant-team06.onrender.com")
-  const RENDER_API_URL = "";
+  const RENDER_API_URL = "https://assistant-team06.onrender.com";
 
   function resolveBaseUrl() {
     if (RENDER_API_URL.trim()) {
