@@ -1098,15 +1098,16 @@
       }
     }
 
-    async function saveProgressToServer(targetStep) {
+    async function saveProgressToServer(targetStep, status) {
       if (!isServerInterview()) return;
+      const nextStatus = status === "interrupted" ? "interrupted" : "in_progress";
       try {
         const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/progress`, {
           method: "POST",
           body: JSON.stringify({
             revision: interview.revision,
             current_question: Math.max(0, Math.min(2, targetStep)),
-            status: "in_progress",
+            status: nextStatus,
             answers: interview.answers
           }),
           loading: false,
@@ -1194,6 +1195,8 @@
       const qParam = parseInt(params.get("q"), 10);
       if (!isNaN(qParam) && qParam >= 1 && qParam <= Math.max(1, questions.length)) {
         currentStep = qParam - 1;
+      } else if (isServerInterview() && Number.isInteger(interview.currentQuestion)) {
+        currentStep = Math.max(0, Math.min(2, interview.currentQuestion));
       }
     } catch (_) {}
 
@@ -1426,7 +1429,7 @@
       if (answerInput) interview.answers[currentStep] = answerInput.value;
       save();
       if (isServerInterview()) {
-        saveProgressToServer(currentStep).catch(() => {});
+        saveProgressToServer(currentStep, "interrupted").catch(() => {});
       }
 
       if (exitModal) {
@@ -1524,6 +1527,9 @@
 
     window.addEventListener("pagehide", () => {
       if (gradingPoll) window.clearInterval(gradingPoll);
+      if (isServerInterview()) {
+        saveProgressToServer(currentStep, "interrupted").catch(() => {});
+      }
     }, { once: true });
 
     renderStep(currentStep);
