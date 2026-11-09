@@ -1547,13 +1547,98 @@
   }
 
   if (page === "done-interview") {
-    $("#done-form").addEventListener("submit", event => {
+    $("#done-form").addEventListener("submit", async event => {
       event.preventDefault();
       const interview = activeInterview() || startInterview();
       const name = $("#interview-name").value.trim();
-      if (name) interview.name = name;
-      interview.finished = true;
-      save();
+      const loading = window.YourinUI?.loading?.show ? window.YourinUI.loading.show({
+        title: "Finalizing your interview",
+        eyebrow: "Please wait",
+        detail: "Checking your answers and building the report.",
+        steps: [
+          "Checking all answers are graded...",
+          "Finalizing your session...",
+          "Preparing your report..."
+        ],
+        coldStartAfter: 5000
+      }) : null;
+
+      try {
+        if (interview && interview.server === true && interview.id) {
+          // Wait for grading to finish before finalizing.
+          let attempts = 0;
+          while (attempts < 60) {
+            const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+              loading: false,
+              notify: false
+            });
+            if (viewResult.ok && viewResult.data) {
+              const statuses = Array.isArray(viewResult.data.answers)
+                ? viewResult.data.answers.map(answer => answer.grading_status)
+                : [];
+              const gradedCount = statuses.filter(status => status === "graded").length;
+              if (gradedCount === 3) break;
+              if (statuses.some(status => status === "rejected")) {
+                if (loading) loading.hide();
+                window.YourinErrors?.showToast?.(
+                  "Some answers were rejected. Resubmit them before finalizing.",
+                  { type: "warning" }
+                );
+                return;
+              }
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            attempts += 1;
+          }
+
+          const finalizeResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/finalize`, {
+            method: "POST",
+            body: JSON.stringify({
+              revision: interview.revision,
+              name: (name || interview.name || "New Interview").slice(0, 200)
+            }),
+            loading: false
+          });
+          if (!finalizeResult.ok || !finalizeResult.data) {
+            if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function") {
+              window.YourinErrors.handleStatus(finalizeResult.status, finalizeResult.data);
+            } else {
+              window.YourinErrors?.showToast?.("Unable to finalize the interview. Please try again.", { type: "error" });
+            }
+            return;
+          }
+
+          const view = finalizeResult.data;
+          interview.name = typeof view.name === "string" ? view.name : interview.name;
+          interview.finished = view.status === "finalized";
+          interview.status = view.status;
+          interview.revision = Number.isInteger(view.revision) ? view.revision : interview.revision;
+          interview.report = view.report || interview.report || null;
+          if (Array.isArray(view.answers)) {
+            interview.answers = view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""));
+            interview.answerStatuses = view.answers.map(answer => (typeof answer.grading_status === "string" ? answer.grading_status : "unanswered"));
+            interview.answerGrades = view.answers.map(answer => answer.grade || null);
+            interview.answerErrors = view.answers.map(answer => answer.error_code || null);
+            interview.submittedTexts = interview.answers.slice();
+          }
+          if (Array.isArray(view.questions)) {
+            interview.questions = view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")));
+            interview.questionDetails = view.questions;
+          }
+          save();
+        } else {
+          if (name) interview.name = name;
+          interview.finished = true;
+          save();
+        }
+      } catch (err) {
+        console.error("Finalize failed:", err);
+        window.YourinErrors?.showToast?.("Unable to finalize the interview. Please try again.", { type: "error" });
+        return;
+      } finally {
+        if (loading) loading.hide();
+      }
+
       go("report.html");
     });
   }
@@ -1721,26 +1806,128 @@
   if (page === "report") {
     const interview = reportInterview();
     if (interview) {
+      if (interview.server === true && interview.id) {
+        try {
+          const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+            loading: true,
+            notify: false
+          });
+          if (viewResult.ok && viewResult.data) {
+            const view = viewResult.data;
+            interview.name = typeof view.name === "string" ? view.name : interview.name;
+            interview.status = view.status;
+            interview.revision = Number.isInteger(view.revision) ? view.revision : interview.revision;
+            interview.report = view.report || interview.report || null;
+            if (Array.isArray(view.answers)) {
+              interview.answers = view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""));
+            }
+            if (Array.isArray(view.questions)) {
+              interview.questions = view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")));
+              interview.questionDetails = view.questions;
+            }
+            save();
+          }
+        } catch (err) {
+          console.error("Report load failed:", err);
+        }
+      }
+
       if ($("#report-name")) $("#report-name").textContent = interview.name;
       if ($("#report-date") && interview.date) $("#report-date").textContent = interview.date;
 
-      $$("[data-report-answer]").forEach((element, index) => {
-        element.textContent = interview.answers[index] || "No answer provided.";
+      const report = interview.report || null;
+      const cards = $$(".report-card");
+      cards.forEach((card, index) => {
+        const questionText = Array.isArray(interview.questions) ? interview.questions[index] : "";
+        const questionParagraph = card.querySelector(".report-question p");
+        if (questionParagraph && questionText) questionParagraph.textContent = questionText;
+
+        const answerElement = card.querySelector(`[data-report-answer="${index}"]`) || card.querySelector(".preserve-lines");
+        if (answerElement) {
+          answerElement.textContent = (Array.isArray(interview.answers) && interview.answers[index])
+            ? interview.answers[index]
+            : "No answer provided.";
+        }
+
+        const item = report && Array.isArray(report.items)
+          ? report.items.find(entry => entry.question_index === index)
+          : null;
+        const badge = card.querySelector(`[data-feedback-badge="${index}"]`);
+        if (badge && item) {
+          badge.textContent = item.label;
+          badge.classList.remove("is-good", "is-improve");
+          badge.classList.add(item.label === "Good" ? "is-good" : "is-improve");
+        }
+        const feedbackParagraph = card.querySelector(".feedback-block p");
+        if (feedbackParagraph && item) {
+          feedbackParagraph.textContent = item.feedback;
+        }
       });
 
-      // Retake interview button: creates a fresh interview with the same CV and Job profile
+      if (report) {
+        let overallElement = document.getElementById("report-overall");
+        if (!overallElement) {
+          overallElement = document.createElement("span");
+          overallElement.id = "report-overall";
+          overallElement.style.marginLeft = "1rem";
+          const heroRight = document.querySelector(".report-hero-right");
+          if (heroRight) heroRight.insertBefore(overallElement, heroRight.firstChild);
+        }
+        overallElement.textContent = `Overall: ${report.overall_score}/10 (${report.label})`;
+      }
+
+      // Retake interview button: creates a fresh interview with the same CV and Job profile.
       const retakeBtn = $("#retake-interview-btn");
       if (retakeBtn) {
-        retakeBtn.addEventListener("click", event => {
+        retakeBtn.addEventListener("click", async event => {
           event.preventDefault();
-          const newInt = startInterview(
-            interview.cv,
-            interview.cvPdf,
-            interview.cvMode === "pdf" ? "saved" : (interview.cv && interview.cv.some(s => s && s.trim()) ? "custom" : "none")
-          );
-          if (interview.job) newInt.job = { ...interview.job };
-          save();
-          go("interview.html");
+          if (interview.server === true && interview.id) {
+            const jobProfile = interview.jobProfile || {
+              title: (interview.job && interview.job["job-title"]) || "",
+              domain: (interview.job && interview.job.domain) || "",
+              company: (interview.job && interview.job.company) || "",
+              level: (interview.job && interview.job.position) || "",
+              description: (interview.job && interview.job["job-source"]) || ""
+            };
+            const cvText = Array.isArray(interview.cv) ? buildCvText(interview.cv) : (typeof interview.cv === "string" ? interview.cv : null);
+            const payload = {
+              job_profile: jobProfile,
+              cv: cvText,
+              name: `Retake ${interview.name || "Interview"}`.slice(0, 200)
+            };
+            const result = await api.request("/api/interviews", {
+              method: "POST",
+              body: JSON.stringify(payload),
+              loading: true
+            });
+            if (!result.ok || !result.data || !result.data.id) {
+              window.YourinErrors?.showToast?.("Unable to create a retake interview. Please try again.", { type: "error" });
+              return;
+            }
+            const viewResult = await api.request(`/api/interviews/${encodeURIComponent(result.data.id)}`, {
+              loading: false,
+              notify: false
+            });
+            const view = viewResult.ok ? viewResult.data : null;
+            addServerInterview(result.data, view, {
+              name: payload.name,
+              cv: Array.isArray(interview.cv) ? interview.cv : ["", "", "", ""],
+              cvPdf: interview.cvPdf,
+              cvMode: interview.cvMode || "text",
+              job: interview.job ? { ...interview.job } : {},
+              jobProfile
+            });
+            go("interview.html");
+          } else {
+            const newInt = startInterview(
+              interview.cv,
+              interview.cvPdf,
+              interview.cvMode === "pdf" ? "saved" : (interview.cv && interview.cv.some(s => s && s.trim()) ? "custom" : "none")
+            );
+            if (interview.job) newInt.job = { ...interview.job };
+            save();
+            go("interview.html");
+          }
         });
       }
     }
