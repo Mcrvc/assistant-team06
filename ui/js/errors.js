@@ -124,16 +124,65 @@
 
   function messageFromPayload(payload) {
     if (!payload) return null;
-    if (typeof payload === "string") return payload;
-    return payload.error || payload.message || payload.detail || null;
+    if (typeof payload === "string") return payload.trim() || null;
+    if (Array.isArray(payload)) return validationMessage(payload);
+    if (typeof payload !== "object") return String(payload);
+
+    const error = payload.error;
+    if (error) {
+      if (typeof error === "string") return error.trim() || null;
+      if (typeof error === "object") {
+        return textValue(error.message) ||
+          textValue(error.detail) ||
+          validationMessage(error.details) ||
+          textValue(error.code);
+      }
+    }
+
+    return textValue(payload.message) ||
+      textValue(payload.detail) ||
+      validationMessage(payload.detail) ||
+      validationMessage(payload.details) ||
+      validationMessage(payload.errors) ||
+      textValue(payload.msg);
+  }
+
+  function textValue(value) {
+    return typeof value === "string" ? value.trim() || null : null;
+  }
+
+  function validationMessage(details) {
+    if (!Array.isArray(details)) return null;
+
+    const messages = details.map(item => {
+      if (typeof item === "string") return item.trim() || null;
+      if (!item || typeof item !== "object") return null;
+
+      const location = Array.isArray(item.location)
+        ? item.location
+        : (Array.isArray(item.loc) ? item.loc : []);
+      const field = location
+        .filter(part => !["body", "query", "path"].includes(part))
+        .join(".");
+      const message = textValue(item.message) || textValue(item.msg) || textValue(item.type);
+
+      if (!message) return null;
+      return field ? `${field}: ${message}` : message;
+    }).filter(Boolean);
+
+    if (messages.length === 0) return null;
+    if (messages.length <= 3) return messages.join("; ");
+    return `${messages.slice(0, 3).join("; ")} (+${messages.length - 3} more)`;
   }
 
   function handleStatus(status, payload) {
-    // 401: not authenticated -> redirect to sign-in
+    // 401: not authenticated -> redirect to sign-in (unless already there)
     if (status === 401) {
       showToast(messageFromPayload(payload) || "Your session has expired. Please sign in again.", { type: "warning" });
       try { sessionStorage.setItem("yourin:redirectAfterLogin", window.location.pathname + window.location.search); } catch (_) {}
-      setTimeout(() => { window.location.href = "sign-in.html"; }, 900);
+      if (!/(^|\/)sign-in(\.html)?\/?$/.test(window.location.pathname)) {
+        setTimeout(() => { window.location.href = "sign-in.html"; }, 900);
+      }
       return "redirect";
     }
     // 400: bad input -> toast
@@ -149,8 +198,8 @@
     // 500/503/network: fallback mode banner
     if (status === 500 || status === 503 || status === 0) {
       const msg = status === 0
-        ? "We couldn't reach the server. Switching to offline demo mode — your work is safe."
-        : (messageFromPayload(payload) || "The AI service is temporarily unavailable. Switching to fallback mode with sample data.");
+        ? "We couldn't reach the server. Check your connection and try again."
+        : (messageFromPayload(payload) || "The server or AI service is temporarily unavailable. Please try again.");
       showBanner(msg, {
         type: "warning",
         dismissible: true,

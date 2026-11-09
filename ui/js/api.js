@@ -40,6 +40,31 @@
     } catch (_) { /* never break the caller */ }
   }
 
+  function showLoading(input) {
+    const loading = window.YourinUI?.loading;
+    if (!loading || typeof loading.show !== "function") return null;
+
+    const source = typeof input === "string"
+      ? { title: input }
+      : (input && typeof input === "object" ? input : {});
+    const options = {
+      title: source.title || "Working...",
+      detail: source.detail || "",
+      steps: Array.isArray(source.steps) ? source.steps : null,
+      onCancel: typeof source.onCancel === "function" ? source.onCancel : null
+    };
+
+    ["eyebrow", "stepInterval", "coldStartAfter", "coldStartText", "cancelLabel"].forEach(key => {
+      if (source[key] !== undefined) options[key] = source[key];
+    });
+
+    try {
+      return loading.show(options);
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function getAccessToken() {
     if (!supabaseClient) return null;
     try {
@@ -59,10 +84,12 @@
     const {
       auth = true,
       notify: shouldNotify = true,
+      loading: loadingOption = false,
       headers: optionHeaders,
       ...fetchOptions
     } = options;
 
+    const loading = loadingOption ? showLoading(loadingOption) : null;
     const headers = { "Content-Type": "application/json", ...(optionHeaders || {}) };
     if (auth) {
       const token = await getAccessToken();
@@ -77,9 +104,14 @@
         notify(response.status, data);
       }
       return { status: response.status, ok: response.ok, data };
-    } catch (_) {
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        return { status: 0, ok: false, data: null, aborted: true };
+      }
       if (shouldNotify) notify(0, null);
       return { status: 0, ok: false, data: null, networkError: true, fallback: true };
+    } finally {
+      if (loading) loading.hide();
     }
   }
 
@@ -88,6 +120,12 @@
     const result = await request(path, options);
     if (result.ok) return result.data;
     return null;
+  }
+
+  // Convenience wrapper for long-running operations (AI generation, finalize).
+  function requestWithLoading(path, options = {}) {
+    const hasLoading = Object.prototype.hasOwnProperty.call(options, "loading");
+    return request(path, { ...options, loading: hasLoading ? options.loading : true });
   }
 
   async function requireClient() {
@@ -299,6 +337,7 @@
     getBaseUrl: resolveBaseUrl,
     request,
     requestJson,
+    requestWithLoading,
     getConfig: () => request("/api/config", { auth: false }),
     getAuthConfig: () => config,
     getAccessToken,

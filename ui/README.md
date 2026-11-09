@@ -70,7 +70,8 @@ Interview data is still stored in `localStorage` per Supabase user id. Replacing
 ## Shared UI states
 
 - `js/api.js` resolves the Render URL, calls `/api/...`, and forwards failed HTTP statuses to `js/errors.js`.
-- `js/errors.js` exposes `YourinErrors.showToast()` and `YourinErrors.showBanner()`.
+- `js/api.js` accepts `{ loading: { title, detail, steps, coldStartAfter } }` or `requestWithLoading(...)` for long-running calls. The overlay switches to the Render cold-start message after 5 seconds by default.
+- `js/errors.js` exposes `YourinErrors.showToast()` and `YourinErrors.showBanner()`. It reads nested backend errors (`{ error: { code, message } }`) and FastAPI validation details, shows a toast for 400/403, redirects on 401, and shows a retry banner for 500/503/network failures.
 - `js/ui.js` exposes `YourinUI.loading.show()` / `hide()` and waits before showing the Render cold-start notice.
 - Preview a loading state without a backend: `dashboard.html?demo=loading`, `?demo=questions`, `?demo=report`, or `?demo=cold-start`.
 
