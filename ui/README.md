@@ -51,8 +51,16 @@ Open `ui/index.html` directly in Chrome or Edge (no server or internet required)
 | **Main Navigation** | `dashboard.html`, `storage.html` |
 | **Interview Flow** | `job-profile.html`, `interview.html`, `interview-interrupt.html`, `done-interview.html` |
 | **Results & Survey** | `report.html`, `system-feedback.html`, `thank-you.html` |
-| **Styles & Scripts** | `css/styles.css`, `js/data.js` (sample Figma data), `js/app.js` (state & UI controller) |
+| **System Pages** | `404.html` (served automatically by Vercel for unknown paths) |
+| **Styles & Scripts** | `css/styles.css`, `js/data.js` (sample Figma data), `js/app.js` (state & UI controller), `js/api.js` (Render API client), `js/errors.js` (toast/banner), `js/ui.js` (loading overlay) |
 | **Vector Assets** | `assets/*.svg` (`logo.svg`, `avatar.svg`, `microphone.svg`, `dashboard-hero-banner.svg`, `card-banner-1..3.svg`, `decor-top.svg`, `decor-bottom.svg`) |
+
+## Shared UI states
+
+- `js/api.js` resolves the Render URL, calls `/api/...`, and forwards failed HTTP statuses to `js/errors.js`.
+- `js/errors.js` exposes `YourinErrors.showToast()` and `YourinErrors.showBanner()`.
+- `js/ui.js` exposes `YourinUI.loading.show()` / `hide()` and waits before showing the Render cold-start notice.
+- Preview a loading state without a backend: `dashboard.html?demo=loading`, `?demo=questions`, `?demo=report`, or `?demo=cold-start`.
 
 See [`docs/ui-transitions.md`](../docs/ui-transitions.md) for the complete screen-to-screen transition map.
 
