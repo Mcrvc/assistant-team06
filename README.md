@@ -1,5 +1,9 @@
 # assistant-team06 — Smart Virtual Assistant
 
+> Bản backend phỏng vấn tách riêng từ main sau revert. Phạm vi, cách chạy API
+> và các điểm nối với Hiển/Duy/Trương: [docs/interview-handoff.md](docs/interview-handoff.md).
+> Nhánh này giữ nguyên UI từ main; không phải bản tích hợp toàn bộ ứng dụng.
+
 Small rule-based study assistant for CSC10014 Lab 1. Follow the steps below and it must run without extra help.
 
 ## Setup
