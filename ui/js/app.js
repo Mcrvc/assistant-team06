@@ -1650,6 +1650,43 @@
   }
 
   if (page === "storage") {
+    try {
+      const listResult = await api.request("/api/interviews", { loading: false, notify: false });
+        if (listResult.ok && Array.isArray(listResult.data)) {
+          account.interviews = listResult.data.map(view => {
+            const answers = Array.isArray(view.answers)
+              ? view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""))
+              : ["", "", ""];
+            while (answers.length < 3) answers.push("");
+            answers.length = 3;
+            return {
+              id: view.id,
+              name: typeof view.name === "string" ? view.name : "Interview",
+              date: view.created_at ? new Date(view.created_at).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"),
+              finished: view.status === "finalized",
+              answers,
+              cv: ["", "", "", ""],
+              cvPdf: null,
+              cvMode: "text",
+              job: {},
+              jobProfile: view.job_profile || null,
+              questions: Array.isArray(view.questions)
+                ? view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")))
+                : [],
+              questionDetails: Array.isArray(view.questions) ? view.questions : [],
+              totalQuestions: Array.isArray(view.questions) && view.questions.length ? view.questions.length : 3,
+              revision: Number.isInteger(view.revision) ? view.revision : 0,
+              status: view.status,
+              currentQuestion: Number.isInteger(view.current_question) ? view.current_question : 0,
+              progress: view.progress || null,
+              report: view.report || null,
+              server: true
+            };
+          });
+          save();
+        }
+      } catch (_) { /* keep local cache if the API is unavailable */ }
+
     const listContainer = $("#interview-list");
     const emptyContainer = $("#storage-empty");
     const gridHead = $(".storage-grid-head");
@@ -1792,7 +1829,17 @@
         deleteBtn.type = "button";
         deleteBtn.textContent = "Delete";
         deleteBtn.title = "Delete this interview";
-        deleteBtn.addEventListener("click", () => {
+        deleteBtn.addEventListener("click", async () => {
+          if (interview.server === true && interview.id) {
+            const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+              method: "DELETE",
+              loading: false
+            });
+            if (!result.ok && result.status !== 404) {
+              window.YourinErrors?.handleStatus?.(result.status, result.data);
+              return;
+            }
+          }
           account.interviews.splice(index, 1);
           if (account.activeId === interview.id) account.activeId = null;
           save();
