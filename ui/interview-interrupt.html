@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,139 +10,154 @@
   <script src="js/data.js" defer></script>
   <script src="js/app.js" defer></script>
 </head>
-<body data-page="interview-interrupt">
-<a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-  <nav class="header-inner" aria-label="Main navigation">
-    <a class="brand header-brand" href="dashboard.html">
-      <span class="brand-icon"><img src="assets/logo.svg" alt="" aria-hidden="true"></span>
-      <span class="brand-text">Yourin</span>
-    </a>
-    <div class="header-nav">
-      <a class="nav-link" href="dashboard.html" data-nav="dashboard">Dashboard</a>
-      <a class="nav-link" href="storage.html" data-nav="storage">Your Interview</a>
-      <a class="nav-link" href="system-feedback.html" data-nav="feedback">System Feedback</a>
-    </div>
-    <div class="header-right">
-      <a class="profile-link" href="profile.html" aria-label="Profile" title="Profile" data-nav="profile">
-        <img class="header-avatar" src="assets/avatar.svg" alt="">
-        <span class="profile-name" data-username>Eric Arthur Blair</span>
-      </a>
-      <span class="header-divider" aria-hidden="true"></span>
-      <a class="header-logout-link" href="sign-in.html" data-sign-out aria-label="Sign out" title="Sign out">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-          <polyline points="16 17 21 12 16 7"></polyline>
-          <line x1="21" y1="12" x2="9" y2="12"></line>
-        </svg>
-        <span class="logout-text">Sign out</span>
-      </a>
-    </div>
-  </nav>
-</header>
-<main id="main" class="page interview-page">
 
-<div class="interrupt-background" inert aria-hidden="true">
-  <section class="panel interview-panel">
-    <div class="interview-header">
-      <h2>Question 1</h2>
-      <span class="interview-step-badge">1 of 3</span>
-    </div>
-    <div class="interviewer-stage" id="robot-stage">
-      <div class="robot-stage-pod">
-        <span class="robot-name-badge">YORI</span>
-        <div class="robot-visual">
-          <svg class="robot-sprite" viewBox="0 0 160 180" width="124" height="138" aria-hidden="true">
-            <g class="robot-antenna-group">
-              <line x1="80" y1="36" x2="80" y2="18" stroke="#4F8F9B" stroke-width="4" stroke-linecap="round"/>
-              <circle class="robot-antenna-orb" cx="80" cy="15" r="9" fill="#92C7CF"/>
-              <circle class="robot-antenna-glow" cx="80" cy="15" r="4.5" fill="#FBF9F1"/>
-            </g>
-            <g class="robot-arm robot-arm-left">
-              <rect x="22" y="104" width="14" height="32" rx="7" fill="#6AAEB8" transform="rotate(12 29 120)"/>
-              <circle cx="27" cy="136" r="7" fill="#AAD7D9"/>
-            </g>
-            <g class="robot-arm robot-arm-right">
-              <rect x="124" y="104" width="14" height="32" rx="7" fill="#6AAEB8" transform="rotate(-15 131 120)"/>
-              <circle cx="134" cy="135" r="7" fill="#AAD7D9"/>
-            </g>
-            <g class="robot-body-group">
-              <rect x="42" y="94" width="76" height="66" rx="28" fill="#FBF9F1" stroke="#4F8F9B" stroke-width="3"/>
-              <!-- Yourin Logo Badge on Belly -->
-              <g class="robot-belly-logo">
-                <circle cx="80" cy="127" r="17.5" fill="#6AAEB8" stroke="#4F8F9B" stroke-width="1.6"/>
-                <g transform="translate(64.5, 117.8) scale(0.275)">
-                  <ellipse cx="55.5071" cy="33.1148" rx="44.4929" ry="33.1148" fill="#FBF9F1"/>
-                  <path d="M28.2591 16.4663L69.0427 48.5547L12.5244 67.2825L28.2591 16.4663Z" fill="#FBF9F1"/>
-                  <path d="M72.005 41.8112C69.2788 45.6863 65.2031 48.4155 60.534 49.4925C55.8648 50.5696 50.9192 49.9213 46.6143 47.6679C42.3095 45.4146 38.9376 41.7092 37.1242 37.239C35.3108 32.7688 35.179 27.8372 36.7531 23.359C38.3272 18.8808 41.5005 15.1599 45.6843 12.8866C49.8682 10.6132 54.7786 9.9417 59.5047 10.9966C64.2308 12.0514 68.4519 14.7611 71.385 18.6229C74.3181 22.4847 75.7641 27.2365 75.4547 31.997L55.5786 30.255L72.005 41.8112Z" fill="#203D43"/>
-                </g>
-              </g>
-            </g>
-            <g class="robot-head-group">
-              <rect x="20" y="52" width="12" height="26" rx="6" fill="#4F8F9B"/>
-              <circle cx="26" cy="65" r="3" fill="#92C7CF"/>
-              <rect x="128" y="52" width="12" height="26" rx="6" fill="#4F8F9B"/>
-              <circle cx="134" cy="65" r="3" fill="#92C7CF"/>
-              <!-- Listening Sound Wave Indicators at Right Ear -->
-              <g class="robot-ear-waves" aria-hidden="true">
-                <path class="ear-wave-1" d="M 142 56 A 12 12 0 0 1 142 74" stroke="#4dd0e1" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-                <path class="ear-wave-2" d="M 147 51 A 18 18 0 0 1 147 79" stroke="#92C7CF" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-              </g>
-              <rect x="28" y="32" width="104" height="68" rx="26" fill="#FBF9F1" stroke="#4F8F9B" stroke-width="3.5"/>
-              <rect class="robot-visor" x="38" y="42" width="84" height="48" rx="18" fill="#203D43"/>
-              <circle class="robot-cheek" cx="48" cy="74" r="4.5" fill="#F4A5A5" opacity="0.65"/>
-              <circle class="robot-cheek" cx="112" cy="74" r="4.5" fill="#F4A5A5" opacity="0.65"/>
-              <g class="robot-eyes-gaze">
-                <g class="robot-eyes">
-                  <ellipse class="robot-eye robot-eye-left" cx="58" cy="60" rx="6.5" ry="8" fill="#92C7CF"/>
-                  <circle class="robot-eye-shine-left" cx="60" cy="57" r="2.5" fill="#FFFFFF"/>
-                  <ellipse class="robot-eye robot-eye-right" cx="102" cy="60" rx="6.5" ry="8" fill="#92C7CF"/>
-                  <circle class="robot-eye-shine-right" cx="104" cy="57" r="2.5" fill="#FFFFFF"/>
-                </g>
-              </g>
-              <g class="robot-mouth-group">
-                <path class="robot-mouth-idle" d="M 73 72 Q 80 78 87 72" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
-                <ellipse class="robot-mouth-open" cx="80" cy="74" rx="7" ry="5.5" fill="#92C7CF"/>
-              </g>
-            </g>
-          </svg>
-          <div class="robot-shadow" aria-hidden="true"></div>
-        </div>
+<body data-page="interview-interrupt">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <nav class="header-inner" aria-label="Main navigation">
+      <a class="brand header-brand" href="dashboard.html">
+        <span class="brand-icon"><img src="assets/logo.svg" alt="" aria-hidden="true"></span>
+        <span class="brand-text">Yourin</span>
+      </a>
+      <div class="header-nav">
+        <a class="nav-link" href="dashboard.html" data-nav="dashboard">Dashboard</a>
+        <a class="nav-link" href="storage.html" data-nav="storage">Your Interview</a>
+        <a class="nav-link" href="system-feedback.html" data-nav="feedback">System Feedback</a>
       </div>
-      <div class="question-speech-card">
-        <div class="speech-bubble-tail" aria-hidden="true"></div>
-        <blockquote class="question-content">If you could instantly eliminate one minor daily annoyance from human life forever, what would it be and why?</blockquote>
-        <div class="question-card-bottom">
-          <div class="question-voice-tag">
-            <span class="tag-avatar" aria-hidden="true">
-              <img src="assets/avatar.svg" alt="" width="20" height="20">
-            </span>
+      <div class="header-right">
+        <a class="profile-link" href="profile.html" aria-label="Profile" title="Profile" data-nav="profile">
+          <img class="header-avatar" src="assets/avatar.svg" alt="">
+          <span class="profile-name" data-username>Eric Arthur Blair</span>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="header-logout-link" href="sign-in.html" data-sign-out aria-label="Sign out" title="Sign out">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span class="logout-text">Sign out</span>
+        </a>
+      </div>
+    </nav>
+  </header>
+  <main id="main" class="page interview-page">
+
+    <div class="interrupt-background" inert aria-hidden="true">
+      <section class="panel interview-panel">
+        <div class="interview-header">
+          <h2>Question 1</h2>
+          <span class="interview-step-badge">1 of 3</span>
+        </div>
+        <div class="interviewer-stage" id="robot-stage">
+          <div class="robot-stage-pod">
+            <span class="robot-name-badge">YORI</span>
+            <div class="robot-visual">
+              <svg class="robot-sprite" viewBox="0 0 160 180" width="124" height="138" aria-hidden="true">
+                <g class="robot-antenna-group">
+                  <line x1="80" y1="36" x2="80" y2="18" stroke="#4F8F9B" stroke-width="4" stroke-linecap="round" />
+                  <circle class="robot-antenna-orb" cx="80" cy="15" r="9" fill="#92C7CF" />
+                  <circle class="robot-antenna-glow" cx="80" cy="15" r="4.5" fill="#FBF9F1" />
+                </g>
+                <g class="robot-arm robot-arm-left">
+                  <rect x="22" y="104" width="14" height="32" rx="7" fill="#6AAEB8" transform="rotate(12 29 120)" />
+                  <circle cx="27" cy="136" r="7" fill="#AAD7D9" />
+                </g>
+                <g class="robot-arm robot-arm-right">
+                  <rect x="124" y="104" width="14" height="32" rx="7" fill="#6AAEB8" transform="rotate(-15 131 120)" />
+                  <circle cx="134" cy="135" r="7" fill="#AAD7D9" />
+                </g>
+                <g class="robot-body-group">
+                  <rect x="42" y="94" width="76" height="66" rx="28" fill="#FBF9F1" stroke="#4F8F9B" stroke-width="3" />
+                  <!-- Yourin Logo Badge on Belly -->
+                  <g class="robot-belly-logo">
+                    <circle cx="80" cy="127" r="17.5" fill="#6AAEB8" stroke="#4F8F9B" stroke-width="1.6" />
+                    <g transform="translate(64.5, 117.8) scale(0.275)">
+                      <ellipse cx="55.5071" cy="33.1148" rx="44.4929" ry="33.1148" fill="#FBF9F1" />
+                      <path d="M28.2591 16.4663L69.0427 48.5547L12.5244 67.2825L28.2591 16.4663Z" fill="#FBF9F1" />
+                      <path
+                        d="M72.005 41.8112C69.2788 45.6863 65.2031 48.4155 60.534 49.4925C55.8648 50.5696 50.9192 49.9213 46.6143 47.6679C42.3095 45.4146 38.9376 41.7092 37.1242 37.239C35.3108 32.7688 35.179 27.8372 36.7531 23.359C38.3272 18.8808 41.5005 15.1599 45.6843 12.8866C49.8682 10.6132 54.7786 9.9417 59.5047 10.9966C64.2308 12.0514 68.4519 14.7611 71.385 18.6229C74.3181 22.4847 75.7641 27.2365 75.4547 31.997L55.5786 30.255L72.005 41.8112Z"
+                        fill="#203D43" />
+                    </g>
+                  </g>
+                </g>
+                <g class="robot-head-group">
+                  <rect x="20" y="52" width="12" height="26" rx="6" fill="#4F8F9B" />
+                  <circle cx="26" cy="65" r="3" fill="#92C7CF" />
+                  <rect x="128" y="52" width="12" height="26" rx="6" fill="#4F8F9B" />
+                  <circle cx="134" cy="65" r="3" fill="#92C7CF" />
+                  <!-- Listening Sound Wave Indicators at Right Ear -->
+                  <g class="robot-ear-waves" aria-hidden="true">
+                    <path class="ear-wave-1" d="M 142 56 A 12 12 0 0 1 142 74" stroke="#4dd0e1" stroke-width="2.2"
+                      stroke-linecap="round" fill="none" />
+                    <path class="ear-wave-2" d="M 147 51 A 18 18 0 0 1 147 79" stroke="#92C7CF" stroke-width="2.2"
+                      stroke-linecap="round" fill="none" />
+                  </g>
+                  <rect x="28" y="32" width="104" height="68" rx="26" fill="#FBF9F1" stroke="#4F8F9B"
+                    stroke-width="3.5" />
+                  <rect class="robot-visor" x="38" y="42" width="84" height="48" rx="18" fill="#203D43" />
+                  <circle class="robot-cheek" cx="48" cy="74" r="4.5" fill="#F4A5A5" opacity="0.65" />
+                  <circle class="robot-cheek" cx="112" cy="74" r="4.5" fill="#F4A5A5" opacity="0.65" />
+                  <g class="robot-eyes-gaze">
+                    <g class="robot-eyes">
+                      <ellipse class="robot-eye robot-eye-left" cx="58" cy="60" rx="6.5" ry="8" fill="#92C7CF" />
+                      <circle class="robot-eye-shine-left" cx="60" cy="57" r="2.5" fill="#FFFFFF" />
+                      <ellipse class="robot-eye robot-eye-right" cx="102" cy="60" rx="6.5" ry="8" fill="#92C7CF" />
+                      <circle class="robot-eye-shine-right" cx="104" cy="57" r="2.5" fill="#FFFFFF" />
+                    </g>
+                  </g>
+                  <g class="robot-mouth-group">
+                    <path class="robot-mouth-idle" d="M 73 72 Q 80 78 87 72" stroke="#92C7CF" stroke-width="3"
+                      stroke-linecap="round" fill="none" />
+                    <ellipse class="robot-mouth-open" cx="80" cy="74" rx="7" ry="5.5" fill="#92C7CF" />
+                  </g>
+                </g>
+              </svg>
+              <div class="robot-shadow" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="question-speech-card">
+            <div class="speech-bubble-tail" aria-hidden="true"></div>
+            <blockquote class="question-content">If you could instantly eliminate one minor daily annoyance from human
+              life forever, what would it be and why?</blockquote>
+            <div class="question-card-bottom">
+              <div class="question-voice-tag">
+                <span class="tag-avatar" aria-hidden="true">
+                  <img src="assets/avatar.svg" alt="" width="20" height="20">
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-    <div class="answer-section">
-      <div class="answer-composer">
-        <div class="composer-header">
-          <label class="answer-label">Your Answer</label>
-          <span class="composer-word-count">0 characters</span>
+        <div class="answer-section">
+          <div class="answer-composer">
+            <div class="composer-header">
+              <label class="answer-label">Your Answer</label>
+              <span class="composer-word-count">0 characters</span>
+            </div>
+            <div class="field answer-field">
+              <textarea rows="6" tabindex="-1" placeholder="Type or record your answer..."></textarea>
+            </div>
+          </div>
         </div>
-        <div class="field answer-field">
-          <textarea rows="6" tabindex="-1" placeholder="Type or record your answer..."></textarea>
+        <div class="interview-navigation">
+          <span class="btn">Next Question →</span>
         </div>
-      </div>
+      </section>
     </div>
-    <div class="interview-navigation">
-      <span class="btn">Next Question →</span>
-    </div>
-  </section>
-</div>
-</main>
-<footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
-<div class="dialog-backdrop"><section class="saved-dialog" role="dialog" aria-modal="true" aria-labelledby="saved-title">
-<span class="badge">SAVED</span><h1 id="saved-title">Your interview has been saved as <span id="saved-name">interview 1</span></h1>
-<a class="btn" href="dashboard.html" autofocus>Proceed</a>
-</section></div>
-<noscript><p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p></noscript>
+  </main>
+  <footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
+  <div class="dialog-backdrop">
+    <section class="saved-dialog" role="dialog" aria-modal="true" aria-labelledby="saved-title">
+      <span class="badge">SAVED</span>
+      <h1 id="saved-title">Your interview has been saved as <span id="saved-name">interview 1</span></h1>
+      <a class="btn" href="dashboard.html" autofocus>Proceed</a>
+    </section>
+  </div>
+  <noscript>
+    <p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p>
+  </noscript>
 </body>
+
 </html>

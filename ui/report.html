@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,146 +10,169 @@
   <script src="js/data.js" defer></script>
   <script src="js/app.js" defer></script>
 </head>
+
 <body data-page="report">
-<a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-  <nav class="header-inner" aria-label="Main navigation">
-    <a class="brand header-brand" href="dashboard.html">
-      <span class="brand-icon"><img src="assets/logo.svg" alt="" aria-hidden="true"></span>
-      <span class="brand-text">Yourin</span>
-    </a>
-    <div class="header-nav">
-      <a class="nav-link" href="dashboard.html" data-nav="dashboard">Dashboard</a>
-      <a class="nav-link" href="storage.html" data-nav="storage">Your Interview</a>
-      <a class="nav-link" href="system-feedback.html" data-nav="feedback">System Feedback</a>
-    </div>
-    <div class="header-right">
-      <a class="profile-link" href="profile.html" aria-label="Profile" title="Profile" data-nav="profile">
-        <img class="header-avatar" src="assets/avatar.svg" alt="">
-        <span class="profile-name" data-username>Eric Arthur Blair</span>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <nav class="header-inner" aria-label="Main navigation">
+      <a class="brand header-brand" href="dashboard.html">
+        <span class="brand-icon"><img src="assets/logo.svg" alt="" aria-hidden="true"></span>
+        <span class="brand-text">Yourin</span>
       </a>
-      <span class="header-divider" aria-hidden="true"></span>
-      <a class="header-logout-link" href="sign-in.html" data-sign-out aria-label="Sign out" title="Sign out">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-          <polyline points="16 17 21 12 16 7"></polyline>
-          <line x1="21" y1="12" x2="9" y2="12"></line>
+      <div class="header-nav">
+        <a class="nav-link" href="dashboard.html" data-nav="dashboard">Dashboard</a>
+        <a class="nav-link" href="storage.html" data-nav="storage">Your Interview</a>
+        <a class="nav-link" href="system-feedback.html" data-nav="feedback">System Feedback</a>
+      </div>
+      <div class="header-right">
+        <a class="profile-link" href="profile.html" aria-label="Profile" title="Profile" data-nav="profile">
+          <img class="header-avatar" src="assets/avatar.svg" alt="">
+          <span class="profile-name" data-username>Eric Arthur Blair</span>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="header-logout-link" href="sign-in.html" data-sign-out aria-label="Sign out" title="Sign out">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span class="logout-text">Sign out</span>
+        </a>
+      </div>
+    </nav>
+  </header>
+  <main id="main" class="page report-page">
+    <!-- Prominent Hero Header with Highlighted Interview Name -->
+    <section class="report-hero-bar">
+      <div class="report-hero-left">
+        <span class="report-eyebrow-badge">INTERVIEW REPORT</span>
+        <h1 class="report-session-title" id="report-name">Interview 1</h1>
+      </div>
+      <div class="report-hero-right">
+        <div class="report-meta-item">
+          <span class="report-meta-label">Date</span>
+          <span class="report-meta-val" id="report-date">29/2/2026</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 1: Interview Q&A Feedback Stack -->
+    <div class="report-stack">
+      <article class="panel report-card">
+        <div class="report-question">
+          <span class="question-number">01</span>
+          <div>
+            <h2>Question 1</h2>
+            <p>Imagine you're tasked with curating a time capsule that defines the year 2026 for an alien civilization.
+              What are three objects you put inside?</p>
+          </div>
+        </div>
+        <div class="report-columns">
+          <section class="answer-block">
+            <div class="report-col-header">
+              <h3>Your Answer</h3>
+            </div>
+            <p class="preserve-lines" data-report-answer="0">No, you clearly don't know who you're talking to, so let me
+              clue you in. Earth is not in danger, interviewer. I AM the danger. A planet opens its time capsule and
+              gets forgotten by the universe, and you think that of me? No. I am the one who knocks!</p>
+          </section>
+          <section class="feedback-block">
+            <div class="report-col-header">
+              <h3>Our Feedback</h3>
+              <span class="feedback-eval-badge is-good" data-feedback-badge="0">Good</span>
+            </div>
+            <p>Your response was an unexpected, fiercely confident power move. Instead of listing objects, you delivered
+              a bold manifesto about cosmic dominance. I have no idea what &quot;the one who knocks&quot; means, but
+              your absolute authority completely commanded the room. You are a force to be reckoned with.</p>
+          </section>
+        </div>
+      </article>
+
+      <article class="panel report-card">
+        <div class="report-question">
+          <span class="question-number">02</span>
+          <div>
+            <h2>Question 2</h2>
+            <p>To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and
+              arrows of outrageous fortune, or to take arms against a sea of troubles, and by opposing end them.</p>
+          </div>
+        </div>
+        <div class="report-columns">
+          <section class="answer-block">
+            <div class="report-col-header">
+              <h3>Your Answer</h3>
+            </div>
+            <p class="preserve-lines" data-report-answer="1">Most noble inquisitor, rather than suffer the slings and
+              arrows of unkind fate, I choose to take up arms against this sea of troubles and by sheer resolve make an
+              end to them; employ my zeal, and let my service be the very spear that pierces thy daily burdens through.
+            </p>
+          </section>
+          <section class="feedback-block">
+            <div class="report-col-header">
+              <h3>Our Feedback</h3>
+              <span class="feedback-eval-badge is-improve" data-feedback-badge="1">Needs Improvement</span>
+            </div>
+            <p>Thou hast answered with a fiery, proactive spirit, and though thy theatrical flair might startle some,
+              thy deep dedication to solving my problems is most refreshing; consider thyself hired at once, provided
+              thou canst occasionally trade thy poetic broadsword for a simple pen.</p>
+          </section>
+        </div>
+      </article>
+
+      <article class="panel report-card">
+        <div class="report-question">
+          <span class="question-number">03</span>
+          <div>
+            <h2>Question 3</h2>
+            <p>Wat een wartaa. Het is echt niet alsof ik bezorgd om je was ofzo. Mijn colonne verplaatste zich puur
+              toevallig langs deze strategische route, dus haal je maar niks in je hoofd, begrepen?</p>
+          </div>
+        </div>
+        <div class="report-columns">
+          <section class="answer-block">
+            <div class="report-col-header">
+              <h3>Your Answer</h3>
+            </div>
+            <p class="preserve-lines" data-report-answer="2">Tch. Het is niet alsof ik jou expres kwam opzoeken of zo.
+              Mijn groep liep hier toevallig langs voor een strategische route, dus haal je maar niks in je hoofd,
+              begrepen?</p>
+          </section>
+          <section class="feedback-block">
+            <div class="report-col-header">
+              <h3>Our Feedback</h3>
+              <span class="feedback-eval-badge is-good" data-feedback-badge="2">Good</span>
+            </div>
+            <p>Ze probeert haar ware gevoelens wanhopig te verbergen achter một grote mond en een geïrriteerde blik,
+              maar haar overdreven ontkenningen verraden juist hoe bezorgd ze stiekem is; hoewel haar tsundere-act
+              houding một beetje voorspelbaar is, krijgt ze van mij een dikke voldoende voor haar hilarische poging om
+              stoer te blijven.</p>
+          </section>
+        </div>
+      </article>
+    </div>
+
+    <!-- Next Steps / Actions at Bottom of Report -->
+    <div class="report-bottom-actions">
+      <a class="btn btn-secondary btn-pill-action" href="interview.html" id="retake-interview-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="1 4 1 10 7 10"></polyline>
+          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
         </svg>
-        <span class="logout-text">Sign out</span>
+        <span>Retake interview</span>
+      </a>
+      <a class="btn btn-pill-action" href="system-feedback.html">
+        <span>Rate this feedback</span>
+        <span aria-hidden="true">→</span>
       </a>
     </div>
-  </nav>
-</header>
-<main id="main" class="page report-page">
-  <!-- Prominent Hero Header with Highlighted Interview Name -->
-  <section class="report-hero-bar">
-    <div class="report-hero-left">
-      <span class="report-eyebrow-badge">INTERVIEW REPORT</span>
-      <h1 class="report-session-title" id="report-name">Interview 1</h1>
-    </div>
-    <div class="report-hero-right">
-      <div class="report-meta-item">
-        <span class="report-meta-label">Date</span>
-        <span class="report-meta-val" id="report-date">29/2/2026</span>
-      </div>
-    </div>
-  </section>
 
-  <!-- Section 1: Interview Q&A Feedback Stack -->
-  <div class="report-stack">
-    <article class="panel report-card">
-      <div class="report-question">
-        <span class="question-number">01</span>
-        <div>
-          <h2>Question 1</h2>
-          <p>Imagine you're tasked with curating a time capsule that defines the year 2026 for an alien civilization. What are three objects you put inside?</p>
-        </div>
-      </div>
-      <div class="report-columns">
-        <section class="answer-block">
-          <div class="report-col-header">
-            <h3>Your Answer</h3>
-          </div>
-          <p class="preserve-lines" data-report-answer="0">No, you clearly don't know who you're talking to, so let me clue you in. Earth is not in danger, interviewer. I AM the danger. A planet opens its time capsule and gets forgotten by the universe, and you think that of me? No. I am the one who knocks!</p>
-        </section>
-        <section class="feedback-block">
-          <div class="report-col-header">
-            <h3>Our Feedback</h3>
-            <span class="feedback-eval-badge is-good" data-feedback-badge="0">Good</span>
-          </div>
-          <p>Your response was an unexpected, fiercely confident power move. Instead of listing objects, you delivered a bold manifesto about cosmic dominance. I have no idea what &quot;the one who knocks&quot; means, but your absolute authority completely commanded the room. You are a force to be reckoned with.</p>
-        </section>
-      </div>
-    </article>
-
-    <article class="panel report-card">
-      <div class="report-question">
-        <span class="question-number">02</span>
-        <div>
-          <h2>Question 2</h2>
-          <p>To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles, and by opposing end them.</p>
-        </div>
-      </div>
-      <div class="report-columns">
-        <section class="answer-block">
-          <div class="report-col-header">
-            <h3>Your Answer</h3>
-          </div>
-          <p class="preserve-lines" data-report-answer="1">Most noble inquisitor, rather than suffer the slings and arrows of unkind fate, I choose to take up arms against this sea of troubles and by sheer resolve make an end to them; employ my zeal, and let my service be the very spear that pierces thy daily burdens through.</p>
-        </section>
-        <section class="feedback-block">
-          <div class="report-col-header">
-            <h3>Our Feedback</h3>
-            <span class="feedback-eval-badge is-improve" data-feedback-badge="1">Needs Improvement</span>
-          </div>
-          <p>Thou hast answered with a fiery, proactive spirit, and though thy theatrical flair might startle some, thy deep dedication to solving my problems is most refreshing; consider thyself hired at once, provided thou canst occasionally trade thy poetic broadsword for a simple pen.</p>
-        </section>
-      </div>
-    </article>
-
-    <article class="panel report-card">
-      <div class="report-question">
-        <span class="question-number">03</span>
-        <div>
-          <h2>Question 3</h2>
-          <p>Wat een wartaa. Het is echt niet alsof ik bezorgd om je was ofzo. Mijn colonne verplaatste zich puur toevallig langs deze strategische route, dus haal je maar niks in je hoofd, begrepen?</p>
-        </div>
-      </div>
-      <div class="report-columns">
-        <section class="answer-block">
-          <div class="report-col-header">
-            <h3>Your Answer</h3>
-          </div>
-          <p class="preserve-lines" data-report-answer="2">Tch. Het is niet alsof ik jou expres kwam opzoeken of zo. Mijn groep liep hier toevallig langs voor een strategische route, dus haal je maar niks in je hoofd, begrepen?</p>
-        </section>
-        <section class="feedback-block">
-          <div class="report-col-header">
-            <h3>Our Feedback</h3>
-            <span class="feedback-eval-badge is-good" data-feedback-badge="2">Good</span>
-          </div>
-          <p>Ze probeert haar ware gevoelens wanhopig te verbergen achter một grote mond en een geïrriteerde blik, maar haar overdreven ontkenningen verraden juist hoe bezorgd ze stiekem is; hoewel haar tsundere-act houding một beetje voorspelbaar is, krijgt ze van mij een dikke voldoende voor haar hilarische poging om stoer te blijven.</p>
-        </section>
-      </div>
-    </article>
-  </div>
-
-  <!-- Next Steps / Actions at Bottom of Report -->
-  <div class="report-bottom-actions">
-    <a class="btn btn-secondary btn-pill-action" href="interview.html" id="retake-interview-btn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="1 4 1 10 7 10"></polyline>
-        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-      </svg>
-      <span>Retake interview</span>
-    </a>
-    <a class="btn btn-pill-action" href="system-feedback.html">
-      <span>Rate this feedback</span>
-      <span aria-hidden="true">→</span>
-    </a>
-  </div>
-
-</main>
-<footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
-<noscript><p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p></noscript>
+  </main>
+  <footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
+  <noscript>
+    <p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p>
+  </noscript>
 </body>
+
 </html>

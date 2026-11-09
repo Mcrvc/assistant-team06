@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,180 +10,199 @@
   <script src="js/data.js" defer></script>
   <script src="js/app.js" defer></script>
 </head>
+
 <body data-page="job-profile">
-<a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-  <nav class="header-inner" aria-label="Main navigation">
-    <a class="brand header-brand" href="dashboard.html">
-      <span class="brand-icon"><img src="assets/logo.svg" alt="" aria-hidden="true"></span>
-      <span class="brand-text">Yourin</span>
-    </a>
-    <div class="header-nav">
-      <a class="nav-link" href="dashboard.html" data-nav="dashboard">Dashboard</a>
-      <a class="nav-link" href="storage.html" data-nav="storage">Your Interview</a>
-      <a class="nav-link" href="system-feedback.html" data-nav="feedback">System Feedback</a>
-    </div>
-    <div class="header-right">
-      <a class="profile-link" href="profile.html" aria-label="Profile" title="Profile" data-nav="profile">
-        <img class="header-avatar" src="assets/avatar.svg" alt="">
-        <span class="profile-name" data-username>Eric Arthur Blair</span>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <nav class="header-inner" aria-label="Main navigation">
+      <a class="brand header-brand" href="dashboard.html">
+        <span class="brand-icon"><img src="assets/logo.svg" alt="" aria-hidden="true"></span>
+        <span class="brand-text">Yourin</span>
       </a>
-      <span class="header-divider" aria-hidden="true"></span>
-      <a class="header-logout-link" href="sign-in.html" data-sign-out aria-label="Sign out" title="Sign out">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-          <polyline points="16 17 21 12 16 7"></polyline>
-          <line x1="21" y1="12" x2="9" y2="12"></line>
-        </svg>
-        <span class="logout-text">Sign out</span>
-      </a>
-    </div>
-  </nav>
-</header>
-<main id="main" class="page form-page">
-  <form class="panel" id="job-form" action="interview.html" novalidate>
-    <div class="panel-header">
-      <h2>Job Profile</h2>
-      <div class="panel-header-action">
-        <span class="mode-switch-hint" id="job-mode-hint">Don't have a job description or link?</span>
-        <button type="button" class="text-link btn-link-inline" id="job-mode-switch-btn">Enter 4 fields manually</button>
+      <div class="header-nav">
+        <a class="nav-link" href="dashboard.html" data-nav="dashboard">Dashboard</a>
+        <a class="nav-link" href="storage.html" data-nav="storage">Your Interview</a>
+        <a class="nav-link" href="system-feedback.html" data-nav="feedback">System Feedback</a>
       </div>
-    </div>
-
-    <!-- Job Profile Section -->
-    <div class="job-input-container">
-      <!-- Mode 1: Paste Job Description / HTML / Link (Default) -->
-      <div id="job-paste-mode">
-        <div class="field job-primary-field">
-          <label for="job-source">Paste job description, HTML, or job link</label>
-          <textarea id="job-source" rows="5" maxlength="12000" placeholder="Paste a job posting URL (https://...), raw job description text, or copied HTML here so we can scan the role details..." data-job></textarea>
+      <div class="header-right">
+        <a class="profile-link" href="profile.html" aria-label="Profile" title="Profile" data-nav="profile">
+          <img class="header-avatar" src="assets/avatar.svg" alt="">
+          <span class="profile-name" data-username>Eric Arthur Blair</span>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="header-logout-link" href="sign-in.html" data-sign-out aria-label="Sign out" title="Sign out">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span class="logout-text">Sign out</span>
+        </a>
+      </div>
+    </nav>
+  </header>
+  <main id="main" class="page form-page">
+    <form class="panel" id="job-form" action="interview.html" novalidate>
+      <div class="panel-header">
+        <h2>Job Profile</h2>
+        <div class="panel-header-action">
+          <span class="mode-switch-hint" id="job-mode-hint">Don't have a job description or link?</span>
+          <button type="button" class="text-link btn-link-inline" id="job-mode-switch-btn">Enter 4 fields
+            manually</button>
         </div>
       </div>
 
-      <!-- Mode 2: Enter 4 Fields Manually (Hidden by default) -->
-      <div id="job-manual-mode" class="is-hidden">
-        <div class="form-grid manual-job-body">
-          <div class="field">
-            <label for="job-title">Job title</label>
-            <input id="job-title" name="job-title" type="text" placeholder="e.g., Data Engineer" maxlength="180" data-job>
+      <!-- Job Profile Section -->
+      <div class="job-input-container">
+        <!-- Mode 1: Paste Job Description / HTML / Link (Default) -->
+        <div id="job-paste-mode">
+          <div class="field job-primary-field">
+            <label for="job-source">Paste job description, HTML, or job link</label>
+            <textarea id="job-source" rows="5" maxlength="12000"
+              placeholder="Paste a job posting URL (https://...), raw job description text, or copied HTML here so we can scan the role details..."
+              data-job></textarea>
           </div>
-          <div class="field">
-            <label for="domain">Domain</label>
-            <input id="domain" name="domain" type="text" placeholder="e.g., FinTech, E-Commerce" maxlength="180" data-job>
-          </div>
-          <div class="field">
-            <label for="company">Company</label>
-            <input id="company" name="company" type="text" placeholder="e.g., Shopee" maxlength="180" data-job>
-          </div>
-          <div class="field">
-            <label for="position">Seniority / Level</label>
-            <input id="position" name="position" type="text" placeholder="e.g., Intern, Junior, Senior" maxlength="180" data-job list="seniority-suggestions">
-            <datalist id="seniority-suggestions">
-              <option value="Intern">
-              <option value="Fresher / Entry-level">
-              <option value="Junior">
-              <option value="Mid-level">
-              <option value="Senior">
-              <option value="Lead / Principal">
-            </datalist>
+        </div>
+
+        <!-- Mode 2: Enter 4 Fields Manually (Hidden by default) -->
+        <div id="job-manual-mode" class="is-hidden">
+          <div class="form-grid manual-job-body">
+            <div class="field">
+              <label for="job-title">Job title</label>
+              <input id="job-title" name="job-title" type="text" placeholder="e.g., Data Engineer" maxlength="180"
+                data-job>
+            </div>
+            <div class="field">
+              <label for="domain">Domain</label>
+              <input id="domain" name="domain" type="text" placeholder="e.g., FinTech, E-Commerce" maxlength="180"
+                data-job>
+            </div>
+            <div class="field">
+              <label for="company">Company</label>
+              <input id="company" name="company" type="text" placeholder="e.g., Shopee" maxlength="180" data-job>
+            </div>
+            <div class="field">
+              <label for="position">Seniority / Level</label>
+              <input id="position" name="position" type="text" placeholder="e.g., Intern, Junior, Senior"
+                maxlength="180" data-job list="seniority-suggestions">
+              <datalist id="seniority-suggestions">
+                <option value="Intern">
+                <option value="Fresher / Entry-level">
+                <option value="Junior">
+                <option value="Mid-level">
+                <option value="Senior">
+                <option value="Lead / Principal">
+              </datalist>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Interactive Extend Divider for ALL CV Input -->
-    <div class="cv-extend-divider">
-      <button type="button" class="cv-extend-trigger" id="cv-section-toggle" aria-expanded="false" aria-controls="cv-section-body">
-        <span class="expander-text">Use CV for this interview?</span>
-        <span class="expander-chevron" aria-hidden="true">▾</span>
-      </button>
-    </div>
+      <!-- Interactive Extend Divider for ALL CV Input -->
+      <div class="cv-extend-divider">
+        <button type="button" class="cv-extend-trigger" id="cv-section-toggle" aria-expanded="false"
+          aria-controls="cv-section-body">
+          <span class="expander-text">Use CV for this interview?</span>
+          <span class="expander-chevron" aria-hidden="true">▾</span>
+        </button>
+      </div>
 
-    <!-- CV Section Body (All CV controls wrapped inside extend button) -->
-    <div class="cv-section-body is-hidden" id="cv-section-body" aria-hidden="true">
-      <div class="cv-input-container">
-        <!-- Mode 1: Use Saved CV -->
-        <div id="cv-saved-mode">
-          <div class="cv-unified-card">
-            <label class="cv-unified-check" for="sync-cv">
-              <input type="checkbox" id="sync-cv" checked>
-              <span class="cv-unified-label">
-                <span class="cv-unified-title">Use my saved CV for this interview</span>
-                <small class="cv-unified-sub">Use a copy of the CV saved in my account.</small>
-              </span>
-            </label>
-            <div class="cv-unified-action">
-              <span class="cv-switch-hint">Want a custom CV?</span>
-              <button type="button" class="btn btn-secondary btn-sm" id="switch-to-custom-cv">Paste raw CV or upload PDF</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mode 2: Custom CV (Raw Text + Big Rectangular PDF Box) -->
-        <div id="cv-custom-mode" class="is-hidden">
-          <div class="cv-composer-header">
-            <div class="cv-composer-title-wrap">
-              <h3>Custom CV for this interview</h3>
-              <span class="cv-composer-hint">Paste raw text below or upload your PDF resume</span>
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm" id="switch-to-saved-cv">Use saved CV instead</button>
-          </div>
-
-          <div class="field cv-raw-field">
-            <label for="job-cv-raw">Paste raw CV text</label>
-            <textarea id="job-cv-raw" rows="6" maxlength="15000" placeholder="Paste your raw resume, CV text, or background summary here..."></textarea>
-          </div>
-
-          <!-- PDF UPLOAD FOR THIS INTERVIEW (Old Style Big Rectangular Box) -->
-          <div class="cv-or-divider">
-            <span>OR you can upload your CV</span>
-          </div>
-
-          <div class="cv-pdf-dropzone" id="interview-pdf-dropzone" tabindex="0" role="button" aria-label="Upload PDF resume for this interview">
-            <input type="file" id="interview-pdf-input" accept=".pdf,application/pdf" class="visually-hidden">
-            <div class="dropzone-icon" aria-hidden="true">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <path d="M12 18v-6"></path>
-                <path d="M9 15l3-3 3 3"></path>
-              </svg>
-            </div>
-            <h3>Upload your PDF Resume</h3>
-            <p class="dropzone-text">Drag and drop your file here, or <button type="button" class="btn-text-action" id="interview-browse-pdf-btn">browse from computer</button></p>
-            <span class="dropzone-hint">Supports PDF only (up to 10MB)</span>
-          </div>
-
-          <div class="cv-pdf-card is-hidden" id="interview-pdf-card">
-            <div class="pdf-card-file">
-              <div class="pdf-icon-badge" aria-hidden="true">PDF</div>
-              <div class="pdf-file-details">
-                <div class="pdf-file-name" id="interview-pdf-name">Interview_Resume.pdf</div>
-                <div class="pdf-file-meta">
-                  <span id="interview-pdf-size">340 KB</span>
-                  <span class="meta-dot">•</span>
-                  <span>Attached to this interview</span>
-                </div>
+      <!-- CV Section Body (All CV controls wrapped inside extend button) -->
+      <div class="cv-section-body is-hidden" id="cv-section-body" aria-hidden="true">
+        <div class="cv-input-container">
+          <!-- Mode 1: Use Saved CV -->
+          <div id="cv-saved-mode">
+            <div class="cv-unified-card">
+              <label class="cv-unified-check" for="sync-cv">
+                <input type="checkbox" id="sync-cv" checked>
+                <span class="cv-unified-label">
+                  <span class="cv-unified-title">Use my saved CV for this interview</span>
+                  <small class="cv-unified-sub">Use a copy of the CV saved in my account.</small>
+                </span>
+              </label>
+              <div class="cv-unified-action">
+                <span class="cv-switch-hint">Want a custom CV?</span>
+                <button type="button" class="btn btn-secondary btn-sm" id="switch-to-custom-cv">Paste raw CV or upload
+                  PDF</button>
               </div>
             </div>
-            <div class="pdf-card-actions">
-              <button class="btn btn-secondary btn-sm" id="interview-replace-pdf-btn" type="button">Replace</button>
-              <button class="btn btn-quiet btn-sm text-danger" id="interview-remove-pdf-btn" type="button">Remove</button>
-            </div>
           </div>
 
-          <p class="form-status" id="interview-pdf-status" role="status"></p>
+          <!-- Mode 2: Custom CV (Raw Text + Big Rectangular PDF Box) -->
+          <div id="cv-custom-mode" class="is-hidden">
+            <div class="cv-composer-header">
+              <div class="cv-composer-title-wrap">
+                <h3>Custom CV for this interview</h3>
+                <span class="cv-composer-hint">Paste raw text below or upload your PDF resume</span>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="switch-to-saved-cv">Use saved CV
+                instead</button>
+            </div>
+
+            <div class="field cv-raw-field">
+              <label for="job-cv-raw">Paste raw CV text</label>
+              <textarea id="job-cv-raw" rows="6" maxlength="15000"
+                placeholder="Paste your raw resume, CV text, or background summary here..."></textarea>
+            </div>
+
+            <!-- PDF UPLOAD FOR THIS INTERVIEW (Old Style Big Rectangular Box) -->
+            <div class="cv-or-divider">
+              <span>OR you can upload your CV</span>
+            </div>
+
+            <div class="cv-pdf-dropzone" id="interview-pdf-dropzone" tabindex="0" role="button"
+              aria-label="Upload PDF resume for this interview">
+              <input type="file" id="interview-pdf-input" accept=".pdf,application/pdf" class="visually-hidden">
+              <div class="dropzone-icon" aria-hidden="true">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <path d="M12 18v-6"></path>
+                  <path d="M9 15l3-3 3 3"></path>
+                </svg>
+              </div>
+              <h3>Upload your PDF Resume</h3>
+              <p class="dropzone-text">Drag and drop your file here, or <button type="button" class="btn-text-action"
+                  id="interview-browse-pdf-btn">browse from computer</button></p>
+              <span class="dropzone-hint">Supports PDF only (up to 10MB)</span>
+            </div>
+
+            <div class="cv-pdf-card is-hidden" id="interview-pdf-card">
+              <div class="pdf-card-file">
+                <div class="pdf-icon-badge" aria-hidden="true">PDF</div>
+                <div class="pdf-file-details">
+                  <div class="pdf-file-name" id="interview-pdf-name">Interview_Resume.pdf</div>
+                  <div class="pdf-file-meta">
+                    <span id="interview-pdf-size">340 KB</span>
+                    <span class="meta-dot">•</span>
+                    <span>Attached to this interview</span>
+                  </div>
+                </div>
+              </div>
+              <div class="pdf-card-actions">
+                <button class="btn btn-secondary btn-sm" id="interview-replace-pdf-btn" type="button">Replace</button>
+                <button class="btn btn-quiet btn-sm text-danger" id="interview-remove-pdf-btn"
+                  type="button">Remove</button>
+              </div>
+            </div>
+
+            <p class="form-status" id="interview-pdf-status" role="status"></p>
+          </div>
         </div>
       </div>
-    </div>
 
-    <p class="form-error" id="job-error" role="alert" hidden></p>
-    <div class="form-bottom align-end">
-      <button class="btn" type="submit">Continue <span aria-hidden="true">→</span></button>
-    </div>
-  </form>
-</main>
-<footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
-<noscript><p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p></noscript>
+      <p class="form-error" id="job-error" role="alert" hidden></p>
+      <div class="form-bottom align-end">
+        <button class="btn" type="submit">Continue <span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+  </main>
+  <footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
+  <noscript>
+    <p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p>
+  </noscript>
 </body>
+
 </html>
