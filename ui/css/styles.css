@@ -2642,3 +2642,28 @@ body.has-loading { overflow: hidden; }
   .yourin-toast-stack { left: 16px; right: 16px; max-width: none; }
   .yourin-toast { width: 100%; }
 }
+
+/* System feedback rating controls */
+.rating-group, .difficulty-group, .recommend-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.rating-option, .difficulty-option, .recommend-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border, #d9d9d9);
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+}
+.rating-option input, .difficulty-option input, .recommend-option input {
+  margin: 0;
+}
+.rating-option:has(input:checked), .difficulty-option:has(input:checked), .recommend-option:has(input:checked) {
+  background: var(--accent, #2563eb);
+  color: #fff;
+  border-color: var(--accent, #2563eb);
+}
