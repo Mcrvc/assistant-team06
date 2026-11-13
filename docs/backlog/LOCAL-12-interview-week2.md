@@ -44,3 +44,11 @@ Checkpoint lỗi account:
   tự tạo account và không lộ UUID/SQL/details. Các FK khác vẫn là storage error.
 - 33 related tests passed, gồm lỗi thật trên PostgreSQL và rollback không để
   sót session/question/answer. Không đổi Auth, trigger hoặc RPC cloud.
+
+Checkpoint env template:
+- Tái hiện startup fail khi chép .env.example nguyên trạng: loader giữ nguyên
+  "auto # 273", làm INTERVIEW_STORAGE sai. Di chuyển owner tags sang comment
+  riêng (giữ tag/giá trị), khai báo ba biến Backend Interview chọn AI/timeout/CV.
+- Không sửa db.py/ai.py, không đọc hoặc sửa giá trị file .env thật. Regression
+  dùng chính template và loader trên file tạm để kiểm tra server khởi động.
+- 54 startup/Profile/template tests passed sau sửa. Không thay logic Profile.
