@@ -21,6 +21,11 @@ def isolate_environment_and_network(monkeypatch):
     assert Path(assistant.__file__).resolve().is_relative_to(Path(__file__).resolve().parents[1] / "src")
     for key, value in DEFAULTS.items():
         monkeypatch.setenv(key, value)
+    # Tests may delete an env var to test the unconfigured case. Do not let
+    # create_app/get_env_config restore it from the developer's real .env.
+    from assistant import db, web
+    monkeypatch.setattr(db, "load_env_file", lambda *args, **kwargs: None)
+    monkeypatch.setattr(web, "load_env_file", lambda *args, **kwargs: None)
     original = OpenerDirector.open
     def local_only(self, fullurl, *args, **kwargs):
         url = fullurl.full_url if hasattr(fullurl, "full_url") else fullurl
