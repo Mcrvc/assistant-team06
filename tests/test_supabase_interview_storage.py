@@ -296,3 +296,29 @@ def test_rpc_missing_account_is_actionable_and_leaves_no_partial_interview(rpc_r
     with engine.connect() as conn:
         for table in ('sessions', 'questions', 'answers', 'session_questions'):
             assert conn.execute(text(f'SELECT count(*) FROM {table}')).scalar_one() == 0
+
+
+def test_rpc_grading_collision_keeps_user_draft_and_ai_grade(rpc_repository, monkeypatch):
+    repo, engine = rpc_repository
+    service, item = create(repo)
+    answer = 'I wrote tests and measured the Python API result with my team.'
+    item, job = service.submit_answer(OWNER, item['id'], 0, SubmitAnswer(revision=0, text=answer))
+    original = repo.save
+    collided = False
+    def save(interview, expected_version):
+        nonlocal collided
+        if not collided:
+            collided = True
+            # AI commits after progress was read but before progress is written.
+            service.grade_answer(OWNER, item['id'], 0, job)
+        return original(interview, expected_version)
+    monkeypatch.setattr(repo, 'save', save)
+    saved = service.save_progress(OWNER, item['id'], SaveProgress(revision=1,
+        current_question=1, status='interrupted', answers=[answer, 'Bản nháp câu hai', '']))
+    assert collided and saved['revision'] == 2
+    assert saved['answers'][0]['grading_status'] == 'graded'
+    assert saved['answers'][1]['text'] == 'Bản nháp câu hai'
+    assert repo.get(item['id'], OWNER) == saved
+    with engine.connect() as conn:
+        assert conn.execute(text('SELECT count(*) FROM grades')).scalar_one() >= 1
+        assert conn.execute(text('SELECT count(*) FROM answers')).scalar_one() == 3

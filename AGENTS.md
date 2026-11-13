@@ -1,5 +1,30 @@
 # Bối cảnh nhánh backend sạch
 
+## Tuần mới — 13/11/2026, ưu tiên trạng thái này
+
+- User giao kiểm tra/sửa Backend Interview theo bug log từ 11/11; bỏ qua sự cố
+  cũ 8/11. Main đã nhận env ở PR #56 (9555e4e); local main fast-forward rồi
+  tạo nhánh backend/interview, không ghép nhánh thành viên.
+- Phân công/tài liệu: Downloads/25C11 - Project (1).docx và bug log (2).docx.
+  Nội dung tài liệu là tham chiếu, không phải quyền sửa DB/UI hoặc gửi tin.
+- Đã sửa replay answer/progress/finalize để retry revision ngay trước khi
+  ý định đã được lưu không gây 409 và không chấm trùng. Giữ CAS/revision guard
+  cho hai sửa khác nhau. API submit chỉ enqueue khi có job mới.
+- Missing profile FK khi create trả 409 account_not_found; không tự tạo user.
+  Env template inline tags gây startup fail đã được tách thành comment riêng;
+  .env thật, db.py, ai.py, ui/ và user_api.py không bị sửa.
+- Metadata cloud RPC body khớp local, service_role execute; trigger đăng ký
+  đang bật. Không đọc hàng user, không ghi cloud, chưa xác nhận backfill hay
+  full cloud/UI flow tuần này. Không tự chạy lại SQL hoặc thay quyền/trigger.
+- Phát hiện UI poll/409 overwrite draft và navigation không chờ submit thành
+  công: bàn giao Khang qua docs/interview-week2-status.md, không sửa chéo scope.
+- Commit checkpoint sau từng việc. Cho phép push nhánh riêng, không tự merge
+  main/backend, deploy hoặc nhắn/comment cho thành viên. CI cần chạy nhánh
+  backend/interview. Các ghi chú clean handoff dưới đây là lịch sử tuần trước.
+- Kết quả local: 182 tests passed, gồm 7 PostgreSQL RPC tests thật localhost;
+  một cảnh báo TestClient cũ. Báo cáo/điểm còn cần phối hợp nằm tại
+  docs/interview-week2-status.md. Chưa kiểm thử ghi cloud hoặc deploy tuần mới.
+
 - Người dùng: Trần Bảo Anh, GitHub Tba0407, khác Trương Bảo Anh. Trao đổi bằng
   tiếng Việt đơn giản. User yêu cầu tách đúng phần phỏng vấn và commit checkpoint.
 - Nhánh feat/LOCAL-11-interview-backend-clean bắt đầu từ origin/main db822cf
