@@ -82,10 +82,17 @@ class InterviewService:
         self.repository.delete(interview_id, owner_id)
 
     def _change(self, owner_id: str, interview_id: str, revision: int,
-                change: Callable[[dict], None]) -> dict:
+                change: Callable[[dict], None], *,
+                already_applied: Callable[[dict], bool] | None = None) -> dict:
         # Background grades change internal version, but not client revision.
         for _ in range(10):
             interview = self.get(owner_id, interview_id)
+            # A lost HTTP response/double click can repeat the immediately
+            # preceding edit. Return its current state without writing again.
+            # Different or older edits must still pass the revision guard.
+            if (interview["revision"] == revision + 1 and already_applied is not None
+                    and already_applied(interview)):
+                return interview
             if interview["status"] == "finalized":
                 raise InterviewError(409, "already_finalized", "A finalized interview cannot be edited")
             if interview["revision"] != revision:
@@ -101,27 +108,43 @@ class InterviewService:
         raise InterviewError(409, "revision_conflict", "Interview is busy; reload before saving")
 
     def save_progress(self, owner_id: str, interview_id: str, request: SaveProgress) -> dict:
+        def already_applied(interview: dict) -> bool:
+            return (interview["current_question"] == request.current_question
+                    and interview["status"] == request.status
+                    and (request.answers is None or request.answers == [
+                        answer["text"] for answer in interview["answers"]]))
+
         def change(interview: dict) -> None:
             if request.answers is not None:
                 for i, text in enumerate(request.answers):
                     if text != interview["answers"][i]["text"]:
                         interview["answers"][i] = _answer(text)
             interview.update(current_question=request.current_question, status=request.status)
-        return self._change(owner_id, interview_id, request.revision, change)
+        return self._change(owner_id, interview_id, request.revision, change,
+                            already_applied=already_applied)
 
     def submit_answer(self, owner_id: str, interview_id: str, index: int,
-                      request: SubmitAnswer) -> tuple[dict, str]:
+                      request: SubmitAnswer) -> tuple[dict, str | None]:
         if index not in range(3):
             raise InterviewError(400, "invalid_question", "Question index must be 0, 1 or 2")
         grading_id = str(uuid4())
+
+        def already_applied(interview: dict) -> bool:
+            answer = interview["answers"][index]
+            return (interview["status"] != "finalized" and answer["text"] == request.text
+                    and answer["grading_status"] in ("pending", "graded")
+                    and bool(answer["grading_id"]))
 
         def change(interview: dict) -> None:
             interview["answers"][index] = {
                 **_answer(request.text), "grading_status": "pending", "grading_id": grading_id,
             }
             interview.update(current_question=min(index + 1, 2), status="in_progress")
-        result = self._change(owner_id, interview_id, request.revision, change)
-        return result, grading_id
+        result = self._change(owner_id, interview_id, request.revision, change,
+                              already_applied=already_applied)
+        # A replay must not schedule a second AI call for the same job. A fresh
+        # revision can still explicitly re-submit a pending/rejected answer.
+        return result, grading_id if result["answers"][index]["grading_id"] == grading_id else None
 
     def grade_answer(self, owner_id: str, interview_id: str, index: int, grading_id: str) -> None:
         """Background task; never applies results to an edited/superseded answer."""
@@ -190,4 +213,6 @@ class InterviewService:
                         "notice": "Contains mock/fallback output; not a real AI assessment."
                         if used_fallback else "Evidence quotations passed exact text matching."},
             )
-        return self._change(owner_id, interview_id, request.revision, change)
+        return self._change(owner_id, interview_id, request.revision, change,
+            already_applied=lambda item: item["status"] == "finalized" and (
+                request.name is None or request.name == item["name"]))

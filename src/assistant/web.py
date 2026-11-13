@@ -179,7 +179,8 @@ def create_app(*, service: InterviewService | None = None,
     def submit_answer(interview_id: UUID, index: QuestionIndex, payload: SubmitAnswer,
                       tasks: BackgroundTasks, user: User, service: Service):
         item, grading_id = service.submit_answer(user, str(interview_id), index, payload)
-        tasks.add_task(service.grade_answer, user, str(interview_id), index, grading_id)
+        if grading_id is not None:
+            tasks.add_task(service.grade_answer, user, str(interview_id), index, grading_id)
         return public_view(item)
 
     @app.get("/api/interviews/{interview_id}/progress", response_model=Progress, tags=["Interviews"])

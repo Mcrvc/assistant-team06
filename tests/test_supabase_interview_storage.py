@@ -220,3 +220,41 @@ def test_rpc_via_http_routes_background_grading_and_report(rpc_repository):
         assert client.get(path+'/progress').json()['graded'] == 3
         assert client.post(path+'/finalize',json={'revision':revision}).status_code == 200
         assert client.get(path).json()['report'] is not None
+
+
+def test_rpc_http_replays_preserve_one_set_of_answers_and_report(rpc_repository):
+    from fastapi.testclient import TestClient
+    from assistant.web import create_app
+    repo, engine = rpc_repository
+    service = InterviewService(repo, MockInterviewAI())
+    with TestClient(create_app(service=service, auth_resolver=lambda request: OWNER)) as client:
+        created = client.post('/api/interviews', json={'name': 'Actual saved title',
+            'job_profile': {'title': 'Intern'}}).json()
+        path = '/api/interviews/' + created['id']
+        text_answer = 'I wrote Python tests and checked the result with my team.'
+        request = {'revision': 0, 'text': text_answer}
+        assert client.post(path + '/answers/0', json=request).status_code == 202
+        before = repo.get(created['id'], OWNER)
+        assert client.post(path + '/answers/0', json=request).status_code == 202
+        assert repo.get(created['id'], OWNER) == before
+        progress = {'revision': 1, 'current_question': 1, 'status': 'interrupted',
+                    'answers': [text_answer, 'Second draft', '']}
+        assert client.post(path + '/progress', json=progress).status_code == 200
+        before = repo.get(created['id'], OWNER)
+        assert client.post(path + '/progress', json=progress).status_code == 200
+        assert repo.get(created['id'], OWNER) == before
+        revision = before['revision']
+        for index in (1, 2):
+            response = client.post(path + f'/answers/{index}', json={'revision': revision, 'text': text_answer})
+            assert response.status_code == 202
+            revision = response.json()['revision']
+        response = client.post(path + '/finalize', json={'revision': revision})
+        assert response.status_code == 200
+        report = response.json()['report']
+        assert response.json()['name'] == 'Actual saved title'
+        assert [item['answer'] for item in report['items']] == [text_answer] * 3
+        assert client.get(path).json()['report'] == report
+    with engine.connect() as conn:
+        assert conn.execute(text('SELECT count(*) FROM sessions')).scalar_one() == 1
+        assert conn.execute(text('SELECT count(*) FROM answers')).scalar_one() == 3
+        assert conn.execute(text('SELECT count(*) FROM session_questions')).scalar_one() == 3

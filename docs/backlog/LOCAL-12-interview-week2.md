@@ -24,3 +24,13 @@ vẫn bị chặn; submit/save trong khi grading không mất draft/grade; final
 không gọi AI lần hai; SQL thực trên localhost, đối chiếu cloud chỉ đọc. Thử
 ghi cloud end-to-end bằng tài khoản thử cần phối hợp Huy/Khang/người dùng,
 không tự đọc token trình duyệt hoặc chạy SQL ghi trên Supabase chung.
+
+Checkpoint sửa replay:
+- 4 bài mới fail ở base: gửi lại đáp án đã nhận, gửi lại draft sau AI chấm,
+  hai submit giống nhau cùng lúc và hai finalize cùng lúc. Đã sửa ở service:
+  chỉ chấp nhận replay của revision ngay trước khi ý định đã được lưu đúng.
+- Replay không tăng revision/version, không enqueue thêm AI; fresh revision
+  vẫn cho phép chủ động gửi lại câu pending/rejected. Bản sửa khác hoặc quá cũ
+  vẫn 409. Giữ nguyên CAS và grading_id; không sửa SQL/UI.
+- 43 focused tests passed, bao gồm RPC SQL trên PostgreSQL loopback. Không
+  đọc dữ liệu user hoặc ghi cloud. Frontend draft-overwrite vẫn cần Khang sửa.
