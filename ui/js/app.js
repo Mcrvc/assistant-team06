@@ -216,6 +216,10 @@
     save();
     return item;
   }
+  function splitCvText(text) {
+    const clean = String(text || "").trim().slice(0, 20000);
+    return [0, 5000, 10000, 15000].map(start => clean.slice(start, start + 5000));
+  }
   function buildCvText(value) {
     const parts = Array.isArray(value) ? value : [value];
     return parts
@@ -618,14 +622,28 @@
     renderPdfState();
 
     // PDF Upload handling
-    function handlePdfFile(file) {
+    async function handlePdfFile(file) {
       pdfError.hidden = true;
       if (!file) return;
       if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
         error("#pdf-error", "Please upload a valid PDF file (.pdf).");
         return;
       }
+      if (!api || typeof api.parseCvPdf !== "function") {
+        error("#pdf-error", "PDF parsing service is unavailable. Please paste your CV text instead.");
+        return;
+      }
+      pdfStatus.textContent = `Reading "${file.name}"...`;
+      const parsed = await api.parseCvPdf(file);
+      if (!parsed || !parsed.ok || !parsed.data || !parsed.data.text) {
+        pdfStatus.textContent = "";
+        const msg = window.YourinErrors?.messageFromPayload?.(parsed?.data) ||
+          "Could not extract text from this PDF. Please paste your CV text instead.";
+        error("#pdf-error", msg);
+        return;
+      }
       clearCvSections();
+      account.cv = splitCvText(parsed.data.text);
       const sizeStr = file.size > 1024 * 1024
         ? (file.size / (1024 * 1024)).toFixed(1) + " MB"
         : Math.round(file.size / 1024) + " KB";
@@ -638,7 +656,7 @@
       account.cvMode = "pdf";
       save();
       renderPdfState();
-      pdfStatus.textContent = `PDF "${file.name}" saved! Raw text cleared.`;
+      pdfStatus.textContent = `PDF "${file.name}" saved! Extracted ${parsed.data.chars} characters.`;
       persistCvToBackend();
     }
 
@@ -805,6 +823,7 @@
 
     // 4. Custom PDF Upload handling for this interview (Old style dropzone + card)
     let interviewPdf = null;
+    let interviewPdfText = "";
     const interviewPdfDropzone = $("#interview-pdf-dropzone");
     const interviewPdfInput = $("#interview-pdf-input");
     const interviewPdfCard = $("#interview-pdf-card");
@@ -815,6 +834,7 @@
     function clearCustomInterviewPdf() {
       if (interviewPdf) {
         interviewPdf = null;
+        interviewPdfText = "";
         if (interviewPdfInput) interviewPdfInput.value = "";
         if (interviewPdfCard) interviewPdfCard.classList.add("is-hidden");
         if (interviewPdfDropzone) interviewPdfDropzone.classList.remove("is-hidden");
@@ -828,7 +848,7 @@
       });
     }
 
-    function handleInterviewPdf(file) {
+    async function handleInterviewPdf(file) {
       if (!file) return;
       if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
         if (interviewPdfStatus) interviewPdfStatus.textContent = "Please upload a valid PDF file (.pdf).";
@@ -841,6 +861,20 @@
         ? (file.size / (1024 * 1024)).toFixed(1) + " MB"
         : Math.round(file.size / 1024) + " KB";
 
+      if (!api || typeof api.parseCvPdf !== "function") {
+        if (interviewPdfStatus) interviewPdfStatus.textContent = "PDF parsing service is unavailable. Please paste your CV text instead.";
+        return;
+      }
+      if (interviewPdfStatus) interviewPdfStatus.textContent = `Reading "${file.name}"...`;
+      const parsed = await api.parseCvPdf(file);
+      if (!parsed || !parsed.ok || !parsed.data || !parsed.data.text) {
+        const msg = window.YourinErrors?.messageFromPayload?.(parsed?.data) ||
+          "Could not extract text from this PDF. Please paste your CV text instead.";
+        if (interviewPdfStatus) interviewPdfStatus.textContent = msg;
+        error("#job-error", msg);
+        return;
+      }
+      interviewPdfText = parsed.data.text;
       interviewPdf = { name: file.name, size: sizeStr };
       if (interviewPdfDropzone) interviewPdfDropzone.classList.add("is-hidden");
       if (interviewPdfCard) interviewPdfCard.classList.remove("is-hidden");
@@ -938,7 +972,8 @@
       if (isCvOpen) {
         if (cvInputMode === "custom") {
           if (interviewPdf) {
-            // The backend accepts CV text. PDF extraction is not part of this checkout yet.
+            cvText = buildCvText(interviewPdfText);
+            cvLocal = [interviewPdfText, "", "", ""];
             cvPdf = { ...interviewPdf };
             cvMode = "pdf";
           } else {
@@ -952,6 +987,8 @@
           }
         } else if (syncCvCheckbox && syncCvCheckbox.checked) {
           if (account.cvPdf || account.cvMode === "pdf") {
+            cvLocal = [...account.cv];
+            cvText = buildCvText(account.cv);
             cvPdf = account.cvPdf ? { ...account.cvPdf } : null;
             cvMode = "pdf";
           } else {
