@@ -34,3 +34,13 @@ Checkpoint sửa replay:
   vẫn 409. Giữ nguyên CAS và grading_id; không sửa SQL/UI.
 - 43 focused tests passed, bao gồm RPC SQL trên PostgreSQL loopback. Không
   đọc dữ liệu user hoặc ghi cloud. Frontend draft-overwrite vẫn cần Khang sửa.
+
+Checkpoint lỗi account:
+- Cloud metadata xác nhận on_auth_user_created AFTER INSERT auth.users gọi
+  handle_new_user và đang bật. Điều này không chứng minh mọi user cũ đã có
+  accounts; chưa đọc bảng người dùng/backfill (phần Huy).
+- Khi RPC create trả đúng FK sessions_user_id_fkey (23503), API nay trả 409
+  account_not_found với lời nhắc đồng bộ profile, không báo 503 mơ hồ, không
+  tự tạo account và không lộ UUID/SQL/details. Các FK khác vẫn là storage error.
+- 33 related tests passed, gồm lỗi thật trên PostgreSQL và rollback không để
+  sót session/question/answer. Không đổi Auth, trigger hoặc RPC cloud.

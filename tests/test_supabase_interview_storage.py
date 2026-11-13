@@ -18,7 +18,7 @@ from assistant.interview_runtime import configured_repository
 from assistant.interview_schemas import CreateInterview, SaveProgress, SubmitAnswer, FinalizeInterview
 from assistant.interview_store import StoreConflict
 from assistant.interview_supabase import SupabaseInterviewRepository
-from assistant.interviews import InterviewService
+from assistant.interviews import InterviewError, InterviewService
 
 ROOT = Path(__file__).resolve().parents[1]
 OWNER, OTHER = str(uuid4()), str(uuid4())
@@ -78,6 +78,25 @@ def test_no_retry_after_ambiguous_network_write(monkeypatch):
     assert calls == [1]
 
 
+@pytest.mark.parametrize('operation,constraint,expected', [
+    ('create', 'sessions_user_id_fkey', InterviewError),
+    ('save', 'sessions_user_id_fkey', SQLAlchemyError),
+    ('create', 'sessions_domain_id_fkey', SQLAlchemyError),
+])
+def test_missing_profile_is_distinguished_from_unrelated_foreign_keys(monkeypatch, operation, constraint, expected):
+    repo = SupabaseInterviewRepository(CONFIG.supabase_url, CONFIG.supabase_secret_key)
+    def fail(*args, **kwargs):
+        body = {'code': '23503', 'message': f'violates foreign key constraint "{constraint}"',
+                'details': 'private database/account details'}
+        raise HTTPError(repo._url, 409, '', {}, BytesIO(json.dumps(body).encode()))
+    monkeypatch.setattr(repo._opener, 'open', fail)
+    with pytest.raises(expected) as exc:
+        repo._call(operation, OWNER, str(uuid4()))
+    if isinstance(exc.value, InterviewError):
+        assert exc.value.status == 409 and exc.value.code == 'account_not_found'
+    assert 'private' not in str(exc.value)
+
+
 @pytest.fixture
 def rpc_repository(monkeypatch):
     value = os.environ.get("INTERVIEW_TEST_POSTGRES_URL")
@@ -116,8 +135,10 @@ def rpc_repository(monkeypatch):
                     }).scalar_one()
             except SQLAlchemyError as exc:
                 code = getattr(exc.orig, "sqlstate", "storage_error")
-                raise HTTPError(repo._url,409 if code=="PT409" else 400,"",{},
-                                BytesIO(json.dumps({"code":code}).encode())) from None
+                constraint = getattr(getattr(exc.orig, 'diag', None), 'constraint_name', '')
+                error = {'code': code, 'message': f'violates foreign key constraint "{constraint}"'}
+                raise HTTPError(repo._url,409 if code in ("PT409", "23503") else 400,"",{},
+                                BytesIO(json.dumps(error).encode())) from None
             return Response(json.dumps(result).encode())
         monkeypatch.setattr(repo._opener,"open",transport)
         assert repo._call("check") == {"schema_version":1}
@@ -258,3 +279,20 @@ def test_rpc_http_replays_preserve_one_set_of_answers_and_report(rpc_repository)
         assert conn.execute(text('SELECT count(*) FROM sessions')).scalar_one() == 1
         assert conn.execute(text('SELECT count(*) FROM answers')).scalar_one() == 3
         assert conn.execute(text('SELECT count(*) FROM session_questions')).scalar_one() == 3
+
+
+def test_rpc_missing_account_is_actionable_and_leaves_no_partial_interview(rpc_repository):
+    from fastapi.testclient import TestClient
+    from assistant.web import create_app
+    repo, engine = rpc_repository
+    owner_without_profile = str(uuid4())
+    app = create_app(service=InterviewService(repo, MockInterviewAI()),
+                     auth_resolver=lambda request: owner_without_profile)
+    with TestClient(app) as client:
+        result = client.post('/api/interviews', json={'job_profile': {'title': 'Intern'}})
+        assert result.status_code == 409
+        assert result.json()['error']['code'] == 'account_not_found'
+        assert owner_without_profile not in result.text
+    with engine.connect() as conn:
+        for table in ('sessions', 'questions', 'answers', 'session_questions'):
+            assert conn.execute(text(f'SELECT count(*) FROM {table}')).scalar_one() == 0
