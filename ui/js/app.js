@@ -4,6 +4,33 @@
 
   const page = document.body.dataset.page;
   const PUBLIC_PAGES = ["sign-in", "sign-up"];
+  const USERNAME_CACHE_KEY = "yourin:username";
+
+  function readCachedUsername() {
+    try {
+      return localStorage.getItem(USERNAME_CACHE_KEY) || "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function cacheUsername(username) {
+    try {
+      if (username) localStorage.setItem(USERNAME_CACHE_KEY, username);
+      else localStorage.removeItem(USERNAME_CACHE_KEY);
+    } catch (_) { /* Storage may be disabled. */ }
+  }
+
+  function paintUsername(username) {
+    if (!username) return;
+    document.querySelectorAll("[data-username]").forEach(element => {
+      element.textContent = username;
+    });
+  }
+
+  // Paint the cached name before any network request so the header never flashes "User".
+  const cachedUsername = readCachedUsername();
+  paintUsername(cachedUsername);
 
   function showStartupError(message) {
     const authError = (page === "sign-in" || page === "sign-up")
@@ -90,7 +117,11 @@
   const strings = (value, length) => Array.isArray(value) && value.length === length && value.every(item => typeof item === "string");
   const identity = name => String(name || "").trim().toLocaleLowerCase();
   const go = url => { window.location.href = url; };
-  const authenticatedUsername = authenticatedUser?.user_metadata?.username || "User";
+  const authenticatedUsername = authenticatedUser?.user_metadata?.username || cachedUsername || "User";
+  if (authenticatedUser?.user_metadata?.username) {
+    cacheUsername(authenticatedUser.user_metadata.username);
+  }
+  paintUsername(authenticatedUsername);
 
   function newAccount(username) {
     return {
@@ -148,17 +179,20 @@
   state.currentAccount = authenticatedUsername;
   if (!account.cvMode) account.cvMode = "text";
 
-  // Restore the saved CV from the backend when it is available. Keep the local
-  // cache as a fallback for offline/unconfigured runs.
-  try {
-    const cvResult = await api.getCV({ loading: false, notify: false });
-    if (cvResult && cvResult.ok && cvResult.data) {
-      account.cv = Array.isArray(cvResult.data.cv) ? cvResult.data.cv : account.cv;
-      account.cvMode = cvResult.data.cvMode || account.cvMode;
-      account.cvPdf = cvResult.data.cvPdf === undefined ? account.cvPdf : cvResult.data.cvPdf;
-      save();
-    }
-  } catch (_) { /* Keep local CV data if the backend is unavailable. */ }
+  // Restore the saved CV only on pages that edit or use it. Other pages should
+  // not wait for this request during startup. Keep the local cache as a fallback
+  // for offline/unconfigured runs.
+  async function restoreCVFromBackend() {
+    try {
+      const cvResult = await api.getCV({ loading: false, notify: false });
+      if (cvResult && cvResult.ok && cvResult.data) {
+        account.cv = Array.isArray(cvResult.data.cv) ? cvResult.data.cv : account.cv;
+        account.cvMode = cvResult.data.cvMode || account.cvMode;
+        account.cvPdf = cvResult.data.cvPdf === undefined ? account.cvPdf : cvResult.data.cvPdf;
+        save();
+      }
+    } catch (_) { /* Keep local CV data if the backend is unavailable. */ }
+  }
 
   function save() {
     state.updatedAt = Date.now();
@@ -302,7 +336,7 @@
     save();
   }
 
-  $$("[data-username]").forEach(element => { element.textContent = account.username; });
+  paintUsername(account.username);
 
   const navMap = {
     "dashboard": "dashboard",
@@ -324,6 +358,7 @@
       console.error("Sign out failed:", err);
     }
     try { sessionStorage.removeItem("yourin:redirectAfterLogin"); } catch (_) { /* Ignore. */ }
+    cacheUsername("");
     window.location.replace("sign-in.html");
   }));
 
@@ -383,6 +418,8 @@
           await api.signIn(username, password);
         }
 
+        cacheUsername(username.trim().toLowerCase());
+
         let target = "dashboard.html";
         try {
           const saved = sessionStorage.getItem("yourin:redirectAfterLogin");
@@ -409,6 +446,8 @@
   }));
 
   if (page === "profile") {
+    await restoreCVFromBackend();
+
     const usernameInput = $("#profile-username");
     const passwordInput = $("#account-password");
     const verifyPasswordInput = $("#verify-password");
@@ -501,7 +540,8 @@
           state.currentAccount = newUsername;
           save();
 
-          $$("[data-username]").forEach(element => { element.textContent = newUsername; });
+          cacheUsername(newUsername);
+          paintUsername(newUsername);
 
           if (usernameInput) usernameInput.readOnly = true;
           if (passwordInput) {
@@ -694,6 +734,8 @@
   }
 
   if (page === "job-profile") {
+    await restoreCVFromBackend();
+
     // Migrate legacy job-url to job-source if needed
     if (!account.job["job-source"] && typeof account.job["job-url"] === "string" && account.job["job-url"].trim()) {
       account.job["job-source"] = account.job["job-url"].trim();
