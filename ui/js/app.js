@@ -210,7 +210,14 @@
     return account.interviews.find(item => item.id === account.activeId);
   }
   function reportInterview() {
-    return activeInterview() || account.interviews.find(item => item.finished) || account.interviews[0];
+    const serverInterviews = account.interviews.filter(item =>
+      item && item.sample !== true && item.server === true
+    );
+    const active = serverInterviews.find(item => item.id === account.activeId && item.finished);
+    return active
+      || serverInterviews.find(item => item.finished)
+      || serverInterviews.find(item => item.id === account.activeId)
+      || null;
   }
   function startInterview(customCV, customPdf, source) {
     const id = "interview-" + Date.now();
@@ -305,6 +312,56 @@
     account.activeId = item.id;
     save();
     return item;
+  }
+  function serverInterviewFromView(view, existing = null) {
+    const answers = Array.isArray(view?.answers)
+      ? view.answers.map(answer => (answer && typeof answer.text === "string" ? answer.text : ""))
+      : (Array.isArray(existing?.answers) ? [...existing.answers] : ["", "", ""]);
+    while (answers.length < 3) answers.push("");
+    answers.length = 3;
+
+    const details = Array.isArray(view?.questions)
+      ? view.questions
+      : (Array.isArray(existing?.questionDetails)
+        ? existing.questionDetails
+        : (Array.isArray(existing?.questions) ? existing.questions : []));
+    const questions = details.map(question => (
+      typeof question === "string"
+        ? question
+        : (question && typeof question.text === "string" ? question.text : "")
+    ));
+
+    const createdAt = view?.created_at ? new Date(view.created_at) : null;
+    const date = createdAt && !Number.isNaN(createdAt.getTime())
+      ? createdAt.toLocaleDateString("en-GB")
+      : (existing?.date || "");
+
+    return {
+      id: view?.id || existing?.id,
+      name: typeof view?.name === "string" && view.name.trim()
+        ? view.name.slice(0, 200)
+        : (existing?.name || "Interview"),
+      date,
+      finished: view?.status ? view.status === "finalized" : existing?.finished === true,
+      answers,
+      cv: Array.isArray(existing?.cv) ? [...existing.cv] : ["", "", "", ""],
+      cvPdf: existing?.cvPdf || null,
+      cvMode: existing?.cvMode || "text",
+      job: existing?.job && typeof existing.job === "object" ? { ...existing.job } : {},
+      jobProfile: view?.job_profile || existing?.jobProfile || null,
+      questions,
+      questionDetails: details,
+      totalQuestions: details.length || existing?.totalQuestions || 3,
+      revision: Number.isInteger(view?.revision) ? view.revision : (existing?.revision || 0),
+      status: view?.status || existing?.status || "in_progress",
+      currentQuestion: Number.isInteger(view?.current_question)
+        ? view.current_question
+        : (existing?.currentQuestion || 0),
+      progress: view?.progress || existing?.progress || null,
+      report: view?.report || existing?.report || null,
+      questionGeneration: view?.question_generation || existing?.questionGeneration || null,
+      server: true
+    };
   }
   function saveJob() {
     account.job = Object.fromEntries(jobKeys.map(key => {
@@ -1934,132 +1991,271 @@
   }
 
   if (page === "report") {
-    const interview = reportInterview();
-    if (interview) {
-      if (interview.server === true && interview.id) {
-        try {
-          const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
-            loading: true,
+    const loadingState = $("#report-loading");
+    const contentState = $("#report-content");
+    const emptyState = $("#report-empty");
+    const emptyTitle = $("#report-empty-title");
+    const emptyMessage = $("#report-empty-message");
+    const cardsContainer = $("#report-cards");
+
+    function showReportState(state) {
+      if (loadingState) loadingState.classList.toggle("is-hidden", state !== "loading");
+      if (contentState) contentState.classList.toggle("is-hidden", state !== "content");
+      if (emptyState) emptyState.classList.toggle("is-hidden", state !== "empty");
+    }
+
+    function showEmptyReport(title, message) {
+      if (emptyTitle) emptyTitle.textContent = title;
+      if (emptyMessage) emptyMessage.textContent = message;
+      showReportState("empty");
+    }
+
+    async function loadInterviewsForReport() {
+      const listResult = await api.request("/api/interviews", { loading: false, notify: false });
+      if (!listResult.ok || !Array.isArray(listResult.data)) {
+        if (listResult.status === 401) return "unauthorized";
+        return listResult.networkError ? "error" : "empty";
+      }
+
+      const previousById = new Map(account.interviews.map(item => [item.id, item]));
+      account.interviews = listResult.data.map(view =>
+        serverInterviewFromView(view, previousById.get(view.id) || null)
+      );
+      if (account.activeId && !account.interviews.some(item => item.id === account.activeId)) {
+        account.activeId = null;
+      }
+      save();
+      return "ok";
+    }
+
+    function questionTextAt(interview, index) {
+      if (Array.isArray(interview.questions) && typeof interview.questions[index] === "string") {
+        return interview.questions[index];
+      }
+      const detail = Array.isArray(interview.questionDetails) ? interview.questionDetails[index] : null;
+      return detail && typeof detail.text === "string" ? detail.text : "";
+    }
+
+    function reportItemAt(report, index) {
+      if (!report || !Array.isArray(report.items)) return null;
+      return report.items.find(entry => entry && entry.question_index === index) || report.items[index] || null;
+    }
+
+    function createReportCard(interview, report, index) {
+      const card = document.createElement("article");
+      card.className = "panel report-card";
+
+      const question = document.createElement("div");
+      question.className = "report-question";
+      const number = document.createElement("span");
+      number.className = "question-number";
+      number.textContent = String(index + 1).padStart(2, "0");
+      const questionBody = document.createElement("div");
+      const questionTitle = document.createElement("h2");
+      questionTitle.textContent = `Question ${index + 1}`;
+      const questionCopy = document.createElement("p");
+      questionCopy.textContent = questionTextAt(interview, index) || "Question details are not available.";
+      questionBody.append(questionTitle, questionCopy);
+      question.append(number, questionBody);
+
+      const columns = document.createElement("div");
+      columns.className = "report-columns";
+
+      const answerBlock = document.createElement("section");
+      answerBlock.className = "answer-block";
+      const answerHeader = document.createElement("div");
+      answerHeader.className = "report-col-header";
+      const answerTitle = document.createElement("h3");
+      answerTitle.textContent = "Your Answer";
+      answerHeader.append(answerTitle);
+      const answerCopy = document.createElement("p");
+      answerCopy.className = "preserve-lines";
+      answerCopy.textContent = (Array.isArray(interview.answers) && interview.answers[index])
+        ? interview.answers[index]
+        : "No answer provided.";
+      answerBlock.append(answerHeader, answerCopy);
+
+      const feedbackBlock = document.createElement("section");
+      feedbackBlock.className = "feedback-block";
+      const feedbackHeader = document.createElement("div");
+      feedbackHeader.className = "report-col-header";
+      const feedbackTitle = document.createElement("h3");
+      feedbackTitle.textContent = "Our Feedback";
+      const badge = document.createElement("span");
+      badge.className = "feedback-eval-badge";
+      const item = reportItemAt(report, index);
+      const label = item && typeof item.label === "string" ? item.label : "";
+      badge.textContent = item ? (label || "Graded") : "Not graded";
+      if (label === "Good") badge.classList.add("is-good");
+      else if (label) badge.classList.add("is-improve");
+      else badge.classList.add("is-pending");
+      if (item && Number.isFinite(Number(item.score))) {
+        badge.title = `Score: ${item.score}/10`;
+      }
+      feedbackHeader.append(feedbackTitle, badge);
+      const feedbackCopy = document.createElement("p");
+      feedbackCopy.textContent = item && typeof item.feedback === "string"
+        ? item.feedback
+        : (interview.finished
+          ? "No feedback was returned for this answer."
+          : "This answer has not been graded yet.");
+      feedbackBlock.append(feedbackHeader, feedbackCopy);
+
+      columns.append(answerBlock, feedbackBlock);
+      card.append(question, columns);
+      return card;
+    }
+
+    function bindRetakeButton(interview) {
+      const retakeBtn = $("#retake-interview-btn");
+      if (!retakeBtn) return;
+
+      retakeBtn.addEventListener("click", async event => {
+        event.preventDefault();
+        if (interview.server === true && interview.id) {
+          const jobProfile = interview.jobProfile || {
+            title: (interview.job && interview.job["job-title"]) || "",
+            domain: (interview.job && interview.job.domain) || "",
+            company: (interview.job && interview.job.company) || "",
+            level: (interview.job && interview.job.position) || "",
+            description: (interview.job && interview.job["job-source"]) || ""
+          };
+          const cvText = Array.isArray(interview.cv) ? buildCvText(interview.cv) : (typeof interview.cv === "string" ? interview.cv : null);
+          const payload = {
+            job_profile: jobProfile,
+            cv: cvText,
+            name: `Retake ${interview.name || "Interview"}`.slice(0, 200)
+          };
+          const result = await api.request("/api/interviews", {
+            method: "POST",
+            body: JSON.stringify(payload),
+            loading: true
+          });
+          if (!result.ok || !result.data || !result.data.id) {
+            window.YourinErrors?.showToast?.("Unable to create a retake interview. Please try again.", { type: "error" });
+            return;
+          }
+          const viewResult = await api.request(`/api/interviews/${encodeURIComponent(result.data.id)}`, {
+            loading: false,
             notify: true
           });
-          if (viewResult.ok && viewResult.data) {
-            const view = viewResult.data;
-            interview.name = typeof view.name === "string" ? view.name : interview.name;
-            interview.status = view.status;
-            interview.revision = Number.isInteger(view.revision) ? view.revision : interview.revision;
-            interview.report = view.report || interview.report || null;
-            if (Array.isArray(view.answers)) {
-              interview.answers = view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""));
-            }
-            if (Array.isArray(view.questions)) {
-              interview.questions = view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")));
-              interview.questionDetails = view.questions;
-            }
-            save();
-          }
-        } catch (err) {
-          console.error("Report load failed:", err);
-        }
-      }
-
-      if ($("#report-name")) $("#report-name").textContent = interview.name;
-      if ($("#report-date") && interview.date) $("#report-date").textContent = interview.date;
-
-      const report = interview.report || null;
-      const cards = $$(".report-card");
-      cards.forEach((card, index) => {
-        const questionText = Array.isArray(interview.questions) ? interview.questions[index] : "";
-        const questionParagraph = card.querySelector(".report-question p");
-        if (questionParagraph && questionText) questionParagraph.textContent = questionText;
-
-        const answerElement = card.querySelector(`[data-report-answer="${index}"]`) || card.querySelector(".preserve-lines");
-        if (answerElement) {
-          answerElement.textContent = (Array.isArray(interview.answers) && interview.answers[index])
-            ? interview.answers[index]
-            : "No answer provided.";
-        }
-
-        const item = report && Array.isArray(report.items)
-          ? report.items.find(entry => entry.question_index === index)
-          : null;
-        const badge = card.querySelector(`[data-feedback-badge="${index}"]`);
-        if (badge && item) {
-          badge.textContent = item.label;
-          badge.classList.remove("is-good", "is-improve");
-          badge.classList.add(item.label === "Good" ? "is-good" : "is-improve");
-        }
-        const feedbackParagraph = card.querySelector(".feedback-block p");
-        if (feedbackParagraph && item) {
-          feedbackParagraph.textContent = item.feedback;
+          const view = viewResult.ok ? viewResult.data : null;
+          addServerInterview(result.data, view, {
+            name: payload.name,
+            cv: Array.isArray(interview.cv) ? interview.cv : ["", "", "", ""],
+            cvPdf: interview.cvPdf,
+            cvMode: interview.cvMode || "text",
+            job: interview.job ? { ...interview.job } : {},
+            jobProfile
+          });
+          go("interview.html");
+        } else {
+          const newInt = startInterview(
+            interview.cv,
+            interview.cvPdf,
+            interview.cvMode === "pdf" ? "saved" : (interview.cv && interview.cv.some(s => s && s.trim()) ? "custom" : "none")
+          );
+          if (interview.job) newInt.job = { ...interview.job };
+          save();
+          go("interview.html");
         }
       });
+    }
 
-      if (report) {
-        let overallElement = document.getElementById("report-overall");
-        if (!overallElement) {
-          overallElement = document.createElement("span");
-          overallElement.id = "report-overall";
-          overallElement.style.marginLeft = "1rem";
-          const heroRight = document.querySelector(".report-hero-right");
-          if (heroRight) heroRight.insertBefore(overallElement, heroRight.firstChild);
+    function renderReport(interview) {
+      const report = interview.report || null;
+      const questionCount = Math.max(
+        Array.isArray(interview.questions) ? interview.questions.length : 0,
+        Array.isArray(interview.answers) ? interview.answers.length : 0,
+        report && Array.isArray(report.items) ? report.items.length : 0
+      );
+
+      if (!cardsContainer || questionCount === 0) {
+        showEmptyReport("Report not ready", "This interview does not have any questions or answers yet.");
+        return;
+      }
+
+      cardsContainer.replaceChildren();
+      for (let index = 0; index < questionCount; index += 1) {
+        cardsContainer.append(createReportCard(interview, report, index));
+      }
+
+      const nameElement = $("#report-name");
+      if (nameElement) nameElement.textContent = interview.name || "Interview report";
+      const dateElement = $("#report-date");
+      if (dateElement) dateElement.textContent = interview.date || "—";
+
+      const overallItem = $("#report-overall-item");
+      const overallValue = $("#report-overall");
+      if (report && overallItem && overallValue) {
+        const score = Number(report.overall_score);
+        const label = typeof report.label === "string" ? report.label : "";
+        overallValue.textContent = Number.isFinite(score)
+          ? `${score}/10${label ? ` · ${label}` : ""}`
+          : (label || "—");
+        overallItem.classList.remove("is-hidden");
+      } else if (overallItem) {
+        overallItem.classList.add("is-hidden");
+      }
+
+      const notice = $("#report-notice");
+      if (notice) {
+        const noticeText = report && typeof report.notice === "string" ? report.notice : "";
+        notice.textContent = noticeText;
+        notice.classList.toggle("is-hidden", !noticeText);
+      }
+
+      bindRetakeButton(interview);
+      showReportState("content");
+    }
+
+    try {
+      let interview = reportInterview();
+      let listState = "ok";
+      if (!interview) {
+        listState = await loadInterviewsForReport();
+        interview = reportInterview();
+      }
+
+      if (!interview) {
+        if (listState === "error") {
+          showEmptyReport("Unable to load interviews", "We couldn't reach the server. Please refresh the page or try again later.");
+        } else if (listState === "unauthorized") {
+          showEmptyReport("Session expired", "Please sign in again to view your reports.");
+        } else {
+          showEmptyReport("No report yet", "Finish an interview first, then come back here to review your feedback.");
         }
-        overallElement.textContent = `Overall: ${report.overall_score}/10 (${report.label})`;
+        return;
       }
 
-      // Retake interview button: creates a fresh interview with the same CV and Job profile.
-      const retakeBtn = $("#retake-interview-btn");
-      if (retakeBtn) {
-        retakeBtn.addEventListener("click", async event => {
-          event.preventDefault();
-          if (interview.server === true && interview.id) {
-            const jobProfile = interview.jobProfile || {
-              title: (interview.job && interview.job["job-title"]) || "",
-              domain: (interview.job && interview.job.domain) || "",
-              company: (interview.job && interview.job.company) || "",
-              level: (interview.job && interview.job.position) || "",
-              description: (interview.job && interview.job["job-source"]) || ""
-            };
-            const cvText = Array.isArray(interview.cv) ? buildCvText(interview.cv) : (typeof interview.cv === "string" ? interview.cv : null);
-            const payload = {
-              job_profile: jobProfile,
-              cv: cvText,
-              name: `Retake ${interview.name || "Interview"}`.slice(0, 200)
-            };
-            const result = await api.request("/api/interviews", {
-              method: "POST",
-              body: JSON.stringify(payload),
-              loading: true
-            });
-            if (!result.ok || !result.data || !result.data.id) {
-              window.YourinErrors?.showToast?.("Unable to create a retake interview. Please try again.", { type: "error" });
-              return;
-            }
-            const viewResult = await api.request(`/api/interviews/${encodeURIComponent(result.data.id)}`, {
-              loading: false,
-              notify: true
-            });
-            const view = viewResult.ok ? viewResult.data : null;
-            addServerInterview(result.data, view, {
-              name: payload.name,
-              cv: Array.isArray(interview.cv) ? interview.cv : ["", "", "", ""],
-              cvPdf: interview.cvPdf,
-              cvMode: interview.cvMode || "text",
-              job: interview.job ? { ...interview.job } : {},
-              jobProfile
-            });
-            go("interview.html");
-          } else {
-            const newInt = startInterview(
-              interview.cv,
-              interview.cvPdf,
-              interview.cvMode === "pdf" ? "saved" : (interview.cv && interview.cv.some(s => s && s.trim()) ? "custom" : "none")
-            );
-            if (interview.job) newInt.job = { ...interview.job };
-            save();
-            go("interview.html");
-          }
-        });
+      if (interview.server !== true || !interview.id) {
+        showEmptyReport("No report yet", "Finish an interview first, then come back here to review your feedback.");
+        return;
       }
+
+      const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+        loading: false,
+        notify: false
+      });
+      if (!viewResult.ok || !viewResult.data) {
+        if (viewResult.status === 401) {
+          showEmptyReport("Session expired", "Please sign in again to view this report.");
+        } else {
+          showEmptyReport("Unable to load report", "We couldn't load this interview report. Please try again from Your Interviews.");
+        }
+        return;
+      }
+
+      const refreshed = serverInterviewFromView(viewResult.data, interview);
+      const existingIndex = account.interviews.findIndex(item => item.id === refreshed.id);
+      if (existingIndex >= 0) account.interviews[existingIndex] = refreshed;
+      else account.interviews.unshift(refreshed);
+      account.activeId = refreshed.id;
+      save();
+      renderReport(refreshed);
+    } catch (err) {
+      console.error("Report load failed:", err);
+      showEmptyReport("Unable to load report", "Something went wrong while loading this report. Please try again.");
     }
   }
   if (page === "system-feedback") {
