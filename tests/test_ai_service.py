@@ -405,3 +405,36 @@ def test_placeholder_values_are_not_keys():
                         "insert_key", "your_key", "changeme"):
         assert ai._is_real_value(placeholder) is False
     assert ai._is_real_value("sk-or-really-a-key") is True
+
+
+def test_config_reads_the_documented_tuning_names(tmp_path, monkeypatch):
+    """AI_MAX_TOKENS / AI_TIMEOUT_S / AI_TEMPERATURE - the names .env.example
+    documents - drive the service config; the old NVIDIA_* spellings are gone."""
+    monkeypatch.setattr(ai, "ENV_CANDIDATES", (tmp_path / "no-such-env",))
+    for name in ("AI_MAX_TOKENS", "AI_TIMEOUT_S", "AI_TEMPERATURE",
+                 "NVIDIA_MAX_TOKENS", "NVIDIA_TIMEOUT_S", "NVIDIA_TEMPERATURE"):
+        monkeypatch.delenv(name, raising=False)
+    reset_config_cache()
+    try:
+        cfg = get_config()
+        assert cfg.max_tokens == 4096
+        assert cfg.timeout_s == 120.0
+        assert cfg.temperature == 0.2
+
+        monkeypatch.setenv("AI_MAX_TOKENS", "512")
+        monkeypatch.setenv("AI_TIMEOUT_S", "45")
+        monkeypatch.setenv("AI_TEMPERATURE", "0.5")
+        reset_config_cache()
+        cfg = get_config()
+        assert cfg.max_tokens == 512
+        assert cfg.timeout_s == 45.0
+        assert cfg.temperature == 0.5
+
+        monkeypatch.setenv("AI_MAX_TOKENS", "not-a-number")
+        monkeypatch.setenv("AI_TIMEOUT_S", "0")
+        reset_config_cache()
+        cfg = get_config()
+        assert cfg.max_tokens == 4096          # unparsable -> default
+        assert cfg.timeout_s == 1.0            # clamped to the minimum
+    finally:
+        reset_config_cache()

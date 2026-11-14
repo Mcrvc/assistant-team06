@@ -1,0 +1,746 @@
+[
+  {
+    "id": "case-01",
+    "band": "strong",
+    "question": "Thiết kế bộ giới hạn tần suất (rate limiter) cho một API công khai: bạn chọn thuật toán nào, lưu trạng thái ở đâu và xử lý thế nào khi kho lưu đếm mất kết nối?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "algorithm",
+          "points": 4,
+          "good": "Chọn đúng một thuật toán (token bucket, sliding window) và nêu được ưu và nhược điểm của nó."
+        },
+        {
+          "name": "state",
+          "points": 3,
+          "good": "Nêu nơi lưu bộ đếm, cách chia sẻ giữa các worker và cách chọn fail-open hay fail-closed."
+        },
+        {
+          "name": "operability",
+          "points": 3,
+          "good": "Có giới hạn theo từng khóa, trả mã 429 với Retry-After và có metric theo dõi."
+        }
+      ]
+    },
+    "answer": "Tôi chọn token bucket vì thuật toán này cho phép burst theo đúng dung tích bucket mà vẫn giữ tốc độ trung bình. Bộ đếm lưu trong Redis dùng INCR kèm TTL theo khoá user_id nên mọi worker dùng chung một bộ đếm. Nếu Redis mất kết nối, tôi chọn fail-open: vẫn cho request qua nhưng ghi log cảnh báo, vì từ chối nhầm sẽ làm hàng loạt người dùng hợp lệ bị lỗi. Tôi trả mã 429 kèm Retry-After và đo tỉ lệ 429 hàng tuần. Sau hai tuần, tỉ lệ 429 khoảng 2% và lỗi 5xx do quá tải giảm từ 1.8% xuống 0.3%.",
+    "reference": {
+      "score": 8.5,
+      "label": "Good",
+      "note": "Câu trả lời nêu rõ thuật toán, nơi lưu bộ đếm, chính sách fail-open và có kết quả đo được."
+    }
+  },
+  {
+    "id": "case-02",
+    "band": "strong",
+    "question": "Làm thế nào để cache trong Redis luôn đúng dữ liệu khi hệ thống vừa đọc vừa ghi liên tục?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "strategy",
+          "points": 4,
+          "good": "Chọn chiến lược coherence cụ thể như cache-aside hoặc write-through và đặt TTL hợp lý."
+        },
+        {
+          "name": "correctness",
+          "points": 3,
+          "good": "Xử lý đúng đọc-ghi đồng thời, tránh race khi đọc trong lúc dữ liệu đang được cập nhật."
+        },
+        {
+          "name": "measurement",
+          "points": 3,
+          "good": "Đo hit rate, giảm thundering herd và có số liệu trước sau khi ra quyết định."
+        }
+      ]
+    },
+    "answer": "Tôi dùng cache-aside cho đường đọc và write-through cho đường ghi quan trọng. Sau khi ghi, tôi xoá đúng khoá cache trong cùng một transaction bằng outbox nên sự kiện xoá không bị mất. Khi đọc, nếu cache miss thì chỉ có một request đi xuống database, các request còn lại đợi đúng kết quả đó. Tôi đặt TTL 300 giây như mức an toàn cuối cùng và đo hit rate hàng ngày.",
+    "reference": {
+      "score": 8.0,
+      "label": "Good",
+      "note": "Câu trả lời chọn được chiến lược coherence, xử lý đúng đọc-ghi đồng thời và đề cập số liệu đo."
+    }
+  },
+  {
+    "id": "case-03",
+    "band": "strong",
+    "question": "Truy vấn lọc đơn hàng theo user_id và trang thái đang quét toàn bộ bảng. Bạn xử lý thế nào và đo kết quả ra sao?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "diagnosis",
+          "points": 4,
+          "good": "Đọc EXPLAIN ANALYZE để xác nhận seq scan và chỉ mục còn thiếu trước khi sửa."
+        },
+        {
+          "name": "action",
+          "points": 3,
+          "good": "Tạo chỉ mục phù hợp như composite hoặc covering và hiểu trade-off ghi sẽ chậm hơn."
+        },
+        {
+          "name": "verification",
+          "points": 3,
+          "good": "Đo trước và sau bằng số liệu cụ thể, theo dõi bloat và maintenance của bảng."
+        }
+      ]
+    },
+    "answer": "Trước hết tôi chạy EXPLAIN ANALYZE thấy seq scan loại bỏ 98% dòng. Tôi tạo composite index trên user_id và status include created_at nên truy vấn chuyển sang index only scan và giảm từ 780ms xuống 45ms. Tôi biết ghi sẽ chậm hơn nên đo lại throughput insert giảm khoảng 12%, chấp nhận được vì đọc chiếm 95%. Tôi hẹn lịch vacuum và theo dõi bloat qua pg_stat_user_tables mỗi tuần.",
+    "reference": {
+      "score": 8.0,
+      "label": "Good",
+      "note": "Câu trả lời chẩn đoán bằng plan thật, tạo composite index phù hợp và đo trước sau rõ ràng."
+    }
+  },
+  {
+    "id": "case-04",
+    "band": "strong",
+    "question": "Monolith đang khó triển khai và một nhóm phải chờ nhóm kia. Bạn tách service theo hướng nào và làm thế nào để không làm hỏng dữ liệu?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "boundaries",
+          "points": 4,
+          "good": "Chọn ranh giới service theo domain thay vì theo tầng kỹ thuật, nêu được ví dụ cụ thể."
+        },
+        {
+          "name": "data",
+          "points": 3,
+          "good": "Xử lý đúng quyền sở hữu dữ liệu của từng service và tính nhất quán qua API hoặc event."
+        },
+        {
+          "name": "migration",
+          "points": 3,
+          "good": "Có lộ trình an toàn: chạy song song, so kết quả mỗi đêm và giữ đường rollback."
+        }
+      ]
+    },
+    "answer": "Tôi tách theo domain theo dòng đơn hàng và theo người dùng, hai nhóm có tốc độ thay đổi khác nhau, chứ không tách theo tầng. Mỗi service sở hữu bảng của riêng nó và chỉ giao tiếp qua API cùng event trên Kafka. Trong giai đoạn chuyển, tôi chạy cả hai đường ghi song song rồi so kết quả mỗi đêm để phát hiện lệch. Mỗi bước chỉ chuyển 5% lưu lượng và tôi giữ đường rollback trong hai tuần.",
+    "reference": {
+      "score": 8.5,
+      "label": "Good",
+      "note": "Câu trả lời chọn ranh giới domain, giữ quyền sở hữu dữ liệu và có lộ trình chuyển đổi an toàn."
+    }
+  },
+  {
+    "id": "case-05",
+    "band": "strong",
+    "question": "Kể về một sự cố production bạn debug từ đầu đến cuối: triệu chứng, cách tìm nguyên nhân và kết quả ra sao?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "situation",
+          "points": 3,
+          "good": "Bối cảnh cụ thể: hệ thống gặp sự cố, người dùng bị ảnh hưởng và mức độ ảnh hưởng."
+        },
+        {
+          "name": "actions",
+          "points": 4,
+          "good": "Các bước debug của chính bạn, công cụ đã dùng và cách khoanh vùng nguyên nhân gốc."
+        },
+        {
+          "name": "result",
+          "points": 3,
+          "good": "Kết quả đo được và thay đổi lâu dài sau sự cố để nó không tái diễn."
+        }
+      ]
+    },
+    "answer": "Khoảng 2 giờ sáng, API đặt hàng trả 500 cho 30% request. Người dùng không đặt được hàng nên tôi vào cuộc ngay. Tôi bắt đầu từ dashboard p99 rồi so log giữa node lỗi và node khoẻ, thấy error chỉ xuất hiện ở hai node cùng chung một connection pool. Tôi lấy thread dump và thấy một truy vấn nội bộ giữ lock quá 40 giây. Tôi tạm tắt nhánh gọi đó qua feature flag, lỗi hết trong 5 phút. Sau đó tôi sửa query, đặt lock timeout 5 giây và thêm cảnh báo khi pool vượt 80%.",
+    "reference": {
+      "score": 8.5,
+      "label": "Good",
+      "note": "Câu trả lời có triệu chứng, quy trình khoanh vùng rõ ràng và biện pháp lâu dài sau sự cố."
+    }
+  },
+  {
+    "id": "case-06",
+    "band": "strong",
+    "question": "Thiết kế API đặt hàng: bạn mô tả endpoint, cách xử lý lỗi và versioning thế nào để client cũ không vỡ?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "resource",
+          "points": 4,
+          "good": "Thiết kế RESTful rõ ràng: đúng động từ, mã trạng thái và payload có idempotency."
+        },
+        {
+          "name": "errors",
+          "points": 3,
+          "good": "Lỗi trả về đúng mã HTTP và thông điệp hữu ích, retry phải an toàn."
+        },
+        {
+          "name": "compatibility",
+          "points": 3,
+          "good": "Chiến lược versioning và deprecation không làm hỏng client cũ."
+        }
+      ]
+    },
+    "answer": "Tôi dùng POST /orders với Idempotency-Key trên header để retry không tạo đơn trùng. Thành công trả 201 kèm Location và body đơn hàng; lỗi validation trả 422 kèm danh sách field, lỗi nghiệp vụ trả 409 kèm mã lỗi. Versioning theo đường dẫn /v1 và tôi chỉ thêm field mới, không xoá hoặc đổi kiểu field cũ. Field deprecated sẽ ghi changelog và giữ ít nhất 6 tháng trước khi tắt.",
+    "reference": {
+      "score": 7.5,
+      "label": "Good",
+      "note": "Thiết kế đầy đủ idempotency, mã lỗi hợp lý và chiến lược versioning bảo đảm tương thích."
+    }
+  },
+  {
+    "id": "case-07",
+    "band": "strong",
+    "question": "Hệ thống phải gửi email xác nhận đơn hàng mà không được mất và không được gửi trùng. Bạn làm thế nào?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "reliability",
+          "points": 4,
+          "good": "Đảm bảo gửi không mất: transactional outbox hoặc ít nhất một lần, xử lý khi consumer lỗi."
+        },
+        {
+          "name": "idempotency",
+          "points": 3,
+          "good": "Chống gửi trùng: khoá idempotency ở cả phía gửi và phía nhận, retry có hạn."
+        },
+        {
+          "name": "operability",
+          "points": 3,
+          "good": "Theo dõi backlog, dead-letter queue và cách xử lý message độc."
+        }
+      ]
+    },
+    "answer": "Tôi ghi email cần gửi vào bảng outbox trong cùng transaction với đơn hàng nên không mất. Một worker đọc outbox, đẩy lên queue và đánh dấu đã gửi. Bên nhận giữ bảng đã xử lý theo order_id nên gửi lại vẫn bỏ qua. Tôi dùng retry có hạn với backoff và đẩy message độc sang dead-letter queue để xem tay. Tôi cảnh báo khi backlog vượt 5000 hoặc dead-letter queue có message mới.",
+    "reference": {
+      "score": 8.5,
+      "label": "Good",
+      "note": "Câu trả lời đảm bảo không mất message, chống trùng ở cả hai phía và có vận hành queue."
+    }
+  },
+  {
+    "id": "case-08",
+    "band": "strong",
+    "question": "Làm thế nào để phát hiện sớm lỗi người dùng gặp phải mà không dồn quá nhiều cảnh báo?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "signals",
+          "points": 4,
+          "good": "Chọn đúng tín hiệu theo mục tiêu người dùng: SLI, SLO, tỉ lệ lỗi, độ trễ theo bách phân vị."
+        },
+        {
+          "name": "alerting",
+          "points": 3,
+          "good": "Ngưỡng cảnh báo theo triệu chứng không theo nguyên nhân, và mỗi cảnh báo có runbook."
+        },
+        {
+          "name": "cost",
+          "points": 3,
+          "good": "Kiểm soát nhiễu: gom cảnh báo, phân loại mức độ và đo hiệu quả bằng số liệu."
+        }
+      ]
+    },
+    "answer": "Tôi đặt SLI theo bách phân vị latency và tỉ lệ lỗi theo endpoint quan trọng nhất là thanh toán. Cảnh báo dựa trên SLO burn rate trong 1 giờ và 6 giờ để thấy suy giảm nhanh. Mỗi cảnh báo có runbook và owner rõ ràng. Tôi gom cảnh báo theo service và phân loại severity, còn log chỉ giữ dưới dạng sample. Số lần trang cảnh báo giảm từ 40 xuống 6 mỗi tháng và thời gian phát hiện giảm từ 15 phút xuống 3 phút.",
+    "reference": {
+      "score": 7.5,
+      "label": "Good",
+      "note": "Tín hiệu đo theo SLO, cảnh báo theo triệu chứng và có số liệu giảm nhiễu."
+    }
+  },
+  {
+    "id": "case-09",
+    "band": "medium",
+    "question": "Bạn giới hạn số request mỗi phút cho người dùng như thế nào trên hệ thống nhiều server?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "algorithm",
+          "points": 4,
+          "good": "Nêu thuật toán giới hạn và trade-off cơ bản của nó."
+        },
+        {
+          "name": "state",
+          "points": 3,
+          "good": "Lưu bộ đếm tập trung và xử lý khi Redis lỗi."
+        },
+        {
+          "name": "operability",
+          "points": 3,
+          "good": "Có giới hạn theo khóa, trả mã 429 và có metric theo dõi."
+        }
+      ]
+    },
+    "answer": "Tôi dùng Redis để đếm số request trong một cửa sổ trượt, chia cho số phút để ra giới hạn. Nếu quá giới hạn thì trả về lỗi 429, còn không thì cho qua. Chính sách khi Redis lỗi thì cho qua luôn. Còn metric thì chưa nghĩ tới.",
+    "reference": {
+      "score": 5.5,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời có hướng đi đúng nhưng còn sơ sài, chưa nêu khóa giới hạn và chưa có metric."
+    }
+  },
+  {
+    "id": "case-10",
+    "band": "medium",
+    "question": "Cache trong Redis nên có TTL và cơ chế cập nhật thế nào khi dữ liệu đổi?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "strategy",
+          "points": 4,
+          "good": "Chọn chiến lược coherence cụ thể cho cache."
+        },
+        {
+          "name": "correctness",
+          "points": 3,
+          "good": "Xử lý đúng đọc-ghi đồng thời."
+        },
+        {
+          "name": "measurement",
+          "points": 3,
+          "good": "Đo hit rate và xử lý thundering herd."
+        }
+      ]
+    },
+    "answer": "Tôi đặt TTL 60 giây và xoá khoá sau khi ghi. Khi cache miss, một request đi database và các request khác đợi trong 200 milli giây rồi thử lại. Nhờ vậy phần lớn request vẫn trả từ cache và database không bị đánh sập. Tỉ lệ hit rate trong tuần qua đạt 87%.",
+    "reference": {
+      "score": 6.0,
+      "label": "Good",
+      "note": "Câu trả lời chọn được cách cập nhật và có đo hit rate nhưng giải thích đọc-ghi đồng thời còn ngắn."
+    }
+  },
+  {
+    "id": "case-11",
+    "band": "medium",
+    "question": "Bảng users có 3 triệu dòng, tìm kiếm theo email chậm. Bạn làm gì?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "diagnosis",
+          "points": 4,
+          "good": "Đọc plan truy vấn trước khi tối ưu."
+        },
+        {
+          "name": "action",
+          "points": 3,
+          "good": "Tạo index phù hợp và hiểu trade-off ghi chậm hơn."
+        },
+        {
+          "name": "verification",
+          "points": 3,
+          "good": "Đo hiệu quả trước và sau bằng số liệu."
+        }
+      ]
+    },
+    "answer": "Email nên có index để tìm kiếm nhanh hơn. Tôi sẽ tạo index trên email và chạy lại xem có nhanh hơn không. Nếu vẫn chưa nhanh thì có thể do câu query, nhưng chưa thử.",
+    "reference": {
+      "score": 5.5,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời đúng hướng nhưng không đọc plan, không đo trước sau và chưa nêu trade-off ghi."
+    }
+  },
+  {
+    "id": "case-12",
+    "band": "medium",
+    "question": "Khi nào nên tách monolith ra microservices và khi nào không nên?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "judgement",
+          "points": 4,
+          "good": "Nêu được dấu hiệu nên tách và chi phí bộ máy vận hành."
+        },
+        {
+          "name": "data",
+          "points": 3,
+          "good": "Xử lý quyền sở hữu dữ liệu và giao tiếp giữa các service."
+        },
+        {
+          "name": "migration",
+          "points": 3,
+          "good": "Có lộ trình tách an toàn và ưu tiên tách phần kém ổn định trước."
+        }
+      ]
+    },
+    "answer": "Nên tách khi một nhóm bị chặn vì phải deploy chung và khi một phần hệ cần scale khác các phần còn lại. Chi phí là phải lo giám sát mạng, timeout và retry nên tách sớm với hệ thống nhỏ chỉ thêm phức tạp. Mỗi service nên sở hữu dữ liệu của riêng nó và gọi qua API, dùng chung bảng phải tách bằng event. Tôi sẽ tách module thanh toán trước vì nó đổi ra nhanh nhất và ổn định nhất sau khi tách.",
+    "reference": {
+      "score": 6.5,
+      "label": "Good",
+      "note": "Câu trả lời cân bằng được lợi ích và chi phí, có lộ trình ưu tiên tách rõ ràng."
+    }
+  },
+  {
+    "id": "case-13",
+    "band": "medium",
+    "question": "Server tăng latency đột ngột nhưng CPU vẫn thấp. Bạn điều tra thế nào?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "situation",
+          "points": 3,
+          "good": "Thu thập triệu chứng theo thời gian và phạm vi bị ảnh hưởng."
+        },
+        {
+          "name": "actions",
+          "points": 4,
+          "good": "Các bước khoanh vùng từ ingress tới các phụ thuộc bên ngoài."
+        },
+        {
+          "name": "result",
+          "points": 3,
+          "good": "Xác nhận nguyên nhân bằng đo được và có biện pháp ngăn tái diễn."
+        }
+      ]
+    },
+    "answer": "Latency tăng mà CPU thấp thường là do chờ đợi IO hoặc lock. Tôi sẽ xem log xem có query nào chậm không. Nếu không thấy gì thì tôi nghi đến cache hoặc một service khác rồi kiểm tra tiếp.",
+    "reference": {
+      "score": 5.5,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời có giả thuyết đầu tiên hợp lý nhưng thiếu các bước đo cụ thể để loại trừ."
+    }
+  },
+  {
+    "id": "case-14",
+    "band": "medium",
+    "question": "Thiết kế endpoint phân trang cho danh sách đơn hàng lớn: bạn dùng offset hay cursor và vì sao?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "resource",
+          "points": 4,
+          "good": "Giải thích lựa chọn và hạn chế của offset trên bảng lớn."
+        },
+        {
+          "name": "errors",
+          "points": 3,
+          "good": "Quy ước rõ khi hết trang và input sai."
+        },
+        {
+          "name": "compatibility",
+          "points": 3,
+          "good": "Thêm tham số không làm hỏng client cũ."
+        }
+      ]
+    },
+    "answer": "Tôi dùng cursor vì offset trên bảng 5 triệu dòng càng về sau càng chậm do vẫn phải quét các dòng bị bỏ qua. Cursor lưu giá trị sắp xếp của bản ghi cuối nên truy vấn chỉ quét từ đó. Tôi trả cả next_cursor và khi hết trang thì không có trường này. Limit tối đa 100 và giá trị sai trả về 400 rõ ràng.",
+    "reference": {
+      "score": 6.5,
+      "label": "Good",
+      "note": "Câu trả lời chọn cursor đúng lý do và xử lý hợp lý trường hợp hết trang cùng lỗi đầu vào."
+    }
+  },
+  {
+    "id": "case-15",
+    "band": "medium",
+    "question": "Consumer của queue đang tụt lại phía sau producer. Bạn xử lý thế nào?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "reliability",
+          "points": 4,
+          "good": "Giữ không mất message khi tăng tốc xử lý."
+        },
+        {
+          "name": "idempotency",
+          "points": 3,
+          "good": "Xử lý gửi lại hoặc trùng lặp khi scale consumer."
+        },
+        {
+          "name": "operability",
+          "points": 3,
+          "good": "Theo dõi backlog và tránh quá tải phụ thuộc."
+        }
+      ]
+    },
+    "answer": "Tôi thêm consumer song song vì xử lý ở đây là ghi tiếp trong database, tăng offset theo tuần tự. Message có thể đến hai lần nên tôi ghi đã xử lý theo id trước khi làm việc chính. Backlog hiện 40 nghìn tin nên tôi cảnh báo khi backlog tăng liên tục 15 phút và thêm giới hạn tốc độ gọi tới service thanh toán để bớt quá tải.",
+    "reference": {
+      "score": 6.0,
+      "label": "Good",
+      "note": "Câu trả lời tăng consumer và chống trùng nhưng chưa nói chi tiết độ bền của chính producer."
+    }
+  },
+  {
+    "id": "case-16",
+    "band": "medium",
+    "question": "Bạn lưu phiên đăng nhập của người dùng trên mobile như thế nào cho vừa tiện vừa an toàn?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "design",
+          "points": 4,
+          "good": "Chọn cơ chế phiên gồm token ngắn hạn kèm refresh và lưu trữ an toàn."
+        },
+        {
+          "name": "security",
+          "points": 3,
+          "good": "Xử lý đăng xuất, thu hồi và hết hạn đúng cách."
+        },
+        {
+          "name": "operability",
+          "points": 3,
+          "good": "Quan sát được phiên bất thường và rotate secret."
+        }
+      ]
+    },
+    "answer": "Tôi lưu access token trong keychain và refresh token luôn ở đó. Access token sống 1 giờ, refresh token sống 30 ngày nên người dùng phải đăng nhập lại sau một tháng. Khi đăng xuất thì xoá token ở client.",
+    "reference": {
+      "score": 5.5,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời có hướng đúng nhưng chưa thu hồi được phiên phía server và chưa xử lý token bị đánh cắp."
+    }
+  },
+  {
+    "id": "case-17",
+    "band": "weak",
+    "question": "Làm sao để hạn chế một client spam hàng nghìn request mỗi giây?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "algorithm",
+          "points": 4,
+          "good": "Nêu thuật toán giới hạn và trade-off của nó."
+        },
+        {
+          "name": "state",
+          "points": 3,
+          "good": "Lưu bộ đếm tập trung và xử lý khi kho lưu đếm lỗi."
+        },
+        {
+          "name": "operability",
+          "points": 3,
+          "good": "Có giới hạn theo khóa, mã 429 và metric."
+        }
+      ]
+    },
+    "answer": "Tôi sẽ chặn IP đó bằng firewall. Nếu vẫn bị thì tăng cấu hình server lên. Việc này đơn giản, không cần làm phức tạp.",
+    "reference": {
+      "score": 3.0,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời chung chung, chỉ nghĩ chặn IP và tăng phần cứng, không đề cập thuật toán hay trạng thái."
+    }
+  },
+  {
+    "id": "case-18",
+    "band": "weak",
+    "question": "Cache giúp hệ thống nhanh hơn như thế nào và khi nào nên dùng Redis?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "strategy",
+          "points": 4,
+          "good": "Chọn chiến lược coherence cụ thể cho cache."
+        },
+        {
+          "name": "correctness",
+          "points": 3,
+          "good": "Xử lý đúng đọc-ghi đồng thời."
+        },
+        {
+          "name": "measurement",
+          "points": 3,
+          "good": "Đo hit rate và xử lý thundering herd."
+        }
+      ]
+    },
+    "answer": "Cache là lưu dữ liệu tạm cho nhanh. Tôi sẽ lưu mọi thứ vào Redis rồi đọc từ đó, database chỉ dùng khi thiết. Nhờ vậy sẽ nhanh hơn nhiều.",
+    "reference": {
+      "score": 2.5,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời hiểu nhầm cách hoạt động của cache, không có chiến lược cập nhật và không đo được gì."
+    }
+  },
+  {
+    "id": "case-19",
+    "band": "weak",
+    "question": "Index trong database là gì và khi nào nên tạo index?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "concept",
+          "points": 4,
+          "good": "Giải thích đúng index là gì và cơ chế tra cứu qua nó."
+        },
+        {
+          "name": "usage",
+          "points": 3,
+          "good": "Chọn đúng cột để đánh index theo truy vấn thực tế."
+        },
+        {
+          "name": "cost",
+          "points": 3,
+          "good": "Hiểu chi phí ghi và kích thước bảng khi thêm index."
+        }
+      ]
+    },
+    "answer": "Index giống như mục lục sách. Tôi tạo index trên mọi cột của mọi bảng để mọi truy vấn đều nhanh nhất. Lúc nào chậm thì thêm index là được.",
+    "reference": {
+      "score": 3.5,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời có hình dung đúng về mục lục nhưng kết luận tạo index cho mọi cột là sai và bỏ qua chi phí ghi."
+    }
+  },
+  {
+    "id": "case-20",
+    "band": "weak",
+    "question": "Microservices có lợi gì so với monolith?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "benefits",
+          "points": 4,
+          "good": "Nêu đúng lợi ích chính và khi nào chúng xuất hiện."
+        },
+        {
+          "name": "costs",
+          "points": 3,
+          "good": "Nêu được chi phí vận hành đi kèm."
+        },
+        {
+          "name": "tradeoff",
+          "points": 3,
+          "good": "Cân bằng lợi ích và chi phí để ra quyết định."
+        }
+      ]
+    },
+    "answer": "Microservices chia nhỏ chương trình nên mỗi phần dễ viết hơn. Mỗi nhóm tự chọn công nghệ và tự chạy, không liên quan gì nhau. Nếu chia càng nhỏ càng tốt vì đơn giản để quản lý.",
+    "reference": {
+      "score": 4.0,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời nêu đúng một phần lợi ích nhưng kết luận chia càng nhỏ càng tốt là sai và bỏ qua chi phí vận hành."
+    }
+  },
+  {
+    "id": "case-21",
+    "band": "weak",
+    "question": "Website bị chậm vào giờ cao điểm. Bạn làm gì đầu tiên?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "situation",
+          "points": 3,
+          "good": "Thu thập triệu chứng theo thời gian và phạm vi ảnh hưởng."
+        },
+        {
+          "name": "actions",
+          "points": 4,
+          "good": "Các bước khoanh vùng nguyên nhân từ dữ liệu đo được."
+        },
+        {
+          "name": "result",
+          "points": 3,
+          "good": "Xác nhận nguyên nhân bằng đo được và có biện pháp ngăn lại."
+        }
+      ]
+    },
+    "answer": "Tôi sẽ restart server để nó chạy lại. Nếu chưa nhanh thì nghi tới hacker rồi bảo người khác xem sao.",
+    "reference": {
+      "score": 3.0,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời chưa thu thập triệu chứng nào, chỉ restart và đổ lỗi bên ngoài."
+    }
+  },
+  {
+    "id": "case-22",
+    "band": "weak",
+    "question": "Bạn kiểm tra đầu vào của người dùng trước khi lưu vào database thế nào?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "concept",
+          "points": 4,
+          "good": "Kiểm tra dữ liệu đến bằng allowlist và kiểu dữ liệu đúng."
+        },
+        {
+          "name": "usage",
+          "points": 3,
+          "good": "Dùng tham số hoá hoặc ORM thay vì ghép chuỗi SQL."
+        },
+        {
+          "name": "cost",
+          "points": 3,
+          "good": "Biết rủi ro bảo mật khi tin dữ liệu từ client."
+        }
+      ]
+    },
+    "answer": "Tôi tin các trường gửi lên vì là app của mình. Tôi ghép chuỗi trực tiếp vào câu query SQL cho nhanh, gặp ký tự lạ thì cắt bỏ.",
+    "reference": {
+      "score": 2.5,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời sai nghiêm trọng khi không kiểm tra đầu vào và ghép trực tiếp vào SQL."
+    }
+  },
+  {
+    "id": "case-23",
+    "band": "short",
+    "question": "Website chậm khi lượng người dùng tăng gấp mười. Bạn xử lý thế nào?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "concept",
+          "points": 4,
+          "good": "Chẩn đoán nút thắt bằng dữ liệu đo được."
+        },
+        {
+          "name": "usage",
+          "points": 3,
+          "good": "Chọn đúng hướng xử lý như scale, cache hoặc tối ưu truy vấn."
+        },
+        {
+          "name": "cost",
+          "points": 3,
+          "good": "Đo kết quả sau khi xử lý."
+        }
+      ]
+    },
+    "answer": "Tôi sẽ thêm server và dùng cache để chịu tải thôi.",
+    "reference": {
+      "score": 2.0,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời quá ngắn, chỉ nói thêm server và cache, không có hướng đi cụ thể."
+    }
+  },
+  {
+    "id": "case-24",
+    "band": "short",
+    "question": "Làm sao để worker xử lý tác vụ nền không bị mất việc khi server restart?",
+    "rubric": {
+      "max_score": 10,
+      "criteria": [
+        {
+          "name": "reliability",
+          "points": 4,
+          "good": "Đảm bảo việc không mất khi worker chết hoặc restart."
+        },
+        {
+          "name": "idempotency",
+          "points": 3,
+          "good": "Chống xử lý trùng khi việc được gửi lại."
+        },
+        {
+          "name": "operability",
+          "points": 3,
+          "good": "Theo dõi backlog và trạng thái của queue."
+        }
+      ]
+    },
+    "answer": "Sẽ dùng RabbitMQ cho an toàn, worker tự xử lý dưới nền.",
+    "reference": {
+      "score": 3.0,
+      "label": "Needs Improvement",
+      "note": "Câu trả lời ngắn, chỉ đúng hướng dùng queue, chưa nói cách đảm bảo không mất."
+    }
+  }
+]

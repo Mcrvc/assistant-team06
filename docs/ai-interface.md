@@ -196,4 +196,94 @@ res = answer("and on Saturday?", history=[
 - No streaming, tools/function-calling, or embeddings in v1.
 - No change to `src/assistant/rules.py`; it stays the fallback.
 
+## 9. Interview AI worker (aiworker.py) — what the interview lifecycle gets
 
+The chat `answer()` contract above is unchanged. The interview feature uses the
+same `ai.py` transport through three worker functions in
+`src/assistant/aiworker.py` (imported via `TeamInterviewAI` in
+`src/assistant/interview_ai.py`). Status: implemented and covered by tests.
+
+### 9.1 `generate_questions(job_profile, cv, notes, sources, *, timeout_s)`
+
+Returns exactly `{"source", "questions", "research_notes", "sources"}`. Each
+question carries `{"question", "category", "why", "rubric": {max_score: 10,
+criteria: [3 x {name, points, good}]}}` — points sum to exactly 10, matching the
+team's strict `Generation` schema.
+
+- **Self-research (HM3).** When the caller passes no research (`notes` blank
+  AND `sources` empty — the adapter always does), the worker runs one internal
+  `plan_research` + `research_notes` round first. A caller that already has
+  notes never triggers a second research pass. Research failure degrades to
+  writing from the JD/CV alone; the stage never hard-fails on it.
+- **Research bounds.** The research loop is limited by the knobs documented in
+  `.env.example`: `AI_RESEARCH_TURNS` caps the model turns (default 6) and
+  `AI_MAX_TOOL_CALLS` caps the total SEARCH + FETCH executions across those
+  turns (default 10); either bound makes the loop reply FINAL early.
+- **JD/CV grounding check (HM3).** Every generated question must share at
+  least one significant token (4+ chars, diacritics-stripped) with the JD/CV
+  text the writer saw. A total-overlap miss is refused as a generic question
+  and retried inside the writer stage.
+- **PII masking (HM6).** The CV text only ever enters a prompt through
+  `mask_cv_pii` — emails become `[email]`, Vietnamese phone numbers become
+  `[phone]`. Years/counts are untouched (the phone pattern needs 9+ digits).
+  Policy: `docs/ai-cv-policy.md`.
+
+### 9.2 `grade_answer_with_evidence(question, answer, rubric, *, timeout_s)`
+
+Returns exactly the five keys the team's `Grade` schema accepts:
+`{"score", "feedback", "evidence", "model", "used_fallback"}`.
+
+- **Calibration (HM2).** The system prompt pins score bands: 9-10 reserved for
+  measured outcomes, 7-8.5 strong/specific, 5.5-6.5 correct-but-generic,
+  3-5 vague, 0-2.5 wrong/off-topic, plus two worked examples (8.5 and 5.5).
+  `GOOD_THRESHOLD = 6.0` is the shared Good/Needs-Improvement line; the eval
+  harness imports the same constant so service and eval cannot drift.
+  Good>=6 stays the agreed temporary rule; grades.level and the rubric bank
+  are not changed by us.
+- **Verbatim evidence.** Every string in `evidence` must be an exact substring
+  of the answer, and every quoted span in `feedback` must appear in
+  `evidence`. Nothing is fabricated; a refused grade stays refused.
+- **One repair turn (HM2).** On the first refusal the same conversation is
+  continued with the exact offending item (`_repair_instruction`), which
+  recovers most `feedback_ungrounded` / `evidence_not_found` cases without
+  weakening the guard. A payload that still fails raises `EvidenceRejected`
+  (codes: `bad_score`, `no_feedback`, `no_evidence`, `evidence_not_found`,
+  `feedback_ungrounded`, `bad_json`) carrying the candidate-facing reply;
+  the adapter converts it to `GradeRejected` and the answer is stored
+  rejected with no score.
+- Non-JSON replies surface as `bad_json` instead of a `JSONDecodeError`
+  crash, and get the same one repair turn.
+
+### 9.3 `summarize_interview(items, *, timeout_s=None)` (HM4) — wiring needed
+
+Returns `{"summary", "model", "used_fallback"}`: one Vietnamese paragraph
+(strengths by question, improvements, one next-round recommendation) built
+from graded items only — raw answers and CV text are never forwarded. On
+`AiError` it falls back to a deterministic rule-based summary
+(`model="rule-fallback"`). **The team's finalize/report path does not call
+this yet**; wiring it in finalize (or the report route) is a one-line change
+on their side, and the output maps naturally onto
+`sessions.ai_overall_comment`.
+
+### 9.4 Latency budget (HM5) — measured 2026-11-15
+
+Live NVIDIA probe after the `.env.example`-aligned research bounds
+(`eval/timing_probe.py`, report `data/private/eval/timing.json`):
+`generate_questions` p50 **25.0s** / p95 **28.5s** (3 runs, includes the
+self-research round; the `AI_RESEARCH_TURNS=6` cap cut this from ~43s),
+`grade_answer` p50 **3.4s** / p95 **4.5s** (5 runs, the p95 includes one
+self-repair turn). Both stages fit a 45s budget with headroom: set
+`INTERVIEW_AI_TIMEOUT_S=30`-`45` (seam caps 1-60, default 20). Note the retry
+budget: `ai.py` retries up to 3x per request with 5s gaps, so worst-case wall
+time is roughly 3x the measured p95 — the finalize timeout should assume
+that, not the p95.
+
+### 9.5 Question bank import (information_technology)
+
+`it.json` was imported into the shared Supabase project: `domains` 1 row,
+`rubrics` 70 rows (14 competencies x 5 levels), `questions` 69 rows. The
+bank's `positions` / `criteria_research` / `meta` sections have no matching
+tables in the current schema and were **not** imported — drawing runtime
+questions from `questions` (instead of generating every session) needs
+either new tables or a team-side reader; noted in
+`docs/interview-handoff.md` follow-ups.
