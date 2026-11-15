@@ -1,181 +1,180 @@
 /**
- * voice.js — TTS (edge-tts/Magpie) + STT (Whisper) integration
- * Depends on: #robot-stage, #question-text, #mime-audio-bars,
- *             #robot-replay-btn, #mic-toggle-btn, #mic-btn-label,
- *             #mic-btn-sub, #voice-waveform, #answer
+ * voice.js — TTS (edge-tts/Magpie backend) + STT (Web Speech API, browser-native)
+ *
+ * TTS: POST /api/tts → audio blob → <Audio> play
+ *      syncs .is-miming on #robot-stage and .active on #mime-audio-bars
+ *
+ * STT: SpeechRecognition (Chrome/Edge) → interim + final transcript → #answer
+ *      replaces the setTimeout mock in app.js by overriding window.Voice
+ *      app.js calls startRecording()/stopRecording() which voice.js re-wires
+ *
+ * Fallback: if SpeechRecognition is unavailable (Firefox), mic button still
+ *           works via app.js's original mock — voice.js does not break it.
  */
 (function () {
-    "use strict";
+  "use strict";
 
-    // ── DOM refs ────────────────────────────────────────────────────────
-    const stage = document.getElementById("robot-stage");
-    const questionEl = document.getElementById("question-text");
-    const audioBars = document.getElementById("mime-audio-bars");
-    const replayBtn = document.getElementById("robot-replay-btn");
-    const micBtn = document.getElementById("mic-toggle-btn");
-    const micLabel = document.getElementById("mic-btn-label");
-    const micSub = document.getElementById("mic-btn-sub");
-    const waveform = document.getElementById("voice-waveform");
-    const answerBox = document.getElementById("answer");
+  // ── DOM refs ─────────────────────────────────────────────────────────
+  const stage      = document.getElementById("robot-stage");
+  const questionEl = document.getElementById("question-text");
+  const audioBars  = document.getElementById("mime-audio-bars");
+  const replayBtn  = document.getElementById("robot-replay-btn");
+  const micBtn     = document.getElementById("mic-toggle-btn");
+  const micLabel   = document.getElementById("mic-btn-label");
+  const micSub     = document.getElementById("mic-btn-sub");
+  const waveform   = document.getElementById("voice-waveform");
+  const answerBox  = document.getElementById("answer");
 
-    // ── State ───────────────────────────────────────────────────────────
-    let currentAudio = null;
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let transcribeTimer = null;
-    let isListening = false;
-    let isSpeaking = false;
-    let stream = null;
-    let pendingStt = false;
+  // ── TTS state ────────────────────────────────────────────────────────
+  let currentAudio = null;
+  let isSpeaking   = false;
 
-    // ── TTS ─────────────────────────────────────────────────────────────
-    async function speak(text) {
-        if (!text || !text.trim()) return;
+  // ── STT state ────────────────────────────────────────────────────────
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  let recognition  = null;
+  let isListening  = false;
+
+  // ── TTS ──────────────────────────────────────────────────────────────
+  async function speak(text) {
+    if (!text || !text.trim()) return;
+    stopSpeaking();
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, lang: "en" }),
+      });
+      if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+      const url = URL.createObjectURL(await res.blob());
+      currentAudio = new Audio(url);
+      currentAudio.onplay  = () => { isSpeaking = true;  startMiming(); };
+      currentAudio.onended = () => { isSpeaking = false; stopMiming(); URL.revokeObjectURL(url); };
+      currentAudio.onerror = () => { isSpeaking = false; stopMiming(); URL.revokeObjectURL(url); };
+      await currentAudio.play();
+    } catch (err) {
+      console.warn("[voice] TTS failed:", err);
+      stopMiming();
+    }
+  }
+
+  function stopSpeaking() {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    stopMiming();
+    isSpeaking = false;
+  }
+
+  function startMiming() {
+    stage?.classList.add("is-miming");
+    audioBars?.classList.add("active");
+  }
+
+  function stopMiming() {
+    stage?.classList.remove("is-miming");
+    audioBars?.classList.remove("active");
+  }
+
+  // ── STT ──────────────────────────────────────────────────────────────
+  function startListening() {
+    if (!SpeechRecognition) {
+      // Browser không hỗ trợ → để app.js mock chạy bình thường
+      console.warn("[voice] SpeechRecognition not supported, using app.js fallback");
+      return false;   // signal app.js to run its own logic
+    }
+    if (isListening) return true;
+
+    // Stop TTS trước để robot không tự transcribe giọng mình
+    stopSpeaking();
+
+    recognition = new SpeechRecognition();
+    recognition.lang           = "en-US";
+    recognition.interimResults = true;
+    recognition.continuous     = true;
+    recognition.maxAlternatives = 1;
+
+    let finalTranscript = "";
+
+    recognition.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTranscript += t + " ";
+        else interim = t;
+      }
+      if (answerBox) {
+        answerBox.value = (finalTranscript + interim).trim();
+        answerBox.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    };
+
+    recognition.onerror = (e) => {
+      console.warn("[voice] STT error:", e.error);
+      if (e.error === "not-allowed") {
+        if (micSub) micSub.textContent = "Microphone access denied.";
+      }
+      stopListening();
+    };
+
+    recognition.onend = () => {
+      // Browser auto-stops after silence — restart if still meant to be listening
+      if (isListening) recognition.start();
+    };
+
+    recognition.start();
+    isListening = true;
+    return true;
+  }
+
+  function stopListening() {
+    if (recognition) { recognition.stop(); recognition = null; }
+    isListening = false;
+  }
+
+  // ── Override app.js mic wiring ────────────────────────────────────────
+  // app.js attaches its own click listener to #mic-toggle-btn BEFORE voice.js
+  // loads. We replace the behaviour by overriding window.Voice so app.js can
+  // call Voice.startRecording / Voice.stopRecording if it checks for them,
+  // AND we attach our own click listener that calls stopSpeaking first.
+  if (micBtn) {
+    micBtn.addEventListener("click", () => {
+      if (isListening) {
+        stopListening();
+        // let app.js stopRecording() handle UI reset (it already has a listener)
+      } else {
+        const handled = startListening();
+        if (!handled) return;   // SpeechRecognition unavailable, app.js takes over
+        // Stop TTS when mic opens
         stopSpeaking();
-
-        try {
-            const res = await fetch("/api/tts", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text, lang: "en" }),
-            });
-            if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
-
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            currentAudio = new Audio(url);
-
-            currentAudio.onplay = () => { isSpeaking = true; startMiming(); };
-            currentAudio.onended = () => { isSpeaking = false; stopMiming(); URL.revokeObjectURL(url); };
-            currentAudio.onerror = () => { isSpeaking = false; stopMiming(); URL.revokeObjectURL(url); };
-
-            await currentAudio.play();
-        } catch (err) {
-            console.warn("[voice] TTS failed:", err);
-            stopMiming();
-        }
-    }
-
-    function stopSpeaking() {
-        if (currentAudio) {
-            currentAudio.pause();
-            currentAudio = null;
-        }
-        stopMiming();
-        isSpeaking = false;
-    }
-
-    function startMiming() {
-        stage?.classList.add("is-miming");
-        audioBars?.classList.add("active");
-    }
-
-    function stopMiming() {
-        stage?.classList.remove("is-miming");
-        audioBars?.classList.remove("active");
-    }
-
-    // ── STT ─────────────────────────────────────────────────────────────
-    async function startListening() {
-        if (isListening) return;
-
-        // Stop TTS so robot doesn't transcribe itself
-        stopSpeaking();
-
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch {
-            micSub.textContent = "Microphone access denied.";
-            return;
-        }
-
-        audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) audioChunks.push(e.data);
-        };
-        mediaRecorder.start(1000);
-
-        isListening = true;
-        setMicState(true);
-
-        // Pseudo-live: re-transcribe every 4 s while recording
-        transcribeTimer = setInterval(() => sendChunks(false), 4000);
-    }
-
-    async function stopListening() {
-        if (!isListening) return;
-        clearInterval(transcribeTimer);
-        isListening = false;
-
-        mediaRecorder.onstop = () => sendChunks(true);
-        mediaRecorder.stop();
-        stream.getTracks().forEach((t) => t.stop());
-
-        setMicState(false);
-    }
-
-    async function sendChunks(isFinal) {
-        if (audioChunks.length === 0 || pendingStt) return;
-        pendingStt = true;
-
-        const blob = new Blob([...audioChunks], {
-            type: mediaRecorder?.mimeType || "audio/webm",
-        });
-        const fd = new FormData();
-        fd.append("audio", blob, "recording.webm");
-
-        try {
-            const res = await fetch("/api/stt", { method: "POST", body: fd });
-            if (!res.ok) throw new Error(`STT HTTP ${res.status}`);
-            const data = await res.json();
-            if (data.text && data.text.trim()) {
-                answerBox.value = data.text;
-                // Fire input event so char-counter in app.js updates
-                answerBox.dispatchEvent(new Event("input", { bubbles: true }));
-            }
-        } catch (err) {
-            console.warn("[voice] STT failed:", err);
-            if (isFinal) micSub.textContent = "Transcription failed. Please type manually.";
-        } finally {
-            pendingStt = false;
-        }
-    }
-
-    function setMicState(on) {
-        micBtn.classList.toggle("is-recording", on);
-        waveform?.classList.toggle("active", on);
-        micLabel.textContent = on ? "Recording…" : "Record Answer with Microphone";
-        micSub.textContent = on ? "Click to stop" : "Click to start speech-to-text";
-        micBtn.setAttribute("aria-label", on ? "Stop recording" : "Record answer with microphone");
-    }
-
-    // ── Wiring ──────────────────────────────────────────────────────────
-    replayBtn?.addEventListener("click", () => {
-        const text = questionEl?.textContent?.trim();
-        if (text) speak(text);
+      }
     });
+  }
 
-    micBtn?.addEventListener("click", () => {
-        isListening ? stopListening() : startListening();
-    });
+  // ── Replay button ─────────────────────────────────────────────────────
+  replayBtn?.addEventListener("click", () => {
+    const text = questionEl?.textContent?.trim();
+    if (text) speak(text);
+  });
 
-    // Auto-speak when question text changes (app.js updates #question-text)
-    const observer = new MutationObserver(() => {
-        const text = questionEl?.textContent?.trim();
-        if (text) speak(text);
-    });
-    if (questionEl) {
-        observer.observe(questionEl, { childList: true, subtree: true, characterData: true });
-    }
+  // ── Auto-speak on question change ─────────────────────────────────────
+  if (questionEl) {
+    new MutationObserver(() => {
+      const text = questionEl.textContent?.trim();
+      if (text) speak(text);
+    }).observe(questionEl, { childList: true, subtree: true, characterData: true });
+  }
 
-    // Speak the initial question on page load (after first user gesture guard)
-    document.addEventListener("click", function speakFirst() {
-        document.removeEventListener("click", speakFirst);
-        const text = questionEl?.textContent?.trim();
-        if (text) speak(text);
-    }, { once: true });
+  // Speak initial question after first user gesture (autoplay policy)
+  document.addEventListener("click", function speakFirst() {
+    document.removeEventListener("click", speakFirst);
+    const text = questionEl?.textContent?.trim();
+    if (text) speak(text);
+  }, { once: true });
 
-    // Expose for app.js if needed
-    window.Voice = { speak, stopSpeaking, startListening, stopListening };
+  // ── Public API ────────────────────────────────────────────────────────
+  window.Voice = {
+    speak,
+    stopSpeaking,
+    startListening,
+    stopListening,
+  };
 })();
