@@ -2005,7 +2005,6 @@
         const title = document.createElement("span");
         title.className = "session-title";
         title.textContent = interview.name;
-        title.title = "Click to rename";
 
         const editBtn = document.createElement("button");
         editBtn.type = "button";
@@ -2082,10 +2081,14 @@
           input.select();
         }
 
-        title.addEventListener("click", openRenameEditor);
-        editBtn.addEventListener("click", openRenameEditor);
-
-        colName.append(title, editBtn);
+        if (interview.server !== true) {
+          title.title = "Click to rename";
+          title.addEventListener("click", openRenameEditor);
+          editBtn.addEventListener("click", openRenameEditor);
+          colName.append(title, editBtn);
+        } else {
+          colName.append(title);
+        }
 
         // Col 2: Date
         const colDate = document.createElement("div");
