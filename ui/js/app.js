@@ -31,6 +31,12 @@
   // Paint the cached name before any network request so the header never flashes "User".
   const cachedUsername = readCachedUsername();
   paintUsername(cachedUsername);
+  if (page === "profile" && cachedUsername) {
+    const profileUsernameInput = document.getElementById("profile-username");
+    if (profileUsernameInput && !profileUsernameInput.value) {
+      profileUsernameInput.value = cachedUsername;
+    }
+  }
 
   function showStartupError(message) {
     const authError = (page === "sign-in" || page === "sign-up")
@@ -507,7 +513,7 @@
   }));
 
   if (page === "profile") {
-    await restoreCVFromBackend();
+    const cvSyncPromise = restoreCVFromBackend();
 
     const usernameInput = $("#profile-username");
     const passwordInput = $("#account-password");
@@ -519,12 +525,27 @@
     const profileForm = $("#profile-form");
 
     let isPasswordUnlocked = false;
+    let verifiedPassword = "";
 
     function clearProfileError() {
       if (profileError) {
         profileError.hidden = true;
         profileError.textContent = "";
       }
+    }
+
+    function lockProfileFields() {
+      if (usernameInput) usernameInput.readOnly = true;
+      if (passwordInput) {
+        passwordInput.value = "";
+        passwordInput.readOnly = true;
+        passwordInput.type = "password";
+        passwordInput.placeholder = "Enter a new password";
+      }
+      if (verifyPasswordInput) verifyPasswordInput.value = "";
+      if (passwordUnlockBox) passwordUnlockBox.hidden = false;
+      isPasswordUnlocked = false;
+      verifiedPassword = "";
     }
 
     if (usernameInput) {
@@ -555,6 +576,7 @@
       try {
         await api.unlockEditing(entered);
         isPasswordUnlocked = true;
+        verifiedPassword = entered;
         if (usernameInput) usernameInput.readOnly = false;
         if (passwordInput) passwordInput.readOnly = false;
         if (passwordUnlockBox) passwordUnlockBox.hidden = true;
@@ -580,6 +602,9 @@
           return error("#profile-error", "Verify your current password before saving changes.");
         }
 
+        const currentUsername = String(
+          authenticatedUser?.user_metadata?.username || account.username || ""
+        ).trim().toLowerCase();
         const newUsername = usernameInput ? usernameInput.value.trim().toLowerCase() : "";
         const newPassword = passwordInput ? passwordInput.value : "";
 
@@ -590,11 +615,23 @@
           return error("#profile-error", "A new password must contain 8-128 characters.");
         }
 
+        const usernameChanged = newUsername !== currentUsername;
+        const passwordChanged = Boolean(newPassword) && newPassword !== verifiedPassword;
+
+        if (!usernameChanged && !passwordChanged) {
+          lockProfileFields();
+          if (profileStatus) profileStatus.textContent = "No changes detected. Account information kept as-is.";
+          return;
+        }
+
         const saveButton = $("#save-profile");
         if (saveButton) saveButton.disabled = true;
 
         try {
-          await api.updateAccount({ username: newUsername, password: newPassword || undefined });
+          await api.updateAccount({
+            username: usernameChanged ? newUsername : undefined,
+            password: passwordChanged ? newPassword : undefined
+          });
           authenticatedUser = await api.getCurrentUser();
 
           account.username = newUsername;
@@ -603,17 +640,7 @@
 
           cacheUsername(newUsername);
           paintUsername(newUsername);
-
-          if (usernameInput) usernameInput.readOnly = true;
-          if (passwordInput) {
-            passwordInput.value = "";
-            passwordInput.readOnly = true;
-            passwordInput.type = "password";
-            passwordInput.placeholder = "Enter a new password";
-          }
-          if (verifyPasswordInput) verifyPasswordInput.value = "";
-          if (passwordUnlockBox) passwordUnlockBox.hidden = false;
-          isPasswordUnlocked = false;
+          lockProfileFields();
 
           if (profileStatus) profileStatus.textContent = "Account information saved.";
         } catch (err) {
@@ -717,6 +744,12 @@
     }
 
     renderPdfState();
+    cvSyncPromise.then(() => {
+      renderPdfState();
+      if (profCvRawInput && account.cvMode !== "pdf" && !profCvRawInput.value.trim()) {
+        profCvRawInput.value = buildCvText(account.cv);
+      }
+    });
 
     // PDF Upload handling
     async function handlePdfFile(file) {
