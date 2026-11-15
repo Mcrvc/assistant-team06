@@ -27,7 +27,7 @@ from urllib.parse import quote, urlsplit
 from urllib.request import Request as UrlRequest, build_opener
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import Field, StringConstraints, model_validator
 
@@ -35,6 +35,7 @@ from assistant.auth import _NoAuthRedirect
 from assistant.db import AppEnvConfig, _is_real_value, get_env_config
 from assistant.interview_schemas import Contract
 from assistant.interviews import InterviewError
+from assistant.parsing import MAX_PDF_BYTES, extract_pdf_text
 
 CV_FIELDS = 4
 RATING_MIN, RATING_MAX = 1, 5
@@ -222,6 +223,13 @@ def build_router(current_user: Callable[..., str]) -> APIRouter:
     def save_cv(payload: SaveCv, user: User, store: Store):
         store.save_cv(user, payload.model_dump())
         return {"ok": True}
+
+    @router.post("/api/cv/parse-pdf")
+    async def parse_cv_pdf(user: User, file: UploadFile = File(...)):
+        _ = user
+        data = await file.read(MAX_PDF_BYTES + 1)
+        text, truncated = extract_pdf_text(data, max_bytes=MAX_PDF_BYTES)
+        return {"text": text, "chars": len(text), "truncated": truncated}
 
     @router.post("/api/feedback", status_code=201)
     def send_feedback(payload: SendFeedback, user: User, store: Store):
