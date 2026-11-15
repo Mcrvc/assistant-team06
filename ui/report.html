@@ -44,113 +44,61 @@
   </nav>
 </header>
 <main id="main" class="page report-page">
-  <!-- Prominent Hero Header with Highlighted Interview Name -->
-  <section class="report-hero-bar">
-    <div class="report-hero-left">
-      <span class="report-eyebrow-badge">INTERVIEW REPORT</span>
-      <h1 class="report-session-title" id="report-name">Interview 1</h1>
-    </div>
-    <div class="report-hero-right">
-      <div class="report-meta-item">
-        <span class="report-meta-label">Date</span>
-        <span class="report-meta-val" id="report-date">29/2/2026</span>
-      </div>
+  <!-- Loading state: visible until the report is fetched from the server. -->
+  <section class="panel report-state" id="report-loading" role="status" aria-live="polite">
+    <div class="report-spinner" aria-hidden="true"></div>
+    <h2>Loading your report…</h2>
+    <p>Fetching your interview results and feedback from the server.</p>
+  </section>
+
+  <!-- Empty/error state: shown when no report is available or the request fails. -->
+  <section class="panel report-state is-hidden" id="report-empty">
+    <div class="report-state-icon" aria-hidden="true">📄</div>
+    <h2 id="report-empty-title">No report available</h2>
+    <p id="report-empty-message">Finish an interview to see its report here.</p>
+    <div class="report-state-actions">
+      <a class="btn" href="storage.html">View your interviews</a>
+      <a class="btn btn-secondary" href="job-profile.html">Start an interview</a>
     </div>
   </section>
 
-  <!-- Section 1: Interview Q&A Feedback Stack -->
-  <div class="report-stack">
-    <article class="panel report-card">
-      <div class="report-question">
-        <span class="question-number">01</span>
-        <div>
-          <h2>Question 1</h2>
-          <p>Imagine you're tasked with curating a time capsule that defines the year 2026 for an alien civilization. What are three objects you put inside?</p>
+  <!-- Report content: populated by app.js from the server response. -->
+  <div id="report-content" class="is-hidden">
+    <section class="report-hero-bar">
+      <div class="report-hero-left">
+        <span class="report-eyebrow-badge">INTERVIEW REPORT</span>
+        <h1 class="report-session-title" id="report-name"></h1>
+      </div>
+      <div class="report-hero-right">
+        <div class="report-meta-item is-hidden" id="report-overall-item">
+          <span class="report-meta-label">Overall</span>
+          <span class="report-meta-val" id="report-overall"></span>
+        </div>
+        <div class="report-meta-item">
+          <span class="report-meta-label">Date</span>
+          <span class="report-meta-val" id="report-date"></span>
         </div>
       </div>
-      <div class="report-columns">
-        <section class="answer-block">
-          <div class="report-col-header">
-            <h3>Your Answer</h3>
-          </div>
-          <p class="preserve-lines" data-report-answer="0">No, you clearly don't know who you're talking to, so let me clue you in. Earth is not in danger, interviewer. I AM the danger. A planet opens its time capsule and gets forgotten by the universe, and you think that of me? No. I am the one who knocks!</p>
-        </section>
-        <section class="feedback-block">
-          <div class="report-col-header">
-            <h3>Our Feedback</h3>
-            <span class="feedback-eval-badge is-good" data-feedback-badge="0">Good</span>
-          </div>
-          <p>Your response was an unexpected, fiercely confident power move. Instead of listing objects, you delivered a bold manifesto about cosmic dominance. I have no idea what &quot;the one who knocks&quot; means, but your absolute authority completely commanded the room. You are a force to be reckoned with.</p>
-        </section>
-      </div>
-    </article>
+    </section>
 
-    <article class="panel report-card">
-      <div class="report-question">
-        <span class="question-number">02</span>
-        <div>
-          <h2>Question 2</h2>
-          <p>To be, or not to be, that is the question: whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles, and by opposing end them.</p>
-        </div>
-      </div>
-      <div class="report-columns">
-        <section class="answer-block">
-          <div class="report-col-header">
-            <h3>Your Answer</h3>
-          </div>
-          <p class="preserve-lines" data-report-answer="1">Most noble inquisitor, rather than suffer the slings and arrows of unkind fate, I choose to take up arms against this sea of troubles and by sheer resolve make an end to them; employ my zeal, and let my service be the very spear that pierces thy daily burdens through.</p>
-        </section>
-        <section class="feedback-block">
-          <div class="report-col-header">
-            <h3>Our Feedback</h3>
-            <span class="feedback-eval-badge is-improve" data-feedback-badge="1">Needs Improvement</span>
-          </div>
-          <p>Thou hast answered with a fiery, proactive spirit, and though thy theatrical flair might startle some, thy deep dedication to solving my problems is most refreshing; consider thyself hired at once, provided thou canst occasionally trade thy poetic broadsword for a simple pen.</p>
-        </section>
-      </div>
-    </article>
+    <p class="report-notice is-hidden" id="report-notice" role="status"></p>
 
-    <article class="panel report-card">
-      <div class="report-question">
-        <span class="question-number">03</span>
-        <div>
-          <h2>Question 3</h2>
-          <p>Wat een wartaa. Het is echt niet alsof ik bezorgd om je was ofzo. Mijn colonne verplaatste zich puur toevallig langs deze strategische route, dus haal je maar niks in je hoofd, begrepen?</p>
-        </div>
-      </div>
-      <div class="report-columns">
-        <section class="answer-block">
-          <div class="report-col-header">
-            <h3>Your Answer</h3>
-          </div>
-          <p class="preserve-lines" data-report-answer="2">Tch. Het is niet alsof ik jou expres kwam opzoeken of zo. Mijn groep liep hier toevallig langs voor een strategische route, dus haal je maar niks in je hoofd, begrepen?</p>
-        </section>
-        <section class="feedback-block">
-          <div class="report-col-header">
-            <h3>Our Feedback</h3>
-            <span class="feedback-eval-badge is-good" data-feedback-badge="2">Good</span>
-          </div>
-          <p>Ze probeert haar ware gevoelens wanhopig te verbergen achter một grote mond en een geïrriteerde blik, maar haar overdreven ontkenningen verraden juist hoe bezorgd ze stiekem is; hoewel haar tsundere-act houding một beetje voorspelbaar is, krijgt ze van mij een dikke voldoende voor haar hilarische poging om stoer te blijven.</p>
-        </section>
-      </div>
-    </article>
+    <div class="report-stack" id="report-cards"></div>
+
+    <div class="report-bottom-actions">
+      <a class="btn btn-secondary btn-pill-action" href="interview.html" id="retake-interview-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="1 4 1 10 7 10"></polyline>
+          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+        </svg>
+        <span>Retake interview</span>
+      </a>
+      <a class="btn btn-pill-action" href="system-feedback.html">
+        <span>Rate this feedback</span>
+        <span aria-hidden="true">→</span>
+      </a>
+    </div>
   </div>
-
-  <!-- Next Steps / Actions at Bottom of Report -->
-  <div class="report-bottom-actions">
-    <a class="btn btn-secondary btn-pill-action" href="interview.html" id="retake-interview-btn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="1 4 1 10 7 10"></polyline>
-        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-      </svg>
-      <span>Retake interview</span>
-    </a>
-    <a class="btn btn-pill-action" href="system-feedback.html">
-      <span>Rate this feedback</span>
-      <span aria-hidden="true">→</span>
-    </a>
-  </div>
-
 </main>
 <footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
 <noscript><p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p></noscript>
