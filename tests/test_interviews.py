@@ -118,16 +118,39 @@ def test_pending_answer_is_stored_before_grading_and_can_retry_after_restart(ser
     assert restarted.get(OWNER, item["id"])["answers"][0]["grading_status"] == "graded"
 
 
-def test_finalize_requires_answers_then_completed_grading(service):
+def test_finalize_waits_for_pending_but_allows_unanswered_and_rejected(service):
     item = create(service)
-    with pytest.raises(InterviewError) as exc:
-        service.finalize(OWNER, item["id"], FinalizeInterview(revision=0))
-    assert exc.value.code == "answers_required"
-    for index in range(3):
-        item, _ = submit(service, item, index)
+    item, _ = submit(service, item, 0)
     with pytest.raises(InterviewError) as exc:
         service.finalize(OWNER, item["id"], FinalizeInterview(revision=item["revision"]))
     assert exc.value.code == "grading_incomplete"
+
+    item = service.get(OWNER, item["id"])
+    # Mark pending answer as rejected and finalize with 2 unanswered questions
+    item["answers"][0].update(grading_status="rejected", error_code="evidence_rejected")
+    service.repository.save(item, item["version"])
+
+    finalized = service.finalize(OWNER, item["id"], FinalizeInterview(revision=item["revision"]))
+    assert finalized["status"] == "finalized"
+    report = finalized["report"]
+    assert report["overall_score"] is None
+    assert report["label"] == "Incomplete"
+    assert report["items"][0]["label"] == "Rejected"
+    assert report["items"][0]["score"] is None
+    assert report["items"][1]["label"] == "Unanswered"
+    assert report["items"][1]["score"] is None
+    assert "rejected" in report["notice"].lower()
+    assert "unanswered" in report["notice"].lower()
+
+
+def test_finalize_rejects_duplicate_name(service):
+    job = {"title": "Backend Engineer", "domain": "FinTech", "company": "Acme", "level": "Senior"}
+    service.create(OWNER, CreateInterview.model_validate({"job_profile": job, "name": "Backend Round"}))
+    second = service.create(OWNER, CreateInterview.model_validate({"job_profile": job, "name": "Temp Name"}))
+    with pytest.raises(InterviewError) as exc:
+        service.finalize(OWNER, second["id"], FinalizeInterview(revision=second["revision"], name="  backend round "))
+    assert exc.value.status == 409
+    assert exc.value.code == "duplicate_name"
 
 
 def test_complete_report_and_idempotent_finalize_with_no_ai_recall(store):

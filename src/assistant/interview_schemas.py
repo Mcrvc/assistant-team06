@@ -130,17 +130,17 @@ class ReportItem(Contract):
     question_index: int
     question: Question
     answer: str
-    score: float
+    score: float | None = None
     feedback: str
     evidence: list[str]
-    label: Literal["Good", "Needs Improvement"]
+    label: Literal["Good", "Needs Improvement", "Rejected", "Unanswered"]
     model: str
     used_fallback: bool
 
 
 class Report(Contract):
-    overall_score: float
-    label: Literal["Good", "Needs Improvement"]
+    overall_score: float | None = None
+    label: Literal["Good", "Needs Improvement", "Incomplete"]
     items: list[ReportItem]
     used_fallback: bool
     notice: str

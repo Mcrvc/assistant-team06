@@ -194,27 +194,64 @@ class InterviewService:
                 raise InterviewError(409, "already_finalized", "A finalized interview cannot be renamed here")
             return current
 
+        target_name = (request.name or current["name"]).strip()
+        if target_name:
+            for existing in self.list(owner_id):
+                if (existing.get("id") != interview_id
+                        and (existing.get("name") or "").strip().casefold() == target_name.casefold()):
+                    raise InterviewError(
+                        409,
+                        "duplicate_name",
+                        "An interview with this name already exists. Please choose a different name.",
+                    )
+
         def change(interview: dict) -> None:
             counts = progress(interview)
-            if counts["answered"] != 3:
-                raise InterviewError(400, "answers_required", "All 3 answers are required")
-            if counts["graded"] != 3:
-                raise InterviewError(409, "grading_incomplete", "Wait for grading or re-submit draft/rejected/pending answers")
+            if counts["pending"] > 0:
+                raise InterviewError(409, "grading_incomplete", "Wait for pending grading to finish")
             items = []
+            rejected_count = 0
+            unanswered_count = 0
             for i, answer in enumerate(interview["answers"]):
-                grade = answer["grade"]
-                items.append({"question_index": i, "question": interview["questions"][i],
-                              "answer": answer["text"], **grade,
-                              "label": "Good" if grade["score"] >= 6 else "Needs Improvement"})
-            overall = round(sum(item["score"] for item in items) / 3, 2)
+                status = answer.get("grading_status")
+                grade = answer.get("grade")
+                if status == "graded" and isinstance(grade, dict):
+                    items.append({"question_index": i, "question": interview["questions"][i],
+                                  "answer": answer["text"], **grade,
+                                  "label": "Good" if grade["score"] >= 6 else "Needs Improvement"})
+                elif status == "rejected":
+                    rejected_count += 1
+                    reason = answer.get("error_code") or "evidence_rejected"
+                    items.append({
+                        "question_index": i, "question": interview["questions"][i],
+                        "answer": answer["text"], "score": None,
+                        "feedback": f"Grading was rejected ({reason}); no score was assigned.",
+                        "evidence": [], "label": "Rejected", "model": "none", "used_fallback": False,
+                    })
+                else:
+                    unanswered_count += 1
+                    items.append({
+                        "question_index": i, "question": interview["questions"][i],
+                        "answer": answer["text"], "score": None,
+                        "feedback": "No answer was submitted for this question.",
+                        "evidence": [], "label": "Unanswered", "model": "none", "used_fallback": False,
+                    })
+            graded_scores = [item["score"] for item in items if item["score"] is not None]
+            overall = round(sum(graded_scores) / len(graded_scores), 2) if graded_scores else None
             used_fallback = (interview["question_generation"]["used_fallback"]
                              or any(item["used_fallback"] for item in items))
+            notices = []
+            if rejected_count:
+                notices.append(f"{rejected_count} answer(s) were rejected during evidence verification and excluded from scoring.")
+            if unanswered_count:
+                notices.append(f"{unanswered_count} question(s) were left unanswered.")
+            notices.append("Contains mock/fallback output; not a real AI assessment."
+                           if used_fallback else "Evidence quotations passed exact text matching.")
             interview.update(
                 name=request.name or interview["name"], status="finalized", current_question=2,
                 report={"overall_score": overall, "items": items, "used_fallback": used_fallback,
-                        "label": "Good" if overall >= 6 else "Needs Improvement",
-                        "notice": "Contains mock/fallback output; not a real AI assessment."
-                        if used_fallback else "Evidence quotations passed exact text matching."},
+                        "label": ("Good" if overall >= 6 else "Needs Improvement") if overall is not None else "Incomplete",
+                        "notice": " ".join(notices)},
             )
         return self._change(owner_id, interview_id, request.revision, change,
             already_applied=lambda item: item["status"] == "finalized" and (

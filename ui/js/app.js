@@ -1803,6 +1803,18 @@
       event.preventDefault();
       const interview = activeInterview() || startInterview();
       const name = $("#interview-name").value.trim();
+      const targetName = (name || interview.name || "New Interview").slice(0, 200);
+      if (account.interviews.some(item =>
+        item && item.id !== interview.id
+        && String(item.name || "").trim().toLowerCase() === targetName.trim().toLowerCase()
+      )) {
+        window.YourinErrors?.showToast?.(
+          "An interview with this name already exists. Please choose a different name.",
+          { type: "error" }
+        );
+        $("#interview-name")?.focus();
+        return;
+      }
       const loading = window.YourinUI?.loading?.show ? window.YourinUI.loading.show({
         title: "Finalizing your interview",
         eyebrow: "Please wait",
@@ -1843,17 +1855,8 @@
               const statuses = Array.isArray(latestView.answers)
                 ? latestView.answers.map(answer => answer.grading_status)
                 : [];
-              const gradedCount = statuses.filter(status => status === "graded").length;
-              if (gradedCount === 3) break;
-              if (statuses.some(status => status === "rejected")) {
-                if (loading) loading.hide();
-                save();
-                window.YourinErrors?.showToast?.(
-                  "Some answers were rejected. Resubmit them before finalizing.",
-                  { type: "warning" }
-                );
-                return;
-              }
+              const pendingCount = statuses.filter(status => status === "pending").length;
+              if (pendingCount === 0) break;
             }
             await new Promise(resolve => setTimeout(resolve, 2000));
             attempts += 1;
@@ -1863,11 +1866,11 @@
             method: "POST",
             body: JSON.stringify({
               revision: interview.revision,
-              name: (name || interview.name || "New Interview").slice(0, 200)
+              name: targetName
             }),
             loading: false
           });
-          if (finalizeResult.status === 409) {
+          if (finalizeResult.status === 409 && finalizeResult.data?.error?.code !== "duplicate_name") {
             const refreshed = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
               loading: false,
               notify: false
@@ -1881,7 +1884,7 @@
                   method: "POST",
                   body: JSON.stringify({
                     revision: interview.revision,
-                    name: (name || interview.name || "New Interview").slice(0, 200)
+                    name: targetName
                   }),
                   loading: false
                 });
@@ -2246,9 +2249,10 @@
       const label = item && typeof item.label === "string" ? item.label : "";
       badge.textContent = item ? (label || "Graded") : "Not graded";
       if (label === "Good") badge.classList.add("is-good");
+      else if (label === "Unanswered") badge.classList.add("is-pending");
       else if (label) badge.classList.add("is-improve");
       else badge.classList.add("is-pending");
-      if (item && Number.isFinite(Number(item.score))) {
+      if (item && item.score !== null && item.score !== undefined && Number.isFinite(Number(item.score))) {
         badge.title = `Score: ${item.score}/10`;
       }
       feedbackHeader.append(feedbackTitle, badge);
@@ -2347,7 +2351,8 @@
       const overallItem = $("#report-overall-item");
       const overallValue = $("#report-overall");
       if (report && overallItem && overallValue) {
-        const score = Number(report.overall_score);
+        const hasScore = report.overall_score !== null && report.overall_score !== undefined;
+        const score = hasScore ? Number(report.overall_score) : NaN;
         const label = typeof report.label === "string" ? report.label : "";
         overallValue.textContent = Number.isFinite(score)
           ? `${score}/10${label ? ` · ${label}` : ""}`
