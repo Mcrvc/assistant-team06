@@ -1934,7 +1934,14 @@
 
   if (page === "storage") {
     try {
-      const listResult = await api.request("/api/interviews", { loading: false, notify: true });
+      const listResult = await api.request("/api/interviews", {
+        loading: {
+          title: "Loading your interviews",
+          detail: "Fetching your saved sessions from the server.",
+          coldStartAfter: 5000
+        },
+        notify: true
+      });
         if (listResult.ok && Array.isArray(listResult.data)) {
           account.interviews = listResult.data.map(view => {
             const answers = Array.isArray(view.answers)
