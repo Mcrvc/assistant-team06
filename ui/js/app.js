@@ -2357,12 +2357,8 @@
     }
 
     try {
-      let interview = reportInterview();
-      let listState = "ok";
-      if (!interview) {
-        listState = await loadInterviewsForReport();
-        interview = reportInterview();
-      }
+      const listState = await loadInterviewsForReport();
+      const interview = reportInterview();
 
       if (!interview) {
         if (listState === "error") {
