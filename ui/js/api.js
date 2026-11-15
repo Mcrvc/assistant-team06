@@ -90,7 +90,8 @@
     } = options;
 
     const loading = loadingOption ? showLoading(loadingOption) : null;
-    const headers = { "Content-Type": "application/json", ...(optionHeaders || {}) };
+    const isFormData = typeof FormData !== "undefined" && fetchOptions.body instanceof FormData;
+    const headers = { ...(isFormData ? {} : { "Content-Type": "application/json" }), ...(optionHeaders || {}) };
     if (auth) {
       const token = await getAccessToken();
       if (token) headers.Authorization = `Bearer ${token}`;
@@ -358,6 +359,17 @@
       }),
     getCV: (options = {}) =>
       request("/api/cv", { loading: false, ...(options || {}) }),
+    parseCvPdf: (file, options = {}) => {
+      const form = new FormData();
+      form.append("file", file);
+      return request("/api/cv/parse-pdf", {
+        method: "POST",
+        body: form,
+        loading: false,
+        notify: false,
+        ...(options || {})
+      });
+    },
     saveCV: (payload, options = {}) =>
       request("/api/cv", {
         method: "PUT",

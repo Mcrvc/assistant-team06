@@ -53,11 +53,14 @@ class InterviewService:
         self.ai = SafeInterviewAI(ai if ai is not None else configured_ai())
 
     def create(self, owner_id: str, request: CreateInterview) -> dict:
-        generated = self.ai.generate_questions(request.job_profile.model_dump(), request.cv)
+        from assistant.parsing import parse_job_profile
+        parsed_job = parse_job_profile(request.job_profile)
+        job_profile = parsed_job.model_dump()
+        generated = self.ai.generate_questions(job_profile, request.cv)
         now = _now()
         interview = {
             "id": str(uuid4()), "owner_id": owner_id, "name": request.name,
-            "job_profile": request.job_profile.model_dump(), "cv": request.cv,
+            "job_profile": job_profile, "cv": request.cv,
             "questions": generated["questions"],
             "question_generation": {k: generated[k] for k in ("model", "used_fallback")},
             "answers": [_answer() for _ in range(3)], "current_question": 0,

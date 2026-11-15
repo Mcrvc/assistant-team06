@@ -327,6 +327,59 @@ def test_grader_prompt_demands_verbatim_citation_and_no_fabrication():
     assert "Never invent" in system
     # Unwrapped-in-a-needle check: the prompt must ask for inline quoting.
     assert "double quotes" in system
+    # HM2: the calibration table pins the strong band below 9 and the generic
+    # band to the middle, so a correct-but-generic answer cannot be a 9.
+    assert "9.0-10.0" in system
+    assert "7.0-8.5" in system
+    assert "5.5-6.5" in system
+    assert "measured" in system.lower()
+    # HM2: anti-refusal rules.
+    assert "shortest safe span" in system
+    assert 'Never "fix" missing diacritics' in system
+    # The Good threshold is exposed to the eval harness and embedded here.
+    assert aiworker.GOOD_THRESHOLD == 6.0
+    assert f"{aiworker.GOOD_THRESHOLD:g} or above" in system
+    # Two worked examples (one strong, one generic).
+    assert "WORKED EXAMPLE 1" in system
+    assert "WORKED EXAMPLE 2" in system
+
+
+# The few-shot answer/evidence below are copied out of EVIDENCE_SYSTEM itself,
+# so the test fails the moment the prompt's own example stops matching the
+# "verbatim span" rule it teaches.
+EXAMPLE_1_ANSWER = (
+    "Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm. Khi có "
+    "đợt flash sale, p99 giảm từ 800ms xuống 120ms và số lỗi 5xx giảm 90%. "
+    "Sau đó tôi thêm TTL 5 phút cho mỗi key để tránh dữ liệu cũ."
+)
+EXAMPLE_1_EVIDENCE = [
+    "Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm",
+    "p99 giảm từ 800ms xuống 120ms",
+    "tôi thêm TTL 5 phút cho mỗi key",
+]
+EXAMPLE_2_ANSWER = (
+    "Tôi thường làm việc nhóm rất tốt và luôn cố gắng hết mình. Tôi "
+    "có kinh nghiệm với nhiều dự án và học hỏi nhanh. Tôi nghĩ mình phù hợp "
+    "với công việc này."
+)
+EXAMPLE_2_EVIDENCE = ["Tôi thường làm việc nhóm rất tốt"]
+
+
+def test_grader_few_shot_examples_are_self_consistent():
+    """The embedded examples must follow the rule they teach: every evidence
+    entry is an exact substring of the example answer, accents included."""
+    system = aiworker.EVIDENCE_SYSTEM
+    assert EXAMPLE_1_ANSWER in system
+    assert EXAMPLE_2_ANSWER in system
+    for span in EXAMPLE_1_EVIDENCE:
+        assert span in EXAMPLE_1_ANSWER
+        assert span in system
+    for span in EXAMPLE_2_EVIDENCE:
+        assert span in EXAMPLE_2_ANSWER
+        assert span in system
+    # One strong example scored 8.5, one generic example scored 5.5.
+    assert '"score": 8.5' in system
+    assert '"score": 5.5' in system
 
 
 def test_writer_prompt_pins_the_schema_limits():
@@ -334,3 +387,6 @@ def test_writer_prompt_pins_the_schema_limits():
     assert "exactly 3 questions" in system
     assert 'NUMBER 10' in system
     assert "1000 characters" in system
+    # HM3: every question must name a concrete JD/CV element, in "why" too.
+    assert "concrete element" in system
+    assert '"why"' in system

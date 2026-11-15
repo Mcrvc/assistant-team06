@@ -252,9 +252,9 @@ def get_config() -> ServiceConfig:
         # The published default is 4, but this host is a *reasoning* model: it
         # spends tokens thinking before it speaks, and a small budget returns
         # content=None. 4096 leaves room for a real answer.
-        max_tokens=max(256, _env_int("NVIDIA_MAX_TOKENS", 4096)),
-        timeout_s=max(1.0, _env_float("NVIDIA_TIMEOUT_S", 120.0)),
-        temperature=min(2.0, max(0.0, _env_float("NVIDIA_TEMPERATURE", 0.2))),
+        max_tokens=max(256, _env_int("AI_MAX_TOKENS", 4096)),
+        timeout_s=max(1.0, _env_float("AI_TIMEOUT_S", 120.0)),
+        temperature=min(2.0, max(0.0, _env_float("AI_TEMPERATURE", 0.2))),
         search_limit=max(1, _env_int("TINYFISH_LIMIT", 8)),
         search_timeout_s=_env_float("TINYFISH_TIMEOUT_S", 60.0),
         fetch_timeout_s=_env_float("FETCH_TIMEOUT_S", 30.0),
