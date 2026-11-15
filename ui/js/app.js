@@ -1192,8 +1192,16 @@
       return Boolean(interview && interview.server === true && interview.id);
     }
 
-    function applyServerView(target, view) {
+    let writeQueue = Promise.resolve();
+    function enqueueServerWrite(task) {
+      const next = writeQueue.then(task, task);
+      writeQueue = next.catch(() => {});
+      return next;
+    }
+
+    function applyServerView(target, view, options = {}) {
       if (!target || !view) return;
+      const preserveDrafts = options.preserveDrafts === true;
       if (typeof view.name === "string" && view.name.trim()) target.name = view.name.trim();
       if (typeof view.status === "string") target.status = view.status;
       if (Number.isInteger(view.revision)) target.revision = view.revision;
@@ -1207,13 +1215,21 @@
       }
       target.report = view.report || target.report || null;
       const answers = Array.isArray(view.answers) ? view.answers : [];
+      const prevAnswers = Array.isArray(target.answers) ? target.answers : [];
+      const prevSubmitted = Array.isArray(target.submittedTexts) ? target.submittedTexts : [];
       const texts = [];
       const statuses = [];
       const grades = [];
       const errors = [];
+      const serverTexts = [];
       for (let i = 0; i < 3; i++) {
         const answer = answers[i] || {};
-        texts.push(typeof answer.text === "string" ? answer.text : "");
+        const serverText = typeof answer.text === "string" ? answer.text : "";
+        const localText = typeof prevAnswers[i] === "string" ? prevAnswers[i] : "";
+        const submittedText = typeof prevSubmitted[i] === "string" ? prevSubmitted[i] : "";
+        const hasUnsentDraft = preserveDrafts && localText !== submittedText;
+        texts.push(hasUnsentDraft ? localText : serverText);
+        serverTexts.push(serverText);
         statuses.push(typeof answer.grading_status === "string" ? answer.grading_status : "unanswered");
         grades.push(answer.grade || null);
         errors.push(answer.error_code || null);
@@ -1222,7 +1238,7 @@
       target.answerStatuses = statuses;
       target.answerGrades = grades;
       target.answerErrors = errors;
-      target.submittedTexts = texts.slice();
+      target.submittedTexts = serverTexts;
       save();
     }
 
@@ -1232,63 +1248,73 @@
         loading: false,
         notify: false
       });
-      if (result.ok && result.data) applyServerView(interview, result.data);
+      if (result.ok && result.data) applyServerView(interview, result.data, { preserveDrafts: true });
       else if (result.status === 409) {
         // keep local state; backend may have moved
       }
       return result;
     }
 
-    async function submitCurrentAnswer(index) {
-      if (!isServerInterview()) return true;
-      const text = String(interview.answers[index] || "");
-      if (!text.trim()) return true;
-      const status = Array.isArray(interview.answerStatuses) ? interview.answerStatuses[index] : "";
-      const submitted = Array.isArray(interview.submittedTexts) ? String(interview.submittedTexts[index] || "") : "";
-      if ((status === "graded" || status === "pending") && text === submitted) {
-        return true;
-      }
-      try {
-        const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/answers/${index}`, {
-          method: "POST",
-          body: JSON.stringify({ revision: interview.revision, text }),
-          loading: false
-        });
-        if (!result.ok || !result.data) {
-          if (result.status === 409) await refreshServerInterview();
-          if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function") {
-            window.YourinErrors.handleStatus(result.status, result.data);
+    function submitCurrentAnswer(index) {
+      return enqueueServerWrite(async () => {
+        if (!isServerInterview()) return true;
+        const text = String(interview.answers[index] || "");
+        if (!text.trim()) return true;
+        const status = Array.isArray(interview.answerStatuses) ? interview.answerStatuses[index] : "";
+        const submitted = Array.isArray(interview.submittedTexts) ? String(interview.submittedTexts[index] || "") : "";
+        if ((status === "graded" || status === "pending") && text === submitted) {
+          return true;
+        }
+        try {
+          const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/answers/${index}`, {
+            method: "POST",
+            body: JSON.stringify({ revision: interview.revision, text }),
+            loading: false
+          });
+          if (!result.ok || !result.data) {
+            if (result.status === 409) await refreshServerInterview();
+            if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function") {
+              window.YourinErrors.handleStatus(result.status, result.data);
+            }
+            return false;
           }
+          applyServerView(interview, result.data, { preserveDrafts: true });
+          startGradingPoll();
+          updateAnswerStatusUI();
+          return true;
+        } catch (err) {
+          console.error("Submit answer failed:", err);
           return false;
         }
-        applyServerView(interview, result.data);
-        startGradingPoll();
-        updateAnswerStatusUI();
-        return true;
-      } catch (err) {
-        console.error("Submit answer failed:", err);
-        return false;
-      }
+      });
     }
 
-    async function saveProgressToServer(targetStep, status) {
-      if (!isServerInterview()) return;
-      const nextStatus = status === "interrupted" ? "interrupted" : "in_progress";
-      try {
-        const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/progress`, {
-          method: "POST",
-          body: JSON.stringify({
-            revision: interview.revision,
-            current_question: Math.max(0, Math.min(2, targetStep)),
-            status: nextStatus,
-            answers: interview.answers
-          }),
-          loading: false,
-          notify: true
-        });
-        if (result.ok && result.data) applyServerView(interview, result.data);
-        else if (result.status === 409) await refreshServerInterview();
-      } catch (_) { /* network errors are surfaced by the shared layer */ }
+    function saveProgressToServer(targetStep, status) {
+      return enqueueServerWrite(async () => {
+        if (!isServerInterview()) return true;
+        const nextStatus = status === "interrupted" ? "interrupted" : "in_progress";
+        try {
+          const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/progress`, {
+            method: "POST",
+            body: JSON.stringify({
+              revision: interview.revision,
+              current_question: Math.max(0, Math.min(2, targetStep)),
+              status: nextStatus,
+              answers: interview.answers
+            }),
+            loading: false,
+            notify: true
+          });
+          if (result.ok && result.data) {
+            applyServerView(interview, result.data, { preserveDrafts: true });
+            return true;
+          }
+          if (result.status === 409) await refreshServerInterview();
+          return false;
+        } catch (_) {
+          return false;
+        }
+      });
     }
 
     let gradingPoll = null;
@@ -1580,7 +1606,8 @@
           if (answerInput) interview.answers[currentStep] = answerInput.value;
           save();
           if (isServerInterview()) {
-            await submitCurrentAnswer(currentStep);
+            const submitted = await submitCurrentAnswer(currentStep);
+            if (!submitted) return;
             await saveProgressToServer(currentStep - 1);
           }
           renderStep(currentStep - 1);
@@ -1595,7 +1622,8 @@
         save();
 
         if (isServerInterview()) {
-          await submitCurrentAnswer(currentStep);
+          const submitted = await submitCurrentAnswer(currentStep);
+          if (!submitted) return;
         }
 
         if (currentStep < totalQuestions - 1) {
