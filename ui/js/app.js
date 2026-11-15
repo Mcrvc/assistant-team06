@@ -1186,6 +1186,8 @@
   if (page === "interview" || page === "interview-1" || page === "interview-2" || page === "interview-3" || $("#interview-step-track")) {
     const interview = activeInterview() || startInterview();
 
+    let skipPageHideSave = false;
+
     function isServerInterview() {
       return Boolean(interview && interview.server === true && interview.id);
     }
@@ -1601,11 +1603,7 @@
           renderStep(currentStep + 1);
           updateAnswerStatusUI();
         } else {
-          if (isServerInterview()) {
-            await submitCurrentAnswer(currentStep);
-            await saveProgressToServer(currentStep);
-          }
-          interview.finished = true;
+          skipPageHideSave = true;
           save();
           go("done-interview.html");
         }
@@ -1614,6 +1612,7 @@
 
     // Trigger Save & Exit whenever the user attempts to exit the interview screen
     function triggerSaveAndExit(targetHref) {
+      skipPageHideSave = true;
       if (answerInput) interview.answers[currentStep] = answerInput.value;
       save();
       if (isServerInterview()) {
@@ -1744,7 +1743,7 @@
 
     window.addEventListener("pagehide", () => {
       if (gradingPoll) window.clearInterval(gradingPoll);
-      if (isServerInterview()) {
+      if (isServerInterview() && !skipPageHideSave) {
         saveProgressToServer(currentStep, "interrupted").catch(() => {});
       }
     }, { once: true });
@@ -1788,21 +1787,37 @@
 
       try {
         if (interview && interview.server === true && interview.id) {
-          // Wait for grading to finish before finalizing.
+          // Wait for grading to finish before finalizing, keeping revision synced.
           let attempts = 0;
+          let latestView = null;
           while (attempts < 60) {
             const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
               loading: false,
               notify: false
             });
             if (viewResult.ok && viewResult.data) {
-              const statuses = Array.isArray(viewResult.data.answers)
-                ? viewResult.data.answers.map(answer => answer.grading_status)
+              latestView = viewResult.data;
+              if (Number.isInteger(latestView.revision)) {
+                interview.revision = latestView.revision;
+              }
+              if (typeof latestView.status === "string") {
+                interview.status = latestView.status;
+                interview.finished = latestView.status === "finalized";
+              }
+              if (latestView.status === "finalized") {
+                interview.report = latestView.report || interview.report || null;
+                save();
+                go("report.html");
+                return;
+              }
+              const statuses = Array.isArray(latestView.answers)
+                ? latestView.answers.map(answer => answer.grading_status)
                 : [];
               const gradedCount = statuses.filter(status => status === "graded").length;
               if (gradedCount === 3) break;
               if (statuses.some(status => status === "rejected")) {
                 if (loading) loading.hide();
+                save();
                 window.YourinErrors?.showToast?.(
                   "Some answers were rejected. Resubmit them before finalizing.",
                   { type: "warning" }
@@ -1814,7 +1829,7 @@
             attempts += 1;
           }
 
-          const finalizeResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/finalize`, {
+          let finalizeResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/finalize`, {
             method: "POST",
             body: JSON.stringify({
               revision: interview.revision,
@@ -1822,6 +1837,27 @@
             }),
             loading: false
           });
+          if (finalizeResult.status === 409) {
+            const refreshed = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+              loading: false,
+              notify: false
+            });
+            if (refreshed.ok && refreshed.data && Number.isInteger(refreshed.data.revision)) {
+              interview.revision = refreshed.data.revision;
+              if (refreshed.data.status === "finalized") {
+                finalizeResult = refreshed;
+              } else {
+                finalizeResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/finalize`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    revision: interview.revision,
+                    name: (name || interview.name || "New Interview").slice(0, 200)
+                  }),
+                  loading: false
+                });
+              }
+            }
+          }
           if (!finalizeResult.ok || !finalizeResult.data) {
             if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function") {
               window.YourinErrors.handleStatus(finalizeResult.status, finalizeResult.data);
