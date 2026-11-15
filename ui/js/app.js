@@ -1455,6 +1455,20 @@
       robotStage.classList.add("is-miming");
 
       const qText = questions[currentStep] || "";
+      if (window.Voice && typeof window.Voice.speak === "function" && window.Voice.ttsSupported()) {
+        const started = window.Voice.speak(qText, {
+          onStart: () => {
+            if (!robotStage) return;
+            robotStage.classList.remove("is-idle", "is-listening", "is-watching", "is-typing");
+            robotStage.classList.add("is-miming");
+          },
+          onEnd: () => {
+            stopRobotMime();
+          }
+        });
+        if (started) return;
+      }
+
       const duration = customDuration || Math.max(3000, Math.min(5500, qText.length * 40));
 
       mimeTimer = setTimeout(() => {
@@ -1464,6 +1478,9 @@
 
     function stopRobotMime() {
       if (mimeTimer) clearTimeout(mimeTimer);
+      if (window.Voice && typeof window.Voice.stopSpeaking === "function") {
+        window.Voice.stopSpeaking();
+      }
       if (!robotStage) return;
       robotStage.classList.remove("is-miming");
       if (!isRecording) {
@@ -1638,6 +1655,9 @@
 
     function startRecording() {
       isRecording = true;
+      if (window.Voice && typeof window.Voice.stopSpeaking === "function") {
+        window.Voice.stopSpeaking();
+      }
       if (robotStage) {
         if (mimeTimer) clearTimeout(mimeTimer);
         if (typingGazeTimer) clearTimeout(typingGazeTimer);
@@ -1649,6 +1669,29 @@
       if (micLabel) micLabel.textContent = "Recording... (Click to stop)";
       if (micSub) micSub.textContent = "Listening to your voice...";
       if (voiceWaveform) voiceWaveform.classList.add("is-active");
+
+      if (window.Voice && typeof window.Voice.startListening === "function" && window.Voice.sttSupported()) {
+        const started = window.Voice.startListening({
+          getText: () => (answerInput ? answerInput.value : ""),
+          onText: (text) => {
+            if (!answerInput) return;
+            answerInput.value = text;
+            interview.answers[currentStep] = text;
+            save();
+            updateCharCount();
+          },
+          onError: (err) => {
+            if (err === "not-allowed" && micSub) {
+              micSub.textContent = "Microphone access denied.";
+            }
+            if (isRecording) stopRecording();
+          },
+          onEnd: () => {
+            if (isRecording) stopRecording();
+          }
+        });
+        if (started) return;
+      }
 
       recordingTimer = setTimeout(() => {
         if (isRecording && answerInput) {
@@ -1669,6 +1712,9 @@
     function stopRecording() {
       isRecording = false;
       if (recordingTimer) clearTimeout(recordingTimer);
+      if (window.Voice && typeof window.Voice.stopListening === "function") {
+        window.Voice.stopListening();
+      }
       if (robotStage) {
         robotStage.classList.remove("is-listening");
         resetRobotGaze();
