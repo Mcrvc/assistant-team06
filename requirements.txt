@@ -1,1 +1,1 @@
--e .[web,dev]
+-e .[web,dev,voice]

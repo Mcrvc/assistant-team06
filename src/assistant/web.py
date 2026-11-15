@@ -112,6 +112,9 @@ def create_app(*, service: InterviewService | None = None,
                        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
                        allow_headers=["Content-Type", "Authorization"])
 
+    from assistant.voice.router import router as voice_router
+    app.include_router(voice_router)
+
     @app.exception_handler(InterviewError)
     async def interview_error(request: Request, exc: InterviewError):
         return JSONResponse(status_code=exc.status, content={
