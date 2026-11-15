@@ -3,7 +3,7 @@ name: Interview backend scope
 on:
   pull_request:
   push:
-    branches: ["feat/**"]
+    branches: ["feat/**", "backend/interview"]
 
 permissions:
   contents: read

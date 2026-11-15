@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from assistant.auth import _NoAuthRedirect
 from assistant.db import AppEnvConfig, _is_real_value
 from assistant.interview_store import StoreConflict
+from assistant.interviews import InterviewError
 
 
 class SupabaseInterviewRepository:
@@ -66,6 +67,14 @@ class SupabaseInterviewRepository:
             exc.close()
             if status == 409 and isinstance(error, dict) and error.get("code") == "PT409":
                 raise StoreConflict() from None
+            if (operation == "create" and status == 409 and isinstance(error, dict)
+                    and error.get("code") == "23503"
+                    and isinstance(error.get("message"), str)
+                    and '"sessions_user_id_fkey"' in error["message"]):
+                # Auth sign-in succeeded, but the DB profile row is absent.
+                # Do not insert accounts here or expose PostgreSQL user details.
+                raise InterviewError(409, "account_not_found",
+                    "Your account profile is not ready. Ask the team to synchronize it before starting an interview") from None
             raise SQLAlchemyError("Supabase interview storage unavailable or RPC not installed") from None
         except (URLError, OSError, ValueError, TypeError):
             raise SQLAlchemyError("Supabase interview storage unavailable") from None

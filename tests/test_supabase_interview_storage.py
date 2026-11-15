@@ -18,7 +18,7 @@ from assistant.interview_runtime import configured_repository
 from assistant.interview_schemas import CreateInterview, SaveProgress, SubmitAnswer, FinalizeInterview
 from assistant.interview_store import StoreConflict
 from assistant.interview_supabase import SupabaseInterviewRepository
-from assistant.interviews import InterviewService
+from assistant.interviews import InterviewError, InterviewService
 
 ROOT = Path(__file__).resolve().parents[1]
 OWNER, OTHER = str(uuid4()), str(uuid4())
@@ -78,6 +78,25 @@ def test_no_retry_after_ambiguous_network_write(monkeypatch):
     assert calls == [1]
 
 
+@pytest.mark.parametrize('operation,constraint,expected', [
+    ('create', 'sessions_user_id_fkey', InterviewError),
+    ('save', 'sessions_user_id_fkey', SQLAlchemyError),
+    ('create', 'sessions_domain_id_fkey', SQLAlchemyError),
+])
+def test_missing_profile_is_distinguished_from_unrelated_foreign_keys(monkeypatch, operation, constraint, expected):
+    repo = SupabaseInterviewRepository(CONFIG.supabase_url, CONFIG.supabase_secret_key)
+    def fail(*args, **kwargs):
+        body = {'code': '23503', 'message': f'violates foreign key constraint "{constraint}"',
+                'details': 'private database/account details'}
+        raise HTTPError(repo._url, 409, '', {}, BytesIO(json.dumps(body).encode()))
+    monkeypatch.setattr(repo._opener, 'open', fail)
+    with pytest.raises(expected) as exc:
+        repo._call(operation, OWNER, str(uuid4()))
+    if isinstance(exc.value, InterviewError):
+        assert exc.value.status == 409 and exc.value.code == 'account_not_found'
+    assert 'private' not in str(exc.value)
+
+
 @pytest.fixture
 def rpc_repository(monkeypatch):
     value = os.environ.get("INTERVIEW_TEST_POSTGRES_URL")
@@ -116,8 +135,10 @@ def rpc_repository(monkeypatch):
                     }).scalar_one()
             except SQLAlchemyError as exc:
                 code = getattr(exc.orig, "sqlstate", "storage_error")
-                raise HTTPError(repo._url,409 if code=="PT409" else 400,"",{},
-                                BytesIO(json.dumps({"code":code}).encode())) from None
+                constraint = getattr(getattr(exc.orig, 'diag', None), 'constraint_name', '')
+                error = {'code': code, 'message': f'violates foreign key constraint "{constraint}"'}
+                raise HTTPError(repo._url,409 if code in ("PT409", "23503") else 400,"",{},
+                                BytesIO(json.dumps(error).encode())) from None
             return Response(json.dumps(result).encode())
         monkeypatch.setattr(repo._opener,"open",transport)
         assert repo._call("check") == {"schema_version":1}
@@ -220,3 +241,84 @@ def test_rpc_via_http_routes_background_grading_and_report(rpc_repository):
         assert client.get(path+'/progress').json()['graded'] == 3
         assert client.post(path+'/finalize',json={'revision':revision}).status_code == 200
         assert client.get(path).json()['report'] is not None
+
+
+def test_rpc_http_replays_preserve_one_set_of_answers_and_report(rpc_repository):
+    from fastapi.testclient import TestClient
+    from assistant.web import create_app
+    repo, engine = rpc_repository
+    service = InterviewService(repo, MockInterviewAI())
+    with TestClient(create_app(service=service, auth_resolver=lambda request: OWNER)) as client:
+        created = client.post('/api/interviews', json={'name': 'Actual saved title',
+            'job_profile': {'title': 'Intern'}}).json()
+        path = '/api/interviews/' + created['id']
+        text_answer = 'I wrote Python tests and checked the result with my team.'
+        request = {'revision': 0, 'text': text_answer}
+        assert client.post(path + '/answers/0', json=request).status_code == 202
+        before = repo.get(created['id'], OWNER)
+        assert client.post(path + '/answers/0', json=request).status_code == 202
+        assert repo.get(created['id'], OWNER) == before
+        progress = {'revision': 1, 'current_question': 1, 'status': 'interrupted',
+                    'answers': [text_answer, 'Second draft', '']}
+        assert client.post(path + '/progress', json=progress).status_code == 200
+        before = repo.get(created['id'], OWNER)
+        assert client.post(path + '/progress', json=progress).status_code == 200
+        assert repo.get(created['id'], OWNER) == before
+        revision = before['revision']
+        for index in (1, 2):
+            response = client.post(path + f'/answers/{index}', json={'revision': revision, 'text': text_answer})
+            assert response.status_code == 202
+            revision = response.json()['revision']
+        response = client.post(path + '/finalize', json={'revision': revision})
+        assert response.status_code == 200
+        report = response.json()['report']
+        assert response.json()['name'] == 'Actual saved title'
+        assert [item['answer'] for item in report['items']] == [text_answer] * 3
+        assert client.get(path).json()['report'] == report
+    with engine.connect() as conn:
+        assert conn.execute(text('SELECT count(*) FROM sessions')).scalar_one() == 1
+        assert conn.execute(text('SELECT count(*) FROM answers')).scalar_one() == 3
+        assert conn.execute(text('SELECT count(*) FROM session_questions')).scalar_one() == 3
+
+
+def test_rpc_missing_account_is_actionable_and_leaves_no_partial_interview(rpc_repository):
+    from fastapi.testclient import TestClient
+    from assistant.web import create_app
+    repo, engine = rpc_repository
+    owner_without_profile = str(uuid4())
+    app = create_app(service=InterviewService(repo, MockInterviewAI()),
+                     auth_resolver=lambda request: owner_without_profile)
+    with TestClient(app) as client:
+        result = client.post('/api/interviews', json={'job_profile': {'title': 'Intern'}})
+        assert result.status_code == 409
+        assert result.json()['error']['code'] == 'account_not_found'
+        assert owner_without_profile not in result.text
+    with engine.connect() as conn:
+        for table in ('sessions', 'questions', 'answers', 'session_questions'):
+            assert conn.execute(text(f'SELECT count(*) FROM {table}')).scalar_one() == 0
+
+
+def test_rpc_grading_collision_keeps_user_draft_and_ai_grade(rpc_repository, monkeypatch):
+    repo, engine = rpc_repository
+    service, item = create(repo)
+    answer = 'I wrote tests and measured the Python API result with my team.'
+    item, job = service.submit_answer(OWNER, item['id'], 0, SubmitAnswer(revision=0, text=answer))
+    original = repo.save
+    collided = False
+    def save(interview, expected_version):
+        nonlocal collided
+        if not collided:
+            collided = True
+            # AI commits after progress was read but before progress is written.
+            service.grade_answer(OWNER, item['id'], 0, job)
+        return original(interview, expected_version)
+    monkeypatch.setattr(repo, 'save', save)
+    saved = service.save_progress(OWNER, item['id'], SaveProgress(revision=1,
+        current_question=1, status='interrupted', answers=[answer, 'Bản nháp câu hai', '']))
+    assert collided and saved['revision'] == 2
+    assert saved['answers'][0]['grading_status'] == 'graded'
+    assert saved['answers'][1]['text'] == 'Bản nháp câu hai'
+    assert repo.get(item['id'], OWNER) == saved
+    with engine.connect() as conn:
+        assert conn.execute(text('SELECT count(*) FROM grades')).scalar_one() >= 1
+        assert conn.execute(text('SELECT count(*) FROM answers')).scalar_one() == 3
