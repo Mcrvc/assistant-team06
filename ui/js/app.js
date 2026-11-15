@@ -809,7 +809,8 @@
   }
 
   if (page === "job-profile") {
-    await restoreCVFromBackend();
+    // Sync saved CV in the background so Extend, JD inputs, and toggles respond immediately.
+    const cvSyncPromise = restoreCVFromBackend();
 
     // Migrate legacy job-url to job-source if needed
     if (!account.job["job-source"] && typeof account.job["job-url"] === "string" && account.job["job-url"].trim()) {
@@ -1085,6 +1086,7 @@
             cvMode = "text";
           }
         } else if (syncCvCheckbox && syncCvCheckbox.checked) {
+          await cvSyncPromise;
           if (account.cvPdf || account.cvMode === "pdf") {
             cvLocal = [...account.cv];
             cvText = buildCvText(account.cv);
