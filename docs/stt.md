@@ -1,125 +1,79 @@
-# STT Service — Speech-to-Text via Whisper
+# STT Service — Speech-to-Text via Web Speech API
 
 Status: **implemented**
-Scope: transcribe user microphone audio to text during an interview session.
+Scope: transcribe candidate speech to text during an interview session.
 
 Component: `voice/stt` · Branch: `tts&stt`
 
-## 1. Why this exists
+## 1. Why Web Speech API (not Whisper)
 
-The interview page (`ui/interview.html`) lets candidates record spoken answers
-instead of typing. Audio captured in the browser is sent to the backend, where
-Whisper converts it to text and fills the `#answer` textarea in real time.
+The original plan used `openai-whisper` on the backend (`POST /api/stt`).
+After review, the team decided to move STT entirely to the browser for three reasons:
 
-The STT layer is intentionally a thin wrapper around Whisper so the rest of the
-app never imports a speech library directly. Swapping the model (e.g. upgrading
-from `base` to `small`) must not change any caller.
+- **No backend latency:** transcription happens locally in the browser, results appear in real time word by word.
+- **Vercel compatibility:** Vercel serverless functions have a 10 s timeout and no persistent process; running Whisper there is impractical.
+- **Consistency with existing frontend:** `app.js` already owned the mic button state (`isRecording`, `startRecording`, `stopRecording`). A backend STT layer duplicated that logic and caused event-listener conflicts on `#mic-toggle-btn`.
+
+`openai-whisper`, `stt.py`, and `POST /api/stt` have been removed. The backend has no STT endpoint.
 
 ## 2. Architecture
 
 Browser (voice.js)
 │
-│ MediaRecorder chunks every 1 s
-│ Blob sent every 4 s (pseudo-live) + on stop (final)
+│ User clicks #mic-toggle-btn
 │
 ▼
-POST /api/stt ← router.py
-│ multipart/form-data: audio file (webm/wav/any ffmpeg-readable)
+SpeechRecognition (window.SpeechRecognition / webkitSpeechRecognition)
+│ continuous = true, interimResults = true
+│ lang = “en-US”
+│
+│ onresult → interim + final transcript
 ▼
-stt.transcribe(bytes) ← stt.py
-│ write to temp file → Whisper → delete temp file
-▼
-{“text”: “...”} → voice.js fills #answer + fires input event
+#answer textarea ← updated in real time
+app.js input event fired → char counter updates
 
 
-## 3. Backend module
+No network request is made. Everything runs inside the browser process.
 
-**File:** `src/assistant/voice/stt.py`
-
-```python
-def transcribe(audio_bytes: bytes, language: str | None = None) -> str
-```
-
-| Parameter     | Type            | Required | Default | Notes |
-|---------------|-----------------|----------|---------|-------|
-| `audio_bytes` | `bytes`         | yes      | —       | Raw audio in any format ffmpeg can read |
-| `language`    | `str` or `None` | no       | `None`  | ISO-639-1 code e.g. `"en"`, `"vi"`. `None` = auto-detect |
-
-**Returns:** transcribed text as a plain string. Empty string `""` when no
-speech is detected (e.g. silence, noise-only).
-
-**Model:** `openai-whisper` base model, CPU, FP32.
-Loaded lazily on first call; subsequent calls reuse the in-memory model.
-First call downloads ~139 MB from Hugging Face (cached to `~/.cache/whisper`).
-
-**Temp file lifecycle:** audio bytes are written to a `.wav` temp file, passed
-to Whisper, then deleted in a `finally` block regardless of success or failure.
-
-## 4. API endpoint
-
-**File:** `src/assistant/voice/router.py`
-
-POST /api/stt
-Content-Type: multipart/form-data
-Field: audio — the recorded audio blob
-
-
-Response `200 OK`:
-```json
-{ "text": "I would put a smartphone inside the time capsule..." }
-```
-
-Response `500` (Whisper crash or ffmpeg missing):
-```json
-{ "detail": "Internal Server Error" }
-```
-
-No authentication is required on this endpoint. It accepts any audio format
-ffmpeg can decode (webm, wav, mp3, ogg, m4a).
-
-## 5. Frontend integration
+## 3. Frontend implementation
 
 **File:** `ui/js/voice.js`
 
-| Element          | ID                | Behaviour |
-|------------------|-------------------|-----------|
-| Mic toggle button | `#mic-toggle-btn` | Click to start/stop recording |
-| Answer textarea  | `#answer`         | Filled with transcript on each STT response |
-| Waveform bars    | `#voice-waveform` | `.active` class added while recording |
-| Mic label        | `#mic-btn-label`  | Updates to "Recording…" / "Record Answer with Microphone" |
-| Mic sub-label    | `#mic-btn-sub`    | Updates to "Click to stop" / "Click to start speech-to-text" |
-
-**Pseudo-live transcript flow:**
-1. `MediaRecorder` collects chunks every 1 s.
-2. `setInterval` fires every 4 s → sends cumulative blob to `/api/stt` → replaces `#answer` value.
-3. On stop → one final send with the complete recording.
-4. Each successful write fires an `input` event on `#answer` so the character counter in `app.js` updates.
-
-**Race condition guard:** a `pendingStt` flag prevents overlapping requests.
-If a request is still in flight when the next interval fires, that tick is skipped.
-
-## 6. Dependencies
-
-| Package          | Version       | Purpose |
-|------------------|---------------|---------|
-| `openai-whisper` | `>=20240930`  | Transcription model |
-| `ffmpeg`         | system (`apt`)| Audio decoding (required by Whisper) |
-| `python-multipart` | `>=0.0.9`  | FastAPI file upload parsing |
-
-Install:
-```bash
-sudo apt install -y ffmpeg
-pip install -e ".[web,dev,voice]"
+```javascript
+function startListening()  // starts SpeechRecognition, returns false if unsupported
+function stopListening()   // stops recognition, exposed via window.Voice
 ```
 
-## 7. Known limitations
+| Element | ID | Behaviour |
+|---|---|---|
+| Mic toggle button | `#mic-toggle-btn` | Click to start / stop |
+| Answer textarea | `#answer` | Filled with transcript in real time |
+| Waveform bars | `#voice-waveform` | `.active` while recording (handled by `app.js`) |
+| Mic label | `#mic-btn-label` | `app.js` updates to "Recording… / Record Answer" |
 
-- **Latency:** first request is slow (~3–5 s) while the model loads. Subsequent
-  requests are faster (~1–2 s for a 4 s clip on CPU).
-- **Cumulative re-transcription:** the full recording is re-sent every 4 s. For
-  long answers (>60 s) this increases cost and latency. A future improvement
-  would transcribe only the latest chunk and append rather than replace.
-- **No streaming:** Whisper is not natively streaming. True word-by-word live
-  captions would require `whisper-streaming` or a chunked VAD approach.
-- **CPU only:** `compute_type="int8"` on CPU. A GPU would reduce latency to
-  under 0.5 s but is not available on Vercel.
+**Real-time transcript flow:**
+1. `onresult` fires on every word recognised.
+2. Final segments are concatenated into `finalTranscript`; interim segments shown immediately.
+3. `#answer.value` = `finalTranscript + interim` on every event.
+4. An `input` event is dispatched so `app.js` char counter stays in sync.
+5. If the browser auto-stops after silence, `recognition.onend` restarts it while `isListening` is still `true`.
+
+**Relationship with `app.js`:**
+`app.js` owns the mic button UI state (`is-recording` class, label text, waveform class, `isRecording` flag). `voice.js` owns the `SpeechRecognition` lifecycle. Both attach to `#mic-toggle-btn`; `voice.js` loads after `app.js` (`defer` ordering in `interview.html`) and calls `stopSpeaking()` before starting recognition so YORI's voice is not transcribed.
+
+## 4. Browser support
+
+| Browser | Support |
+|---|---|
+| Chrome / Edge | ✅ Full (`window.SpeechRecognition` or `webkitSpeechRecognition`) |
+| Safari | ⚠️ Partial (requires HTTPS, no `continuous` mode) |
+| Firefox | ❌ Not supported |
+
+**Fallback:** when `SpeechRecognition` is unavailable, `startListening()` returns `false` and logs a warning. `app.js`'s original mock (`setTimeout` sample text) continues to handle the button click uninterrupted.
+
+## 5. Known limitations
+
+- **No offline support:** Web Speech API in Chrome sends audio to Google's servers; not suitable for air-gapped deployments.
+- **Language:** hardcoded to `"en-US"`. Vietnamese (`vi-VN`) can be added by passing `lang` based on the interview's configured language.
+- **Safari continuous mode:** Safari stops recognition after a short pause; the `onend` restart loop partially compensates but behaviour is inconsistent.
+- **Self-transcription:** `voice.js` calls `stopSpeaking()` before opening the mic; without this, YORI's TTS audio would be picked up by the microphone.
