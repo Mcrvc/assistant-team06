@@ -2614,35 +2614,6 @@
       });
     }
   }
-  if (page === "dashboard") {
-    const cards = $$(".reveal-on-scroll");
-    if (cards.length > 0) {
-      document.body.classList.add("js-scroll-ready");
-      if ("IntersectionObserver" in window) {
-        const observer = new IntersectionObserver((entries, obs) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              entry.target.classList.add("is-visible");
-              obs.unobserve(entry.target);
-            }
-          });
-        }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
-        cards.forEach(card => observer.observe(card));
-      } else {
-        const checkScroll = () => {
-          const triggerBottom = window.innerHeight * 0.92;
-          cards.forEach(card => {
-            if (card.getBoundingClientRect().top < triggerBottom) {
-              card.classList.add("is-visible");
-            }
-          });
-        };
-        window.addEventListener("scroll", checkScroll, { passive: true });
-        checkScroll();
-      }
-    }
-  }
-
   // Preserve state between separate file:// documents in the same tab.
   window.addEventListener("pagehide", save);
 })().catch(error => {

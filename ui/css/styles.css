@@ -945,35 +945,6 @@ input::placeholder, textarea::placeholder { color: #82918f; opacity: 1; }
   border-color: #bad3ce;
 }
 
-/* Scroll Rise-Up Animation for 3 Small Banners */
-body.js-scroll-ready .feature-card.reveal-on-scroll {
-  opacity: 0;
-  transform: translateY(44px);
-  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, border-color 0.22s ease;
-  will-change: transform, opacity;
-}
-
-body.js-scroll-ready .feature-card.reveal-on-scroll.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-body.js-scroll-ready .feature-card.reveal-on-scroll:nth-child(1).is-visible {
-  transition-delay: 0s;
-}
-
-body.js-scroll-ready .feature-card.reveal-on-scroll:nth-child(2).is-visible {
-  transition-delay: 0.12s;
-}
-
-body.js-scroll-ready .feature-card.reveal-on-scroll:nth-child(3).is-visible {
-  transition-delay: 0.24s;
-}
-
-body.js-scroll-ready .feature-card.reveal-on-scroll.is-visible:hover {
-  transform: translateY(-5px);
-}
-
 .feature-card-media {
   width: 100%;
   height: 175px;
