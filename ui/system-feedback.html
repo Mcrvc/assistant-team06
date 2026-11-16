@@ -49,15 +49,19 @@
       <div class="survey-row">
         <label class="survey-label">
           <span class="survey-number">01</span>
-          <span class="survey-text">How accurate was the AI-generated interview feedback? (1 = very poor, 5 = excellent)</span>
+          <span class="survey-text">How accurate was the AI-generated interview feedback?</span>
         </label>
         <div class="survey-field-input">
-          <div class="rating-group" role="radiogroup" aria-label="Grade rating">
-            <label class="rating-option"><input type="radio" name="grade_rating" value="1" required><span>1</span></label>
-            <label class="rating-option"><input type="radio" name="grade_rating" value="2"><span>2</span></label>
-            <label class="rating-option"><input type="radio" name="grade_rating" value="3"><span>3</span></label>
-            <label class="rating-option"><input type="radio" name="grade_rating" value="4"><span>4</span></label>
-            <label class="rating-option"><input type="radio" name="grade_rating" value="5"><span>5</span></label>
+          <div class="rating-control rating-control-5">
+            <span class="rating-face" aria-hidden="true"><img src="assets/avatar-sad.svg" alt=""></span>
+            <div class="rating-group" role="radiogroup" aria-label="Accuracy rating from 1, very poor, to 5, excellent">
+              <label class="rating-option"><input type="radio" name="grade_rating" value="1" required><span>1</span></label>
+              <label class="rating-option"><input type="radio" name="grade_rating" value="2"><span>2</span></label>
+              <label class="rating-option"><input type="radio" name="grade_rating" value="3"><span>3</span></label>
+              <label class="rating-option"><input type="radio" name="grade_rating" value="4"><span>4</span></label>
+              <label class="rating-option"><input type="radio" name="grade_rating" value="5"><span>5</span></label>
+            </div>
+            <span class="rating-face" aria-hidden="true"><img src="assets/avatar.svg" alt=""></span>
           </div>
         </div>
       </div>
@@ -68,12 +72,16 @@
           <span class="survey-text">How appropriate were the interview questions for your target role?</span>
         </label>
         <div class="survey-field-input">
-          <div class="rating-group" role="radiogroup" aria-label="Quality rating">
-            <label class="rating-option"><input type="radio" name="quality_rating" value="1" required><span>1</span></label>
-            <label class="rating-option"><input type="radio" name="quality_rating" value="2"><span>2</span></label>
-            <label class="rating-option"><input type="radio" name="quality_rating" value="3"><span>3</span></label>
-            <label class="rating-option"><input type="radio" name="quality_rating" value="4"><span>4</span></label>
-            <label class="rating-option"><input type="radio" name="quality_rating" value="5"><span>5</span></label>
+          <div class="rating-control rating-control-5">
+            <span class="rating-face" aria-hidden="true"><img src="assets/avatar-sad.svg" alt=""></span>
+            <div class="rating-group" role="radiogroup" aria-label="Appropriateness rating from 1, not appropriate, to 5, very appropriate">
+              <label class="rating-option"><input type="radio" name="quality_rating" value="1" required><span>1</span></label>
+              <label class="rating-option"><input type="radio" name="quality_rating" value="2"><span>2</span></label>
+              <label class="rating-option"><input type="radio" name="quality_rating" value="3"><span>3</span></label>
+              <label class="rating-option"><input type="radio" name="quality_rating" value="4"><span>4</span></label>
+              <label class="rating-option"><input type="radio" name="quality_rating" value="5"><span>5</span></label>
+            </div>
+            <span class="rating-face" aria-hidden="true"><img src="assets/avatar.svg" alt=""></span>
           </div>
         </div>
       </div>
@@ -84,10 +92,14 @@
           <span class="survey-text">How difficult were the interview questions?</span>
         </label>
         <div class="survey-field-input">
-          <div class="difficulty-group" role="radiogroup" aria-label="Difficulty">
-            <label class="difficulty-option"><input type="radio" name="difficulty" value="easy"><span>Easy</span></label>
-            <label class="difficulty-option"><input type="radio" name="difficulty" value="medium"><span>Medium</span></label>
-            <label class="difficulty-option"><input type="radio" name="difficulty" value="hard"><span>Hard</span></label>
+          <div class="rating-control rating-control-3">
+            <span class="rating-face" aria-hidden="true"><img src="assets/avatar.svg" alt=""></span>
+            <div class="difficulty-group" role="radiogroup" aria-label="Difficulty from easy to hard">
+              <label class="difficulty-option"><input type="radio" name="difficulty" value="easy"><span>Easy</span></label>
+              <label class="difficulty-option"><input type="radio" name="difficulty" value="medium"><span>Medium</span></label>
+              <label class="difficulty-option"><input type="radio" name="difficulty" value="hard"><span>Hard</span></label>
+            </div>
+            <span class="rating-face" aria-hidden="true"><img src="assets/avatar-sad.svg" alt=""></span>
           </div>
         </div>
       </div>
@@ -98,9 +110,13 @@
           <span class="survey-text">Would you recommend Yourin to others?</span>
         </label>
         <div class="survey-field-input">
-          <div class="recommend-group" role="radiogroup" aria-label="Would recommend">
-            <label class="recommend-option"><input type="radio" name="would_recommend" value="true"><span>Yes</span></label>
-            <label class="recommend-option"><input type="radio" name="would_recommend" value="false"><span>No</span></label>
+          <div class="rating-control rating-control-2">
+            <span class="rating-face" aria-hidden="true"><img src="assets/avatar.svg" alt=""></span>
+            <div class="recommend-group" role="radiogroup" aria-label="Would recommend, yes or no">
+              <label class="recommend-option"><input type="radio" name="would_recommend" value="true"><span>Yes</span></label>
+              <label class="recommend-option"><input type="radio" name="would_recommend" value="false"><span>No</span></label>
+            </div>
+            <span class="rating-face" aria-hidden="true"><img src="assets/avatar-sad.svg" alt=""></span>
           </div>
         </div>
       </div>

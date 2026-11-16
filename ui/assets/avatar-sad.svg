@@ -1,0 +1,58 @@
+<svg width="498" height="498" viewBox="0 0 498 498" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="avatarSadCircle">
+      <circle cx="249" cy="249" r="244" />
+    </clipPath>
+    <radialGradient id="avatarSadBg" cx="50%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="65%" stop-color="#EAF5F5"/>
+      <stop offset="100%" stop-color="#D4E9E8"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Circular Avatar Backdrop -->
+  <circle cx="249" cy="249" r="245" fill="url(#avatarSadBg)" stroke="#4F8F9B" stroke-width="6"/>
+
+  <g clip-path="url(#avatarSadCircle)">
+    <!-- Subtle Upper Collar / Shoulder Peek at Bottom Edge -->
+    <rect x="149" y="396" width="200" height="140" rx="70" fill="#FBF9F1" stroke="#4F8F9B" stroke-width="10"/>
+    <path d="M 205 436 Q 249 456 293 436" stroke="#92C7CF" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+    <!-- Antenna -->
+    <line x1="249" y1="156" x2="249" y2="92" stroke="#4F8F9B" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="249" cy="76" r="34" fill="#92C7CF" stroke="#4F8F9B" stroke-width="7"/>
+    <circle cx="239" cy="66" r="12" fill="#FBF9F1"/>
+
+    <!-- Ear Cups / Headphones -->
+    <rect x="38" y="218" width="46" height="106" rx="22" fill="#4F8F9B"/>
+    <circle cx="61" cy="271" r="11" fill="#92C7CF"/>
+    <rect x="414" y="218" width="46" height="106" rx="22" fill="#4F8F9B"/>
+    <circle cx="437" cy="271" r="11" fill="#92C7CF"/>
+
+    <!-- Head Shell -->
+    <rect x="74" y="150" width="350" height="244" rx="90" fill="#FBF9F1" stroke="#4F8F9B" stroke-width="11"/>
+
+    <!-- Visor (Face Screen) -->
+    <rect x="108" y="184" width="282" height="176" rx="64" fill="#203D43"/>
+
+    <!-- Rosy Cheeks -->
+    <circle cx="144" cy="306" r="16" fill="#F4A5A5" opacity="0.75"/>
+    <circle cx="354" cy="306" r="16" fill="#F4A5A5" opacity="0.75"/>
+
+    <!-- Glowing Aqua Eyes -->
+    <ellipse cx="178" cy="258" rx="22" ry="26" fill="#92C7CF"/>
+    <circle cx="185" cy="248" r="8" fill="#FFFFFF"/>
+    <ellipse cx="320" cy="258" rx="22" ry="26" fill="#92C7CF"/>
+    <circle cx="327" cy="248" r="8" fill="#FFFFFF"/>
+
+    <!-- Sad Eyebrows -->
+    <path d="M 150 230 L 199 216" stroke="#92C7CF" stroke-width="9" stroke-linecap="round" fill="none"/>
+    <path d="M 348 230 L 299 216" stroke="#92C7CF" stroke-width="9" stroke-linecap="round" fill="none"/>
+
+    <!-- Disappointed Frown -->
+    <path d="M 222 318 Q 249 292 276 318" stroke="#92C7CF" stroke-width="11" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- Outer Ring Stroke -->
+  <circle cx="249" cy="249" r="245" fill="none" stroke="#4F8F9B" stroke-width="6"/>
+</svg>
