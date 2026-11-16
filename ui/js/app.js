@@ -1995,53 +1995,31 @@
   }
 
   if (page === "storage") {
-    try {
-      const listResult = await api.request("/api/interviews", {
-        loading: {
-          title: "Loading your interviews",
-          detail: "Fetching your saved sessions from the server.",
-          coldStartAfter: 5000
-        },
-        notify: true
-      });
-        if (listResult.ok && Array.isArray(listResult.data)) {
-          account.interviews = listResult.data.map(view => {
-            const answers = Array.isArray(view.answers)
-              ? view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""))
-              : ["", "", ""];
-            while (answers.length < 3) answers.push("");
-            answers.length = 3;
-            return {
-              id: view.id,
-              name: typeof view.name === "string" ? view.name : "Interview",
-              date: view.created_at ? new Date(view.created_at).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"),
-              finished: view.status === "finalized",
-              answers,
-              cv: ["", "", "", ""],
-              cvPdf: null,
-              cvMode: "text",
-              job: {},
-              jobProfile: view.job_profile || null,
-              questions: Array.isArray(view.questions)
-                ? view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")))
-                : [],
-              questionDetails: Array.isArray(view.questions) ? view.questions : [],
-              totalQuestions: Array.isArray(view.questions) && view.questions.length ? view.questions.length : 3,
-              revision: Number.isInteger(view.revision) ? view.revision : 0,
-              status: view.status,
-              currentQuestion: Number.isInteger(view.current_question) ? view.current_question : 0,
-              progress: view.progress || null,
-              report: view.report || null,
-              server: true
-            };
-          });
-          save();
-        }
-      } catch (_) { /* keep local cache if the API is unavailable */ }
-
     const listContainer = $("#interview-list");
     const emptyContainer = $("#storage-empty");
     const gridHead = $(".storage-grid-head");
+    const hasCached = Array.isArray(account.interviews) && account.interviews.length > 0;
+
+    async function syncInterviewsFromServer() {
+      try {
+        const listResult = await api.request("/api/interviews", {
+          loading: hasCached ? false : {
+            title: "Loading your interviews",
+            detail: "Fetching your saved sessions from the server.",
+            coldStartAfter: 5000
+          },
+          notify: !hasCached
+        });
+        if (listResult.ok && Array.isArray(listResult.data)) {
+          const previousById = new Map((account.interviews || []).map(item => [item.id, item]));
+          account.interviews = listResult.data.map(view =>
+            serverInterviewFromView(view, previousById.get(view.id) || null)
+          );
+          save();
+          renderInterviews();
+        }
+      } catch (_) { /* keep local cache if the API is unavailable */ }
+    }
 
     function renderInterviews() {
       listContainer.replaceChildren();
@@ -2208,7 +2186,13 @@
       });
     }
 
-    renderInterviews();
+    if (hasCached) {
+      renderInterviews();
+      syncInterviewsFromServer();
+    } else {
+      await syncInterviewsFromServer();
+      renderInterviews();
+    }
   }
 
   if (page === "report") {
