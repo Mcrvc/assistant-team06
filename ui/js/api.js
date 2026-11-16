@@ -254,35 +254,17 @@
     return { success: true, user: data.user };
   }
 
-  async function updateAccount({ username, password } = {}) {
+  async function updateAccount({ password } = {}) {
     const client = await requireClient();
     const currentUser = await getCurrentUser();
     if (!currentUser) throw new Error("You must be signed in to update your account.");
 
-    const updates = {};
-
-    if (username !== undefined) {
-      const normalizedUsername = validateUsername(username);
-      const currentUsername = normalizeUsername(currentUser.user_metadata?.username);
-      if (normalizedUsername !== currentUsername) {
-        updates.email = usernameToEmail(normalizedUsername);
-        updates.data = {
-          ...(currentUser.user_metadata || {}),
-          username: normalizedUsername
-        };
-      }
+    if (!password) {
+      throw new Error("No password changes were provided.");
     }
+    validatePassword(password);
 
-    if (password) {
-      validatePassword(password);
-      updates.password = password;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      throw new Error("No account changes were provided.");
-    }
-
-    const { data, error } = await client.auth.updateUser(updates);
+    const { data, error } = await client.auth.updateUser({ password });
     if (error) authError(error);
     return { success: true, user: data.user };
   }

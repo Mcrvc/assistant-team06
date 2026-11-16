@@ -577,10 +577,10 @@
         await api.unlockEditing(entered);
         isPasswordUnlocked = true;
         verifiedPassword = entered;
-        if (usernameInput) usernameInput.readOnly = false;
+        if (usernameInput) usernameInput.readOnly = true;
         if (passwordInput) passwordInput.readOnly = false;
         if (passwordUnlockBox) passwordUnlockBox.hidden = true;
-        if (profileStatus) profileStatus.textContent = "Editing unlocked. Update your username or set a new password.";
+        if (profileStatus) profileStatus.textContent = "Editing unlocked. Set a new password below.";
         if (passwordInput) passwordInput.focus();
       } catch (err) {
         error("#profile-error", err?.message || "Password verification failed.");
@@ -602,25 +602,19 @@
           return error("#profile-error", "Verify your current password before saving changes.");
         }
 
-        const currentUsername = String(
-          authenticatedUser?.user_metadata?.username || account.username || ""
-        ).trim().toLowerCase();
-        const newUsername = usernameInput ? usernameInput.value.trim().toLowerCase() : "";
         const newPassword = passwordInput ? passwordInput.value : "";
 
-        if (!/^[a-z0-9_]{3,60}$/.test(newUsername)) {
-          return error("#profile-error", "Username must contain 3-60 characters: lowercase letters, numbers, or underscores.");
+        if (!newPassword) {
+          lockProfileFields();
+          if (profileStatus) profileStatus.textContent = "No password changes detected. Account information kept as-is.";
+          return;
         }
-        if (newPassword && (newPassword.length < 8 || newPassword.length > 128)) {
+        if (newPassword.length < 8 || newPassword.length > 128) {
           return error("#profile-error", "A new password must contain 8-128 characters.");
         }
-
-        const usernameChanged = newUsername !== currentUsername;
-        const passwordChanged = Boolean(newPassword) && newPassword !== verifiedPassword;
-
-        if (!usernameChanged && !passwordChanged) {
+        if (newPassword === verifiedPassword) {
           lockProfileFields();
-          if (profileStatus) profileStatus.textContent = "No changes detected. Account information kept as-is.";
+          if (profileStatus) profileStatus.textContent = "No password changes detected. Account information kept as-is.";
           return;
         }
 
@@ -628,21 +622,11 @@
         if (saveButton) saveButton.disabled = true;
 
         try {
-          await api.updateAccount({
-            username: usernameChanged ? newUsername : undefined,
-            password: passwordChanged ? newPassword : undefined
-          });
+          await api.updateAccount({ password: newPassword });
           authenticatedUser = await api.getCurrentUser();
-
-          account.username = newUsername;
-          state.currentAccount = newUsername;
-          save();
-
-          cacheUsername(newUsername);
-          paintUsername(newUsername);
           lockProfileFields();
 
-          if (profileStatus) profileStatus.textContent = "Account information saved.";
+          if (profileStatus) profileStatus.textContent = "Password updated.";
         } catch (err) {
           error("#profile-error", err?.message || "Unable to save account changes.");
         } finally {
