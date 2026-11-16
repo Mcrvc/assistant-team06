@@ -5,6 +5,7 @@
   const page = document.body.dataset.page;
   const PUBLIC_PAGES = ["sign-in", "sign-up"];
   const USERNAME_CACHE_KEY = "yourin:username";
+  const INTERVIEW_CACHE_TTL_MS = 5 * 60 * 1000;
 
   function readCachedUsername() {
     try {
@@ -139,7 +140,8 @@
       feedback: [],
       cvMode: "text",
       cvPdf: null,
-      interviews: []
+      interviews: [],
+      interviewsSyncedAt: 0
     };
   }
   // Ignore corrupt or incompatible stored state instead of breaking the page.
@@ -195,6 +197,7 @@
   account.username = authenticatedUsername;
   state.currentAccount = authenticatedUsername;
   if (!account.cvMode) account.cvMode = "text";
+  if (!Number.isFinite(account.interviewsSyncedAt)) account.interviewsSyncedAt = 0;
   if (removedDemoInterviews) save();
 
   // Restore the saved CV only on pages that edit or use it. Other pages should
@@ -217,6 +220,15 @@
     const serialized = JSON.stringify(state);
     try { localStorage.setItem(KEY, serialized); } catch (_) { /* Same-tab fallback below. */ }
     try { window.name = PREFIX + serialized; } catch (_) { /* Static navigation still works. */ }
+  }
+  function interviewsCacheFresh() {
+    return Number.isFinite(account.interviewsSyncedAt) &&
+      account.interviewsSyncedAt > 0 &&
+      Date.now() - account.interviewsSyncedAt < INTERVIEW_CACHE_TTL_MS;
+  }
+  function markInterviewsSynced() {
+    account.interviewsSyncedAt = Date.now();
+    save();
   }
   function error(selector, message) {
     const element = $(selector);
@@ -2029,6 +2041,7 @@
     const emptyContainer = $("#storage-empty");
     const gridHead = $(".storage-grid-head");
     const hasCached = Array.isArray(account.interviews) && account.interviews.length > 0;
+    const cacheFresh = interviewsCacheFresh();
 
     async function syncInterviewsFromServer() {
       try {
@@ -2045,7 +2058,7 @@
           account.interviews = listResult.data.map(view =>
             serverInterviewFromView(view, previousById.get(view.id) || null)
           );
-          save();
+          markInterviewsSynced();
           renderInterviews();
         }
       } catch (_) { /* keep local cache if the API is unavailable */ }
@@ -2216,7 +2229,9 @@
       });
     }
 
-    if (hasCached) {
+    if (cacheFresh) {
+      renderInterviews();
+    } else if (hasCached) {
       renderInterviews();
       syncInterviewsFromServer();
     } else {
@@ -2259,7 +2274,7 @@
       if (account.activeId && !account.interviews.some(item => item.id === account.activeId)) {
         account.activeId = null;
       }
-      save();
+      markInterviewsSynced();
       return "ok";
     }
 
@@ -2346,7 +2361,8 @@
       const retakeBtn = $("#retake-interview-btn");
       if (!retakeBtn) return;
 
-      retakeBtn.addEventListener("click", async event => {
+      // Replace the handler when the report is re-rendered from refreshed data.
+      retakeBtn.onclick = async event => {
         event.preventDefault();
         if (interview.server === true && interview.id) {
           const jobProfile = interview.jobProfile || {
@@ -2395,7 +2411,7 @@
           save();
           go("interview.html");
         }
-      });
+      };
     }
 
     function renderReport(interview) {
@@ -2446,15 +2462,31 @@
       showReportState("content");
     }
 
+    const cachedInterview = reportInterview();
+    const hasCachedReport = Boolean(
+      cachedInterview && cachedInterview.server === true && cachedInterview.report
+    );
+    const cacheFresh = interviewsCacheFresh();
+
+    // Show a locally cached report immediately instead of blocking on the API.
+    if (hasCachedReport) renderReport(cachedInterview);
+    if (hasCachedReport && cacheFresh) return;
+
     try {
-      const listState = await loadInterviewsForReport();
+      let listState = "ok";
+      if (!cacheFresh) {
+        listState = await loadInterviewsForReport();
+      }
+      if (listState === "unauthorized") {
+        showEmptyReport("Session expired", "Please sign in again to view your reports.");
+        return;
+      }
       const interview = reportInterview();
 
       if (!interview) {
+        if (listState === "error" && hasCachedReport) return;
         if (listState === "error") {
           showEmptyReport("Unable to load interviews", "We couldn't reach the server. Please refresh the page or try again later.");
-        } else if (listState === "unauthorized") {
-          showEmptyReport("Session expired", "Please sign in again to view your reports.");
         } else {
           showEmptyReport("No report yet", "Finish an interview first, then come back here to review your feedback.");
         }
@@ -2462,9 +2494,13 @@
       }
 
       if (interview.server !== true || !interview.id) {
+        if (listState === "error" && hasCachedReport) return;
         showEmptyReport("No report yet", "Finish an interview first, then come back here to review your feedback.");
         return;
       }
+
+      // Keep the cached report visible if only the network refresh failed.
+      if (listState === "error" && hasCachedReport) return;
 
       const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
         loading: false,
@@ -2473,6 +2509,8 @@
       if (!viewResult.ok || !viewResult.data) {
         if (viewResult.status === 401) {
           showEmptyReport("Session expired", "Please sign in again to view this report.");
+        } else if (hasCachedReport) {
+          return;
         } else {
           showEmptyReport("Unable to load report", "We couldn't load this interview report. Please try again from Your Interviews.");
         }
@@ -2488,6 +2526,7 @@
       renderReport(refreshed);
     } catch (err) {
       console.error("Report load failed:", err);
+      if (hasCachedReport) return;
       showEmptyReport("Unable to load report", "Something went wrong while loading this report. Please try again.");
     }
   }
