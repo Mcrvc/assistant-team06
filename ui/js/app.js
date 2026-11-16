@@ -1834,7 +1834,29 @@
   if (page === "done-interview") {
     $("#done-form").addEventListener("submit", async event => {
       event.preventDefault();
-      const interview = activeInterview() || startInterview();
+      let interview = activeInterview();
+      if (!interview && account.activeId) {
+        try {
+          const recovered = await api.request(`/api/interviews/${encodeURIComponent(account.activeId)}`, {
+            loading: false,
+            notify: false
+          });
+          if (recovered.ok && recovered.data) {
+            interview = serverInterviewFromView(recovered.data, null);
+            account.interviews.unshift(interview);
+            account.activeId = interview.id;
+            save();
+          }
+        } catch (_) { /* handled below */ }
+      }
+      if (!interview || interview.server !== true || !interview.id) {
+        window.YourinErrors?.showToast?.(
+          "No active server interview found to finalize. Please open it from Your Interview.",
+          { type: "error" }
+        );
+        return;
+      }
+
       const name = $("#interview-name").value.trim();
       const targetName = (name || interview.name || "New Interview").slice(0, 200);
       if (account.interviews.some(item =>
@@ -1861,101 +1883,100 @@
       }) : null;
 
       try {
-        if (interview && interview.server === true && interview.id) {
-          // Wait for grading to finish before finalizing, keeping revision synced.
-          let attempts = 0;
-          let latestView = null;
-          while (attempts < 60) {
-            const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
-              loading: false,
-              notify: false
-            });
-            if (viewResult.ok && viewResult.data) {
-              latestView = viewResult.data;
-              if (Number.isInteger(latestView.revision)) {
-                interview.revision = latestView.revision;
-              }
-              if (typeof latestView.status === "string") {
-                interview.status = latestView.status;
-                interview.finished = latestView.status === "finalized";
-              }
-              if (latestView.status === "finalized") {
+        // Wait for grading to finish before finalizing, keeping revision synced.
+        let attempts = 0;
+        let latestView = null;
+        while (attempts < 60) {
+          const viewResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+            loading: false,
+            notify: false
+          });
+          if (viewResult.ok && viewResult.data) {
+            latestView = viewResult.data;
+            if (Number.isInteger(latestView.revision)) {
+              interview.revision = latestView.revision;
+            }
+            if (typeof latestView.status === "string") {
+              interview.status = latestView.status;
+              interview.finished = latestView.status === "finalized";
+            }
+            if (latestView.status === "finalized") {
+              const serverName = String(latestView.name || "").trim().toLowerCase();
+              if (!name || serverName === targetName.trim().toLowerCase()) {
+                interview.name = typeof latestView.name === "string" ? latestView.name : interview.name;
                 interview.report = latestView.report || interview.report || null;
                 save();
                 go("report.html");
                 return;
               }
-              const statuses = Array.isArray(latestView.answers)
-                ? latestView.answers.map(answer => answer.grading_status)
-                : [];
-              const pendingCount = statuses.filter(status => status === "pending").length;
-              if (pendingCount === 0) break;
+              break;
             }
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            attempts += 1;
+            const statuses = Array.isArray(latestView.answers)
+              ? latestView.answers.map(answer => answer.grading_status)
+              : [];
+            const pendingCount = statuses.filter(status => status === "pending").length;
+            if (pendingCount === 0) break;
           }
-
-          let finalizeResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/finalize`, {
-            method: "POST",
-            body: JSON.stringify({
-              revision: interview.revision,
-              name: targetName
-            }),
-            loading: false
-          });
-          if (finalizeResult.status === 409 && finalizeResult.data?.error?.code !== "duplicate_name") {
-            const refreshed = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
-              loading: false,
-              notify: false
-            });
-            if (refreshed.ok && refreshed.data && Number.isInteger(refreshed.data.revision)) {
-              interview.revision = refreshed.data.revision;
-              if (refreshed.data.status === "finalized") {
-                finalizeResult = refreshed;
-              } else {
-                finalizeResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/finalize`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    revision: interview.revision,
-                    name: targetName
-                  }),
-                  loading: false
-                });
-              }
-            }
-          }
-          if (!finalizeResult.ok || !finalizeResult.data) {
-            if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function") {
-              window.YourinErrors.handleStatus(finalizeResult.status, finalizeResult.data);
-            } else {
-              window.YourinErrors?.showToast?.("Unable to finalize the interview. Please try again.", { type: "error" });
-            }
-            return;
-          }
-
-          const view = finalizeResult.data;
-          interview.name = typeof view.name === "string" ? view.name : interview.name;
-          interview.finished = view.status === "finalized";
-          interview.status = view.status;
-          interview.revision = Number.isInteger(view.revision) ? view.revision : interview.revision;
-          interview.report = view.report || interview.report || null;
-          if (Array.isArray(view.answers)) {
-            interview.answers = view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""));
-            interview.answerStatuses = view.answers.map(answer => (typeof answer.grading_status === "string" ? answer.grading_status : "unanswered"));
-            interview.answerGrades = view.answers.map(answer => answer.grade || null);
-            interview.answerErrors = view.answers.map(answer => answer.error_code || null);
-            interview.submittedTexts = interview.answers.slice();
-          }
-          if (Array.isArray(view.questions)) {
-            interview.questions = view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")));
-            interview.questionDetails = view.questions;
-          }
-          save();
-        } else {
-          if (name) interview.name = name;
-          interview.finished = true;
-          save();
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          attempts += 1;
         }
+
+        let finalizeResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/finalize`, {
+          method: "POST",
+          body: JSON.stringify({
+            revision: interview.revision,
+            name: targetName
+          }),
+          loading: false
+        });
+        if (finalizeResult.status === 409 && finalizeResult.data?.error?.code !== "duplicate_name" && finalizeResult.data?.error?.code !== "already_finalized") {
+          const refreshed = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+            loading: false,
+            notify: false
+          });
+          if (refreshed.ok && refreshed.data && Number.isInteger(refreshed.data.revision)) {
+            interview.revision = refreshed.data.revision;
+            if (refreshed.data.status === "finalized" && (!name || String(refreshed.data.name || "").trim().toLowerCase() === targetName.trim().toLowerCase())) {
+              finalizeResult = refreshed;
+            } else {
+              finalizeResult = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/finalize`, {
+                method: "POST",
+                body: JSON.stringify({
+                  revision: interview.revision,
+                  name: targetName
+                }),
+                loading: false
+              });
+            }
+          }
+        }
+        if (!finalizeResult.ok || !finalizeResult.data) {
+          if (window.YourinErrors && typeof window.YourinErrors.handleStatus === "function") {
+            window.YourinErrors.handleStatus(finalizeResult.status, finalizeResult.data);
+          } else {
+            window.YourinErrors?.showToast?.("Unable to finalize the interview. Please try again.", { type: "error" });
+          }
+          return;
+        }
+
+        const view = finalizeResult.data;
+        interview.name = typeof view.name === "string" ? view.name : interview.name;
+        interview.finished = view.status === "finalized";
+        interview.status = view.status;
+        interview.revision = Number.isInteger(view.revision) ? view.revision : interview.revision;
+        interview.report = view.report || interview.report || null;
+        if (Array.isArray(view.answers)) {
+          interview.answers = view.answers.map(answer => (typeof answer.text === "string" ? answer.text : ""));
+          interview.answerStatuses = view.answers.map(answer => (typeof answer.grading_status === "string" ? answer.grading_status : "unanswered"));
+          interview.answerGrades = view.answers.map(answer => answer.grade || null);
+          interview.answerErrors = view.answers.map(answer => answer.error_code || null);
+          interview.submittedTexts = interview.answers.slice();
+        }
+        if (Array.isArray(view.questions)) {
+          interview.questions = view.questions.map(question => (typeof question === "string" ? question : (question && typeof question.text === "string" ? question.text : "")));
+          interview.questionDetails = view.questions;
+        }
+        save();
       } catch (err) {
         console.error("Finalize failed:", err);
         window.YourinErrors?.showToast?.("Unable to finalize the interview. Please try again.", { type: "error" });
