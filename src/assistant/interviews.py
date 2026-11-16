@@ -256,14 +256,36 @@ class InterviewService:
                 notices.append(f"{rejected_count} answer(s) were rejected during evidence verification and excluded from scoring.")
             if unanswered_count:
                 notices.append(f"{unanswered_count} question(s) were left unanswered.")
+            report = {"overall_score": overall, "items": items,
+                      "label": ("Good" if overall >= 6 else "Needs Improvement") if overall is not None else "Incomplete"}
+            # One provider-written paragraph about the whole interview. Only
+            # question, label, score and feedback leave this function - raw
+            # answers and the CV are never forwarded - and a summary failure
+            # must never block finalizing an otherwise complete interview.
+            try:
+                summary = self.ai.summarize_interview([
+                    {"question": item["question"]["text"], "verdict": item["label"],
+                     "score": item["score"], "feedback": item["feedback"]}
+                    for item in items if item["score"] is not None
+                ])
+            except Exception:
+                logger.error("Interview summary did not finish; report stays without a summary")
+                summary = None
+            if summary:
+                report["overall_comment"] = summary["summary"]
+                report["summary_model"] = summary["model"]
+                if summary["used_fallback"]:
+                    # The comment is extra commentary, not the assessment: a
+                    # fallback summary must not relabel a real grade as mock.
+                    notices.append("The overall comment was written by the offline "
+                                   "fallback, not by the AI.")
             notices.append("Contains mock/fallback output; not a real AI assessment."
                            if used_fallback else "Evidence quotations passed exact text matching.")
+            report.update(used_fallback=used_fallback, notice=" ".join(notices))
             interview.update(
                 name=request.name or interview["name"], status="finalized",
                 current_question=len(interview["questions"]) - 1,
-                report={"overall_score": overall, "items": items, "used_fallback": used_fallback,
-                        "label": ("Good" if overall >= 6 else "Needs Improvement") if overall is not None else "Incomplete",
-                        "notice": " ".join(notices)},
+                report=report,
             )
         return self._change(owner_id, interview_id, request.revision, change,
             already_applied=lambda item: item["status"] == "finalized" and (

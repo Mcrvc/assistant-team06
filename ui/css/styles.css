@@ -2216,6 +2216,24 @@ td:first-child { max-width: 320px; overflow-wrap: anywhere; }
   font-size: 14px;
   line-height: 1.6;
 }
+/* Overall feedback summary panel on the report page */
+.report-summary {
+  margin-bottom: 24px;
+}
+.report-summary h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+.report-summary p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .feedback-eval-badge.is-pending {
   background: #eef3f0;
   color: #5d6f6b;
