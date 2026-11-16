@@ -652,13 +652,13 @@
     const pdfStatus = $("#pdf-status");
     const pdfError = $("#pdf-error");
 
-    async function persistCvToBackend() {
+    async function persistCvToBackend(nextCv = account.cv, nextMode = account.cvMode, nextPdf = account.cvPdf) {
       if (!api || typeof api.saveCV !== "function") return false;
       try {
         const result = await api.saveCV({
-          cv: Array.isArray(account.cv) ? account.cv : ["", "", "", ""],
-          cvMode: account.cvMode || "text",
-          cvPdf: account.cvPdf || null
+          cv: Array.isArray(nextCv) ? nextCv : ["", "", "", ""],
+          cvMode: nextMode || "text",
+          cvPdf: nextPdf || null
         }, { loading: false, notify: true });
         if (result && result.ok) {
           if (cvStatus) cvStatus.textContent = "CV saved to server.";
@@ -675,15 +675,6 @@
     const pdfFileSize = $("#pdf-file-size");
     const pdfFileDate = $("#pdf-file-date");
     const profCvRawInput = $("#prof-cv-raw");
-
-    // Helper to clear raw CV text when user chooses PDF input
-    function clearCvSections() {
-      if (profCvRawInput) profCvRawInput.value = "";
-      account.cv = ["", "", "", ""];
-      account.cvMode = "pdf";
-      save();
-      if (cvStatus) cvStatus.textContent = "";
-    }
 
     // Helper to clear PDF when user types in raw CV text
     function clearPdfFile() {
@@ -773,24 +764,30 @@
         error("#pdf-error", msg);
         return;
       }
-      clearCvSections();
-      account.cv = splitCvText(parsed.data.text);
+      const nextCv = splitCvText(parsed.data.text);
       const sizeStr = file.size > 1024 * 1024
         ? (file.size / (1024 * 1024)).toFixed(1) + " MB"
         : Math.round(file.size / 1024) + " KB";
-
-      account.cvPdf = {
+      const nextPdf = {
         name: file.name,
         size: sizeStr,
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
       };
+
+      // Keep the current CV visible until the PDF has also been saved to the
+      // server, so a failed upload never destroys the pasted CV text.
+      const saved = await persistCvToBackend(nextCv, "pdf", nextPdf);
+      if (!saved) {
+        pdfStatus.textContent = `Could not save "${file.name}" to the server. Your previous CV was kept.`;
+        return;
+      }
+      if (profCvRawInput) profCvRawInput.value = "";
+      account.cv = nextCv;
+      account.cvPdf = nextPdf;
       account.cvMode = "pdf";
       save();
       renderPdfState();
-      const saved = await persistCvToBackend();
-      pdfStatus.textContent = saved
-        ? `PDF "${file.name}" saved! Extracted ${parsed.data.chars} characters.`
-        : `Extracted ${parsed.data.chars} characters from "${file.name}", but failed to save to server.`;
+      pdfStatus.textContent = `PDF "${file.name}" saved! Extracted ${parsed.data.chars} characters.`;
     }
 
     $("#browse-pdf-btn").addEventListener("click", (e) => {
@@ -829,7 +826,7 @@
 
     // Replace and Remove PDF
     $("#replace-pdf-btn").addEventListener("click", () => {
-      clearCvSections();
+      // Keep the current CV until a replacement PDF is chosen and parsed.
       cvFileInput.click();
     });
     $("#remove-pdf-btn").addEventListener("click", () => {
@@ -988,9 +985,6 @@
         if (interviewPdfStatus) interviewPdfStatus.textContent = "Please upload a valid PDF file (.pdf).";
         return;
       }
-      if (jobCvRawInput) {
-        jobCvRawInput.value = "";
-      }
       const sizeStr = file.size > 1024 * 1024
         ? (file.size / (1024 * 1024)).toFixed(1) + " MB"
         : Math.round(file.size / 1024) + " KB";
@@ -1007,6 +1001,10 @@
         if (interviewPdfStatus) interviewPdfStatus.textContent = msg;
         error("#job-error", msg);
         return;
+      }
+      // Only replace the pasted CV after the PDF has parsed successfully.
+      if (jobCvRawInput) {
+        jobCvRawInput.value = "";
       }
       interviewPdfText = parsed.data.text;
       interviewPdf = { name: file.name, size: sizeStr };
