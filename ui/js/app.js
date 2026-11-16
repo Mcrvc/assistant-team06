@@ -139,12 +139,7 @@
       feedback: [],
       cvMode: "text",
       cvPdf: null,
-      interviews: [1, 2, 3, 4].map(n => ({
-        id: "sample-" + n, name: "Interview " + n, date: "29/2/2026",
-        finished: n !== 2, sample: true,
-        answers: n === 2 ? ["", "", ""] : [...DATA.answers],
-        cv: [...DATA.cv], job: {}
-      }))
+      interviews: []
     };
   }
   // Ignore corrupt or incompatible stored state instead of breaking the page.
@@ -181,9 +176,26 @@
     account = newAccount(authenticatedUsername);
     state.accounts.push(account);
   }
+
+  // Older builds stored four demo interviews locally. Remove them so a fresh
+  // account shows the real empty state instead of fake names, dates and answers.
+  let removedDemoInterviews = false;
+  for (const storedAccount of state.accounts) {
+    if (!Array.isArray(storedAccount.interviews)) continue;
+    const realInterviews = storedAccount.interviews.filter(item => item && item.sample !== true);
+    if (realInterviews.length !== storedAccount.interviews.length) {
+      storedAccount.interviews = realInterviews;
+      removedDemoInterviews = true;
+    }
+    if (storedAccount.activeId && !storedAccount.interviews.some(item => item && item.id === storedAccount.activeId)) {
+      storedAccount.activeId = null;
+    }
+  }
+
   account.username = authenticatedUsername;
   state.currentAccount = authenticatedUsername;
   if (!account.cvMode) account.cvMode = "text";
+  if (removedDemoInterviews) save();
 
   // Restore the saved CV only on pages that edit or use it. Other pages should
   // not wait for this request during startup. Keep the local cache as a fallback
