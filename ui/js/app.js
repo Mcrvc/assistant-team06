@@ -657,7 +657,7 @@
     const pdfError = $("#pdf-error");
 
     async function persistCvToBackend() {
-      if (!api || typeof api.saveCV !== "function") return;
+      if (!api || typeof api.saveCV !== "function") return false;
       try {
         const result = await api.saveCV({
           cv: Array.isArray(account.cv) ? account.cv : ["", "", "", ""],
@@ -666,8 +666,10 @@
         }, { loading: false, notify: true });
         if (result && result.ok) {
           if (cvStatus) cvStatus.textContent = "CV saved to server.";
+          return true;
         }
       } catch (_) { /* Shared error handling covers network/server failures. */ }
+      return false;
     }
 
     const cvDropzone = $("#cv-pdf-dropzone");
@@ -712,19 +714,22 @@
       profCvRawInput.addEventListener("input", () => {
         clearPdfFile();
         saveCV();
-        cvStatus.textContent = "Changes saved.";
+        if (cvStatus) cvStatus.textContent = "Unsaved changes. Click Save CV to save.";
       });
     }
 
     const saveCvButton = $("#save-cv-btn");
     if (saveCvButton) {
       saveCvButton.addEventListener("click", async () => {
-        clearPdfFile();
-        saveCV();
+        const hasRawText = Boolean(profCvRawInput && profCvRawInput.value.trim());
+        if (hasRawText || account.cvMode !== "pdf") {
+          clearPdfFile();
+          saveCV();
+        }
         if (cvStatus) cvStatus.textContent = "Saving CV...";
-        await persistCvToBackend();
-        if (cvStatus && cvStatus.textContent !== "CV saved to server.") {
-          cvStatus.textContent = "CV saved successfully.";
+        const saved = await persistCvToBackend();
+        if (!saved && cvStatus) {
+          cvStatus.textContent = "Failed to save CV to server. Please try again.";
         }
       });
     }
@@ -786,17 +791,17 @@
       account.cvMode = "pdf";
       save();
       renderPdfState();
-      pdfStatus.textContent = `PDF "${file.name}" saved! Extracted ${parsed.data.chars} characters.`;
-      persistCvToBackend();
+      const saved = await persistCvToBackend();
+      pdfStatus.textContent = saved
+        ? `PDF "${file.name}" saved! Extracted ${parsed.data.chars} characters.`
+        : `Extracted ${parsed.data.chars} characters from "${file.name}", but failed to save to server.`;
     }
 
     $("#browse-pdf-btn").addEventListener("click", (e) => {
       e.stopPropagation();
-      clearCvSections();
       cvFileInput.click();
     });
     cvDropzone.addEventListener("click", () => {
-      clearCvSections();
       cvFileInput.click();
     });
     cvFileInput.addEventListener("change", () => {
