@@ -62,7 +62,7 @@ Interview data is still stored in `localStorage` per Supabase user id. Replacing
 | **Entry & Auth** | `index.html`, `sign-in.html`, `sign-up.html`, `profile.html` |
 | **Main Navigation** | `dashboard.html`, `storage.html` |
 | **Interview Flow** | `job-profile.html`, `interview.html`, `interview-interrupt.html`, `done-interview.html` |
-| **Results & Survey** | `report.html`, `system-feedback.html`, `thank-you.html` |
+| **Results & Survey** | `report.html`, `system-feedback.html` |
 | **System Pages** | `404.html` (served automatically by Vercel for unknown paths) |
 | **Styles & Scripts** | `css/styles.css`, `js/data.js` (sample Figma data), `js/app.js` (state & UI controller), `js/api.js` (Render API client + Supabase Auth), `js/errors.js` (toast/banner), `js/ui.js` (loading overlay) |
 | **Vector Assets** | `assets/*.svg` (`logo.svg`, `avatar.svg`, `microphone.svg`, `dashboard-hero-banner.svg`, `card-banner-1..3.svg`, `decor-top.svg`, `decor-bottom.svg`) |

@@ -2762,3 +2762,29 @@ body.has-loading { overflow: hidden; }
   .rating-option { min-height: 44px; padding: 6px 4px; font-size: 15px; }
   .difficulty-option, .recommend-option { min-height: 44px; padding: 9px 10px; }
 }
+
+/* System feedback thank-you overlay */
+.feedback-thankyou-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+}
+.feedback-thankyou-overlay.is-hidden {
+  display: none;
+}
+.feedback-thankyou-card {
+  max-width: 560px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22);
+}
+.feedback-thankyou-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}

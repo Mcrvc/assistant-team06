@@ -2468,6 +2468,35 @@
     }
 
     const feedbackForm = $("#feedback-form");
+    const thankYouOverlay = $("#feedback-thankyou-overlay");
+    const thankYouHomeBtn = $("#feedback-thankyou-home");
+    const thankYouCloseBtn = $("#feedback-thankyou-close");
+
+    function showThankYouOverlay() {
+      if (!thankYouOverlay) return;
+      thankYouOverlay.classList.remove("is-hidden");
+      (thankYouHomeBtn || thankYouCloseBtn)?.focus();
+    }
+
+    function hideThankYouOverlay() {
+      if (!thankYouOverlay) return;
+      thankYouOverlay.classList.add("is-hidden");
+    }
+
+    if (thankYouCloseBtn) {
+      thankYouCloseBtn.addEventListener("click", hideThankYouOverlay);
+    }
+    if (thankYouOverlay) {
+      thankYouOverlay.addEventListener("click", event => {
+        if (event.target === thankYouOverlay) hideThankYouOverlay();
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !thankYouOverlay.classList.contains("is-hidden")) {
+          hideThankYouOverlay();
+        }
+      });
+    }
+
     if (feedbackForm) {
       feedbackForm.addEventListener("submit", async event => {
         event.preventDefault();
@@ -2505,7 +2534,8 @@
             }
             return;
           }
-          go("thank-you.html");
+          feedbackForm.reset();
+          showThankYouOverlay();
         } catch (err) {
           window.YourinErrors?.showToast?.(err?.message || "Could not submit feedback.", { type: "error" });
         } finally {
