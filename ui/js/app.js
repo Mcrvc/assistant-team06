@@ -1217,11 +1217,22 @@
     }
 
     let writeQueue = Promise.resolve();
+    let pendingServerWrites = 0;
     function enqueueServerWrite(task) {
+      pendingServerWrites += 1;
       const next = writeQueue.then(task, task);
-      writeQueue = next.catch(() => {});
+      writeQueue = next.catch(() => {}).finally(() => {
+        pendingServerWrites = Math.max(0, pendingServerWrites - 1);
+      });
       return next;
     }
+
+    window.addEventListener("beforeunload", event => {
+      if (pendingServerWrites > 0) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    });
 
     function applyServerView(target, view, options = {}) {
       if (!target || !view) return;
@@ -1625,36 +1636,50 @@
     }
 
     if (prevBtn) {
-      prevBtn.addEventListener("click", async () => {
+      prevBtn.addEventListener("click", () => {
         if (currentStep > 0) {
-          if (answerInput) interview.answers[currentStep] = answerInput.value;
+          const fromStep = currentStep;
+          const toStep = currentStep - 1;
+          if (answerInput) interview.answers[fromStep] = answerInput.value;
           save();
-          if (isServerInterview()) {
-            const submitted = await submitCurrentAnswer(currentStep);
-            if (!submitted) return;
-            await saveProgressToServer(currentStep - 1);
-          }
-          renderStep(currentStep - 1);
+          renderStep(toStep);
           updateAnswerStatusUI();
+          if (isServerInterview()) {
+            submitCurrentAnswer(fromStep);
+            saveProgressToServer(toStep);
+          }
         }
       });
     }
 
     if (nextBtn) {
       nextBtn.addEventListener("click", async () => {
-        if (answerInput) interview.answers[currentStep] = answerInput.value;
+        const fromStep = currentStep;
+        if (answerInput) interview.answers[fromStep] = answerInput.value;
         save();
 
-        if (isServerInterview()) {
-          const submitted = await submitCurrentAnswer(currentStep);
-          if (!submitted) return;
-        }
-
-        if (currentStep < totalQuestions - 1) {
-          if (isServerInterview()) await saveProgressToServer(currentStep + 1);
-          renderStep(currentStep + 1);
+        if (fromStep < totalQuestions - 1) {
+          const toStep = fromStep + 1;
+          renderStep(toStep);
           updateAnswerStatusUI();
+          if (isServerInterview()) {
+            submitCurrentAnswer(fromStep);
+            saveProgressToServer(toStep);
+          }
         } else {
+          if (isServerInterview()) {
+            const originalLabel = nextBtn.textContent;
+            nextBtn.disabled = true;
+            nextBtn.textContent = "Saving...";
+            try {
+              const submitted = await submitCurrentAnswer(fromStep);
+              await writeQueue;
+              if (!submitted) return;
+            } finally {
+              nextBtn.disabled = false;
+              nextBtn.textContent = originalLabel;
+            }
+          }
           skipPageHideSave = true;
           save();
           go("done-interview.html");
@@ -1663,6 +1688,17 @@
     }
 
     // Trigger Save & Exit whenever the user attempts to exit the interview screen
+    if (exitModalConfirmBtn) {
+      exitModalConfirmBtn.addEventListener("click", async event => {
+        if (pendingServerWrites <= 0) return;
+        event.preventDefault();
+        const destination = exitModalConfirmBtn.getAttribute("href") || "dashboard.html";
+        exitModalConfirmBtn.textContent = "Saving...";
+        await writeQueue;
+        go(destination);
+      });
+    }
+
     function triggerSaveAndExit(targetHref) {
       skipPageHideSave = true;
       if (answerInput) interview.answers[currentStep] = answerInput.value;
