@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from assistant.ai import AiError
 from assistant.interview_ai import GradeRejected, SafeInterviewAI, TeamInterviewAI, configured_ai
 from assistant.interview_schemas import CreateInterview, SubmitAnswer
 from assistant.interview_store import SQLAlchemyInterviewRepository
@@ -65,3 +66,43 @@ def test_provider_outage_keeps_fallback_label():
     provider = TeamInterviewAI(worker=SimpleNamespace(generate_questions=offline), timeout_s=9)
     result = SafeInterviewAI(provider).generate_questions({'title': 'Intern'}, None)
     assert len(result['questions']) == 3 and result['used_fallback'] is True
+
+
+def test_real_grade_the_schema_refuses_is_coerced_not_mocked():
+    """A genuine grade must never be lost to a strict team schema: clamp the
+    score, trim overlong feedback/model, drop blank and extra evidence."""
+    def oversized(*args, **kwargs):
+        return {'score': 12.0, 'feedback': 'x' * 9000,
+                'evidence': ['a', '', 'b'] * 3, 'model': 'm' * 500,
+                'used_fallback': False}
+    provider = TeamInterviewAI(worker=worker(oversized), timeout_s=9)
+    result = SafeInterviewAI(provider).grade_answer({}, {
+        'text': 'q', 'rubric': RUBRIC}, 'I wrote tests')
+    assert result['used_fallback'] is False and result['model'] != 'local-mock'
+    assert result['score'] == 10.0
+    assert len(result['feedback']) == 8000
+    assert result['evidence'] == ['a', 'b'] * 3  # blanks dropped, capped at 6
+    assert len(result['model']) == 200
+
+
+def test_provider_blip_gets_one_retry_before_the_mock():
+    calls = {'n': 0}
+
+    def flaky(*args, **kwargs):
+        calls['n'] += 1
+        if calls['n'] == 1:
+            raise AiError('transient provider blip')
+        return {'score': 7.5, 'feedback': 'Clear actions',
+                'evidence': ['wrote tests'], 'model': 'test-model',
+                'used_fallback': False}
+    provider = TeamInterviewAI(worker=worker(flaky), timeout_s=9)
+    result = SafeInterviewAI(provider).grade_answer({}, {
+        'text': 'q', 'rubric': RUBRIC}, 'I wrote tests')
+    assert calls['n'] == 2  # one extra attempt, then the real grade
+    assert result['used_fallback'] is False and result['score'] == 7.5
+
+
+def test_missing_rubric_returns_the_mock_not_a_silent_real_attempt():
+    provider = TeamInterviewAI(worker=worker(), timeout_s=9)
+    result = SafeInterviewAI(provider).grade_answer({}, {'text': 'q'}, 'answer')
+    assert result['used_fallback'] is True and result['model'] == 'local-mock'

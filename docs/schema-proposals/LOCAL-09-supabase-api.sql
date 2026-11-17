@@ -58,12 +58,12 @@ BEGIN
   IF p_item IS NULL OR jsonb_typeof(p_item) <> 'object'
     OR (p_item->>'id') IS DISTINCT FROM p_id
     OR (p_item->>'owner_id')::uuid IS DISTINCT FROM p_owner
-    -- The interview planner decides the question count (4-6 typical, 1-6
+    -- The interview planner decides the question count (6-12 typical, 15 max,
     -- allowed by the team schema); nothing is pinned to three anymore.
     -- coalesce keeps the check NULL-safe, like IS DISTINCT FROM did.
-    OR NOT coalesce(jsonb_array_length(p_item->'questions') BETWEEN 1 AND 6, false)
+    OR NOT coalesce(jsonb_array_length(p_item->'questions') BETWEEN 1 AND 15, false)
     OR jsonb_array_length(p_item->'answers') IS DISTINCT FROM jsonb_array_length(p_item->'questions')
-    OR NOT coalesce((p_item->>'current_question')::integer BETWEEN 0 AND 5, false)
+    OR NOT coalesce((p_item->>'current_question')::integer BETWEEN 0 AND 14, false)
     OR NOT coalesce(p_item->>'status' IN ('in_progress','interrupted','finalized'),false)
     OR (p_item->>'version') IS NULL THEN
     RAISE EXCEPTION 'Invalid interview state' USING ERRCODE='22023';

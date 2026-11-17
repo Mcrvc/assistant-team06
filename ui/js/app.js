@@ -121,9 +121,10 @@
   const jobKeys = ["job-source", "job-title", "domain", "company", "position"];
   const manualJobKeys = ["job-title", "domain", "company", "position"];
   const strings = (value, length) => Array.isArray(value) && value.length === length && value.every(item => typeof item === "string");
-  // An interview may hold any number of answers now (the writer returns 4-6
-  // questions), so cached state is validated by range, not a fixed 3.
-  const answerList = value => Array.isArray(value) && value.length >= 1 && value.length <= 8 && value.every(item => typeof item === "string");
+  // An interview may hold any number of answers now (the planner schedules
+  // 6-12 questions, 15 max), so cached state is validated by range, not a
+  // fixed 3.
+  const answerList = value => Array.isArray(value) && value.length >= 1 && value.length <= 15 && value.every(item => typeof item === "string");
   const identity = name => String(name || "").trim().toLocaleLowerCase();
   const go = url => { window.location.href = url; };
   const authenticatedUsername = authenticatedUser?.user_metadata?.username || cachedUsername || "User";

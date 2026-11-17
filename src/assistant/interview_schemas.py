@@ -73,10 +73,10 @@ class Question(Contract):
 
 
 class Generation(Contract):
-    # The writer returns 4-6 questions from the CV/Job Profile/research; the
-    # schema accepts 1-6 so a thin profile still validates instead of falling
-    # back to the mock provider.
-    questions: list[Question] = Field(min_length=1, max_length=6)
+    # The planner schedules 6-12 questions from the CV/Job Profile/research
+    # (15 is the hard maximum); the schema accepts 1-15 so a thin profile
+    # still validates instead of falling back to the mock provider.
+    questions: list[Question] = Field(min_length=1, max_length=15)
     model: ShortText
     used_fallback: bool
 
@@ -98,7 +98,7 @@ class SaveProgress(VersionedRequest):
     # InterviewService.save_progress, so a session is not pinned to 3 answers.
     current_question: int = Field(ge=0)
     status: Literal["in_progress", "interrupted"] = "in_progress"
-    answers: list[AnswerText] | None = Field(default=None, min_length=1, max_length=6)
+    answers: list[AnswerText] | None = Field(default=None, min_length=1, max_length=15)
 
 
 class SubmitAnswer(VersionedRequest):
