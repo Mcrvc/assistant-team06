@@ -45,6 +45,7 @@ def offline(monkeypatch):
                         lambda *a, **k: (_ for _ in ()).throw(
                             AssertionError("unit tests must not reach a provider")))
     monkeypatch.setenv("AI_RETRY_DELAY_S", "0")
+    monkeypatch.setattr(aiworker, "SLOT_RETRY_DELAY_S", 0)
     ai.reset_config_cache()
     yield
     ai.reset_config_cache()
@@ -456,6 +457,78 @@ def test_generate_questions_can_return_fifteen(monkeypatch):
     state = _router_fake(monkeypatch, plan_total=15)
     out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
     assert state["slots"] == 15 and len(out["questions"]) == 15
+
+
+# --------------------------------------------------------------------------
+# Provider hiccups: one bad call must not mock a working AI
+# --------------------------------------------------------------------------
+def test_one_provider_blip_on_a_slot_keeps_the_written_questions(monkeypatch):
+    """A 429 on one slot is retried, then skipped: the interview survives."""
+    calls = {"n": 0}
+
+    def fake(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion(_plan_payload(4))
+        calls["n"] += 1
+        if calls["n"] == 3:
+            raise aiworker.AiError("429 rate limited")
+        return _completion(_question_payload(calls["n"]))
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    assert calls["n"] == 5  # 4 slots, the blip cost one extra call
+    assert len(out["questions"]) == 4  # every slot still landed
+
+
+def test_a_slot_the_provider_keeps_refusing_is_skipped_not_fatal(monkeypatch):
+    answers = {"n": 0}
+
+    def fake(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion(_plan_payload(4))
+        about_cv = any("phase: cv" in m["content"] for m in messages
+                       if m["role"] == "user")
+        if about_cv:
+            raise aiworker.AiError("503 unavailable")
+        answers["n"] += 1
+        return _completion(_question_payload(answers["n"]))
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    assert len(out["questions"]) == 3  # the cv slot was skipped, rest kept
+
+
+def test_a_provider_down_at_the_first_slot_stops_the_run(monkeypatch):
+    """Nothing written at all means the provider is down: raise, so the
+    service falls back with the honest flag instead of a half-interview."""
+
+    def fake(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion(_plan_payload(4))
+        raise aiworker.AiError("provider offline")
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    with pytest.raises(aiworker.AiError):
+        aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+
+
+def test_a_criterion_the_team_schema_refuses_is_refused_at_the_source():
+    junk = _question_payload(1)
+    junk["rubric"]["criteria"][0] = {"name": "N" * 201, "points": 5,
+                                     "good": "g", "why": "because"}
+    with pytest.raises(ValueError, match="team schema refuses"):
+        aiworker._validate_question(junk)
+
+    nameless = _question_payload(2)
+    nameless["rubric"]["criteria"][0] = {"name": "  ", "points": 5, "good": "g"}
+    with pytest.raises(ValueError, match="has no name"):
+        aiworker._validate_question(nameless)
+
+
+def test_writer_prompt_pins_the_rubric_shape_the_team_schema_accepts():
+    system = aiworker.QUESTION_SYSTEM
+    assert "no other field" in system
+    assert "200 characters" in system
 
 
 def test_writer_payload_with_overlong_criterion_is_refused():

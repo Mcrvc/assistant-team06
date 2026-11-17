@@ -1340,7 +1340,9 @@
             method: "POST",
             body: JSON.stringify({
               revision: interview.revision,
-              current_question: Math.max(0, Math.min(2, targetStep)),
+              current_question: Math.max(0, Math.min(
+                (Array.isArray(interview.questions) && interview.questions.length
+                  ? interview.questions.length - 1 : 2), targetStep)),
               status: nextStatus,
               answers: interview.answers
             }),
@@ -1437,30 +1439,30 @@
       if (!isNaN(qParam) && qParam >= 1 && qParam <= Math.max(1, questions.length)) {
         currentStep = qParam - 1;
       } else if (isServerInterview() && Number.isInteger(interview.currentQuestion)) {
-        currentStep = Math.max(0, Math.min(2, interview.currentQuestion));
+        currentStep = Math.max(0, Math.min(questions.length - 1, interview.currentQuestion));
       }
     } catch (_) {}
 
-    const answerSlots = 3;
+    // The planner schedules 6-12 questions (15 max), so the answer slots
+    // follow the real question count instead of a hard-coded three. They are
+    // only ever grown, never truncated: an in-flight draft must survive.
+    const answerSlots = Math.min(15, Math.max(3, questions.length,
+      Number.isInteger(interview.totalQuestions) ? interview.totalQuestions : 0));
     while (interview.answers.length < answerSlots) {
       interview.answers.push("");
     }
-    interview.answers.length = answerSlots;
-    if (!Array.isArray(interview.answerStatuses)) interview.answerStatuses = ["unanswered", "unanswered", "unanswered"];
-    if (!Array.isArray(interview.answerGrades)) interview.answerGrades = [null, null, null];
-    if (!Array.isArray(interview.answerErrors)) interview.answerErrors = [null, null, null];
-    if (!Array.isArray(interview.submittedTexts)) interview.submittedTexts = ["", "", ""];
+    if (!Array.isArray(interview.answerStatuses)) interview.answerStatuses = [];
+    if (!Array.isArray(interview.answerGrades)) interview.answerGrades = [];
+    if (!Array.isArray(interview.answerErrors)) interview.answerErrors = [];
+    if (!Array.isArray(interview.submittedTexts)) interview.submittedTexts = [];
     while (interview.answerStatuses.length < answerSlots) interview.answerStatuses.push("unanswered");
     while (interview.answerGrades.length < answerSlots) interview.answerGrades.push(null);
     while (interview.answerErrors.length < answerSlots) interview.answerErrors.push(null);
     while (interview.submittedTexts.length < answerSlots) interview.submittedTexts.push("");
-    interview.answerStatuses.length = answerSlots;
-    interview.answerGrades.length = answerSlots;
-    interview.answerErrors.length = answerSlots;
-    interview.submittedTexts.length = answerSlots;
     const questionTitle = $("#question-title");
     const questionBadge = $("#question-badge");
     const questionText = $("#question-text");
+    const generationNotice = $("#generation-notice");
     const answerInput = $("#answer");
     const charCountEl = $("#answer-char-count");
     const prevBtn = $("#prev-question-btn");
@@ -1477,6 +1479,24 @@
     const robotReplayBtn = $("#robot-replay-btn");
     let mimeTimer = null;
     let typingGazeTimer = null;
+
+    // A fallback question set (the AI writer was unavailable) must never look
+    // like the real one: say so, instead of silently showing generic prompts.
+    function updateGenerationNotice() {
+      if (!generationNotice) return;
+      const generation = interview.questionGeneration;
+      const isFallback = Boolean(generation && generation.used_fallback === true);
+      // Both the property and the class: the stylesheet hides .is-hidden with
+      // !important, so clearing only one of them leaves the note invisible.
+      generationNotice.hidden = !isFallback;
+      generationNotice.classList.toggle("is-hidden", !isFallback);
+      if (isFallback) {
+        generationNotice.textContent =
+          "These are fallback questions: the AI interview writer was unavailable when this "
+          + "interview was created, so the service used its standard set. Your answers are "
+          + "still graded normally.";
+      }
+    }
 
     let isRecording = false;
     let recordingTimer = null;
@@ -1573,6 +1593,7 @@
     function renderStep(index) {
       currentStep = Math.max(0, Math.min(index, totalQuestions - 1));
 
+      updateGenerationNotice();
       if (questionTitle) questionTitle.textContent = `Question ${currentStep + 1}`;
       if (questionBadge) questionBadge.textContent = `${currentStep + 1} of ${totalQuestions}`;
       updateAnswerStatusUI();

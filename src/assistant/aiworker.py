@@ -470,7 +470,9 @@ QUESTION_SYSTEM = (
     "- The \"why\" field MUST name the concrete element (CV item, role task, "
     "or research finding) the question is built on.\n"
     "- rubric.max_score is the NUMBER 10; exactly 3 criteria, points summing "
-    "to exactly 10; criterion.good at most 1000 characters.\n\n"
+    "to exactly 10; a criterion has ONLY name, points and good - no other "
+    "field; criterion.name at most 200 characters; criterion.good at most "
+    "1000 characters.\n\n"
     "Reply with ONLY a JSON object, no markdown fence, no commentary:\n"
     "{\"question\": \"...\", \"phase\": \"<the slot phase>\", \"why\": \"...\", "
     "\"rubric\": {\"max_score\": 10, \"criteria\": [{\"name\": \"...\", "
@@ -523,6 +525,20 @@ MIN_QUESTIONS, MAX_QUESTIONS = 1, 15
 # (same policy as grading): the model often needs a second or third try
 # before the payload parses and validates.
 QUESTION_REPAIR_TURNS = 3
+
+# A provider hiccup (429, 5xx, timeout) on a single slot is retried this many
+# times before the slot is skipped, so one bad call never turns the questions
+# already written into a mock interview. When nothing written at all survives,
+# the provider really is down: the run stops so the service can fall back with
+# the honest flag instead of shipping a half-written interview.
+SLOT_PROVIDER_TURNS = 2
+SLOT_RETRY_DELAY_S = 2.0
+
+# The only fields the team's RubricCriterion schema accepts. A reasoning model
+# loves to add "why" or "weight"; the team schema forbids extra fields, so the
+# writer is told exactly which ones to drop instead of failing downstream.
+_CRITERION_FIELDS = {"name", "points", "good"}
+_CRITERION_NAME_LIMIT = 200
 
 
 def _escape_inner_quotes(text: str) -> str:
@@ -706,6 +722,18 @@ def _validate_question(item: Any, pool: set[str] | None = None,
     for criterion in criteria:
         if not isinstance(criterion, dict):
             raise ValueError(f"{label} has a non-object criterion")
+        extra = set(criterion) - _CRITERION_FIELDS
+        if extra:
+            raise ValueError(
+                f"{label} criterion carries fields the team schema refuses: "
+                f"{sorted(extra)}; keep only name, points and good")
+        name = criterion.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(f"{label} criterion has no name")
+        if len(name.strip()) > _CRITERION_NAME_LIMIT:
+            raise ValueError(
+                f"{label} criterion name exceeds {_CRITERION_NAME_LIMIT} "
+                f"characters")
         points = criterion.get("points")
         if isinstance(points, bool) or not isinstance(points, (int, float)) \
                 or not 0 < float(points) <= 10:
@@ -936,17 +964,38 @@ def generate_questions(job_profile: dict[str, Any], cv: dict[str, Any],
 
     questions: list[dict[str, Any]] = []
     for slot in plan["slots"][:plan["total"]]:
-        try:
-            item = _write_slot_question(slot, plan, job_profile, cv, notes,
-                                        sources, questions, timeout_s=timeout_s)
-        except ValueError as exc:
-            # Recovery: one unusable slot is skipped, never allowed to sink a
-            # whole interview into the mock fallback. AiError (provider truly
-            # down) is NOT caught: it stops the run so the service can fall
-            # back with the honest flag instead of shipping a half-written
-            # interview.
-            print(f"[write] {slot['phase']} slot gave up ({exc}); "
-                  f"continuing without it", file=sys.stderr)
+        item: dict[str, Any] | None = None
+        for provider_turn in range(SLOT_PROVIDER_TURNS):
+            try:
+                item = _write_slot_question(slot, plan, job_profile, cv, notes,
+                                            sources, questions, timeout_s=timeout_s)
+                break
+            except ValueError as exc:
+                # The writer already spent its repair turns: one unusable slot
+                # is skipped, never allowed to sink the interview into mock.
+                print(f"[write] {slot['phase']} slot gave up ({exc}); "
+                      f"continuing without it", file=sys.stderr)
+                break
+            except AiError as exc:
+                # A provider hiccup on ONE slot (429, 5xx, timeout) must not
+                # throw away the questions already written. Retry the slot
+                # once, then keep the interview we have.
+                if provider_turn + 1 < SLOT_PROVIDER_TURNS:
+                    print(f"[write] {slot['phase']} provider blip "
+                          f"({type(exc).__name__}); retrying the slot",
+                          file=sys.stderr)
+                    time.sleep(SLOT_RETRY_DELAY_S)
+                    continue
+                if questions:
+                    print(f"[write] {slot['phase']} slot skipped after a "
+                          f"provider failure ({type(exc).__name__}); keeping "
+                          f"the {len(questions)} questions already written",
+                          file=sys.stderr)
+                    break
+                # Nothing usable at all: the provider is down, so stop here and
+                # let the service fall back with the honest flag.
+                raise
+        if item is None:
             continue
         questions.append(item)
         print(f"[write] {slot['phase']} question {len(questions)}/{plan['total']}: "

@@ -68,6 +68,79 @@ def test_provider_outage_keeps_fallback_label():
     assert len(result['questions']) == 3 and result['used_fallback'] is True
 
 
+def generation_worker(questions):
+    """A working provider whose questions are exactly ``questions``."""
+    def generate(job, cv, notes, sources, **options):
+        assert options['timeout_s'] == 9
+        return {'source': 'nvidia', 'questions': questions}
+    return SimpleNamespace(generate_questions=generate,
+                           grade_answer_with_evidence=lambda *a, **k: {},
+                           EvidenceRejected=Rejected)
+
+
+def rubric_of(name='actions', points=10):
+    return {'max_score': 10, 'criteria': [{'name': name, 'points': points, 'good': 'g'}]}
+
+
+def test_one_unusable_real_question_does_not_mock_the_whole_interview():
+    """Five real questions, one shaped a way the team schema refuses: the other
+    four survive as real questions instead of the whole set becoming mock."""
+    questions = [{'question': f'Tell me about project {index}.',
+                  'rubric': rubric_of()} for index in range(4)]
+    questions.append({'question': '   ', 'rubric': rubric_of()})  # unusable
+    result = SafeInterviewAI(TeamInterviewAI(worker=generation_worker(questions), timeout_s=9)) \
+        .generate_questions({'title': 'Intern'}, None)
+    assert result['used_fallback'] is False and result['model'] != 'local-mock'
+    assert [q['text'] for q in result['questions']] == [
+        f'Tell me about project {index}.' for index in range(4)]
+    assert all(q['rubric'] for q in result['questions'])
+
+
+def test_an_overlong_real_question_is_trimmed_not_thrown_away():
+    questions = [{'question': 'q' * 4001, 'rubric': rubric_of()}]
+    result = SafeInterviewAI(TeamInterviewAI(worker=generation_worker(questions), timeout_s=9)) \
+        .generate_questions({'title': 'Intern'}, None)
+    assert result['used_fallback'] is False
+    assert len(result['questions'][0]['text']) == 4000  # trimmed to the limit
+
+
+def test_a_rubric_the_team_schema_refuses_is_repaired_into_a_usable_one():
+    questions = [{
+        'question': 'Tell me about your tests.',
+        'rubric': {'max_score': 10, 'criteria': [
+            {'name': f'c{index}', 'points': 10 / 7, 'good': 'g'} for index in range(7)]},
+    }]
+    result = SafeInterviewAI(TeamInterviewAI(worker=generation_worker(questions), timeout_s=9)) \
+        .generate_questions({'title': 'Intern'}, None)
+    kept = result['questions'][0]
+    assert result['used_fallback'] is False
+    assert len(kept['criteria']) == 6            # the schema caps criteria at six
+    assert len(kept['rubric']['criteria']) == 6
+    assert abs(sum(c['points'] for c in kept['rubric']['criteria']) - 10.0) < 1e-6
+
+
+def test_a_criterion_with_extra_fields_is_kept_without_them():
+    questions = [{
+        'question': 'Tell me about your tests.',
+        'rubric': {'max_score': 10, 'criteria': [
+            {'name': 'depth', 'points': 5, 'good': 'g', 'why': 'because'},
+            {'name': 'clarity', 'points': 5, 'good': 'g'}]},
+    }]
+    result = SafeInterviewAI(TeamInterviewAI(worker=generation_worker(questions), timeout_s=9)) \
+        .generate_questions({'title': 'Intern'}, None)
+    criteria = result['questions'][0]['rubric']['criteria']
+    assert result['used_fallback'] is False and len(criteria) == 2
+    assert all(set(criterion) == {'name', 'points', 'good'} for criterion in criteria)
+
+
+def test_a_generation_with_nothing_usable_falls_back_to_the_mock():
+    questions = [{'question': '', 'rubric': rubric_of()},
+                 {'question': '   ', 'rubric': rubric_of()}]
+    result = SafeInterviewAI(TeamInterviewAI(worker=generation_worker(questions), timeout_s=9)) \
+        .generate_questions({'title': 'Intern'}, None)
+    assert result['used_fallback'] is True and result['model'] == 'local-mock'
+
+
 def test_real_grade_the_schema_refuses_is_coerced_not_mocked():
     """A genuine grade must never be lost to a strict team schema: clamp the
     score, trim overlong feedback/model, drop blank and extra evidence."""
