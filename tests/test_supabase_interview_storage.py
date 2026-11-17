@@ -185,6 +185,58 @@ def test_rpc_lifecycle_and_owner_isolation(rpc_repository):
     assert repo.get(item["id"],OWNER) is None
 
 
+def test_rpc_lifecycle_with_more_than_three_questions(rpc_repository):
+    """The Renderer path (Supabase RPC) must accept the planner's 4-6 questions:
+    the old RPC pinned interviews to exactly three and rejected anything else."""
+    from types import SimpleNamespace
+
+    repo, engine = rpc_repository
+    rubric = {"max_score": 10, "criteria": [
+        {"name": "actions", "points": 10, "good": "Explain personal actions"}]}
+
+    def generate(job, cv, notes, sources, **options):
+        return {"source": "nvidia", "questions": [
+            {"question": f"Question {i} about the role?", "rubric": rubric}
+            for i in range(5)]}
+
+    provider = SimpleNamespace(
+        generate_questions=generate,
+        grade_answer_with_evidence=lambda *a, **k: {
+            "score": 7.5, "feedback": "Clear actions",
+            "evidence": ["I wrote tests"], "model": "test-model",
+            "used_fallback": False},
+        EvidenceRejected=Exception)
+    from assistant.interview_ai import TeamInterviewAI
+
+    service = InterviewService(repo, TeamInterviewAI(worker=provider, timeout_s=9))
+    item = service.create(OWNER, CreateInterview(job_profile={"title": "Python intern"}))
+    assert len(item["questions"]) == 5
+    assert repo.get(item["id"], OWNER)["questions"][4]["text"] == "Question 4 about the role?"
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT count(*) FROM session_questions")).scalar_one() == 5
+        assert conn.execute(text("SELECT count(*) FROM answers")).scalar_one() == 5
+    for idx in range(5):
+        item = service.get(OWNER, item["id"])
+        snapshot, job = service.submit_answer(
+            OWNER, item["id"], idx,
+            SubmitAnswer(revision=item["revision"], text=f"Answer {idx}: I wrote tests and checked the result."))
+        service.grade_answer(OWNER, item["id"], idx, job)
+    item = service.get(OWNER, item["id"])
+    assert [a["grading_status"] for a in item["answers"]] == ["graded"] * 5
+    final = service.finalize(OWNER, item["id"], FinalizeInterview(revision=item["revision"]))
+    assert len(final["report"]["items"]) == 5
+    assert final["current_question"] == 4
+    assert repo.get(item["id"], OWNER) == final
+    with engine.connect() as conn:
+        row = conn.execute(text("SELECT current_question_index,finished FROM sessions")).one()
+        assert row.current_question_index == 4 and row.finished is True
+        assert conn.execute(text("SELECT count(*) FROM session_questions")).scalar_one() == 5
+        assert conn.execute(text("SELECT count(*) FROM answers")).scalar_one() == 5
+        assert conn.execute(text("SELECT count(*) FROM grades WHERE accepted=true")).scalar_one() >= 5
+    repo.delete(item["id"], OWNER)
+    assert repo.get(item["id"], OWNER) is None
+
+
 def test_rpc_conflict_foreign_delete_and_atomic_rollback(rpc_repository):
     repo,engine = rpc_repository
     service,item = create(repo)

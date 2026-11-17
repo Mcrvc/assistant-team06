@@ -350,7 +350,7 @@ def test_rejected_reply_messages_are_distinct_and_non_empty():
     # Every reason produces its own message, not one shared sentence.
     assert len(set(seen.values())) == len(seen)
     # The primary case must tell the candidate the evidence did not match.
-    assert "nguy\u00ean v\u0103n" in seen["evidence_not_found"]
+    assert "word for word" in seen["evidence_not_found"]
 
 
 def test_rejected_reply_messages_are_ascii_safe_for_logs():
@@ -358,7 +358,7 @@ def test_rejected_reply_messages_are_ascii_safe_for_logs():
     import json
     payload = json.dumps(aiworker.rejected_reply("q", "a", RUBRIC),
                          ensure_ascii=False)
-    assert "Tr" in json.loads(payload)["feedback"]
+    assert "word for word" in json.loads(payload)["feedback"]
 
 
 # --------------------------------------------------------------------------
@@ -436,25 +436,40 @@ def test_grader_prompt_demands_verbatim_citation_and_no_fabrication():
     assert "WORKED EXAMPLE 2" in system
 
 
+def test_grader_prompt_requires_english_prose_with_verbatim_quotes():
+    """Feedback prose is English, but a quote copied from a Vietnamese answer
+    keeps its original language - a translated quote fails the exact gate."""
+    system = aiworker.EVIDENCE_SYSTEM
+    assert "in ENGLISH" in system
+    assert "original language" in system
+    assert "translated quote is NOT in the answer" in system
+    # The worked examples show English prose over English answers.
+    assert "You covered the technology" in system
+    # The rejected replies shown to candidates are English too.
+    for reason in ("evidence_not_found", "feedback_ungrounded", "bad_score",
+                   "no_feedback", "no_evidence", "bad_json"):
+        assert aiworker.rejected_reply("q", "a", RUBRIC, reason)["feedback"].isascii()
+
+
 # The few-shot answer/evidence below are copied out of EVIDENCE_SYSTEM itself,
 # so the test fails the moment the prompt's own example stops matching the
 # "verbatim span" rule it teaches.
 EXAMPLE_1_ANSWER = (
-    "Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm. Khi có "
-    "đợt flash sale, p99 giảm từ 800ms xuống 120ms và số lỗi 5xx giảm 90%. "
-    "Sau đó tôi thêm TTL 5 phút cho mỗi key để tránh dữ liệu cũ."
+    "I used Redis to cache the product lookup API. During a flash "
+    "sale, p99 dropped from 800ms to 120ms and 5xx errors fell by 90%. "
+    "After that I added a 5-minute TTL to each key to avoid stale data."
 )
 EXAMPLE_1_EVIDENCE = [
-    "Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm",
-    "p99 giảm từ 800ms xuống 120ms",
-    "tôi thêm TTL 5 phút cho mỗi key",
+    "I used Redis to cache the product lookup API",
+    "p99 dropped from 800ms to 120ms",
+    "I added a 5-minute TTL to each key",
 ]
 EXAMPLE_2_ANSWER = (
-    "Tôi thường làm việc nhóm rất tốt và luôn cố gắng hết mình. Tôi "
-    "có kinh nghiệm với nhiều dự án và học hỏi nhanh. Tôi nghĩ mình phù hợp "
-    "với công việc này."
+    "I usually work in a team very well and always try my best. "
+    "I have experience with many projects and learn quickly. I think I am a "
+    "good fit for this job."
 )
-EXAMPLE_2_EVIDENCE = ["Tôi thường làm việc nhóm rất tốt"]
+EXAMPLE_2_EVIDENCE = ["I usually work in a team very well"]
 
 
 def test_grader_few_shot_examples_are_self_consistent():

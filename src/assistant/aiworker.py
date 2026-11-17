@@ -899,19 +899,24 @@ EVIDENCE_SYSTEM = (
     "answer up to 9: a correct, specific answer is 7-8.5, and only a "
     "measured outcome earns 9 or more.\n\n"
     "Feedback rules:\n"
-    "- 2 to 4 sentences in Vietnamese that reference the rubric criteria by "
+    "- 2 to 4 sentences in ENGLISH that reference the rubric criteria by "
     "name.\n"
+    "- Every sentence of your own analysis is written in English. The only "
+    "exception is the quoted spans: they are copied from the answer and stay "
+    "in the answer's original language.\n"
     "- Every claim you make about the answer must quote the exact words it "
     "is based on, wrapped in double quotes, inline in the sentence. Example: "
-    "Ban neu \"em dung Redis de luu cache\" nhung chua giai thich cache "
+    "You say \"I used Redis to cache\" but never explained cache "
     "invalidation.\n"
     "- Write those quotations character-for-character as they appear in the "
     "answer: same casing, same spacing, same diacritics.\n\n"
     "Evidence rules:\n"
     "- 1 to 6 entries, each an exact substring of the answer, copied "
     "character-for-character.\n"
-    "- Never invent, translate, normalise, summarize or join fragments. If "
-    "you cannot quote the answer verbatim, you cannot grade that point.\n"
+    "- Never invent, translate, normalise, summarize or join fragments. A "
+    "translated quote is NOT in the answer and fails the exact-match check: "
+    "when the candidate answered in Vietnamese (or any other language), the "
+    "quote keeps that language while everything around it is English.\n"
     "- Never \"fix\" missing diacritics in an evidence entry: the entry must "
     "match the answer literally, including the answer's actual diacritics. "
     "If you are unsure, choose the shortest safe span instead of rewriting "
@@ -919,29 +924,32 @@ EVIDENCE_SYSTEM = (
     "- Every quoted span inside your feedback must also appear in evidence.\n\n"
     "WORKED EXAMPLE 1 - a strong answer, correctly scored 8.5 (not 9: the "
     "outcome is real but only partly measured). Every quoted span is copied "
-    "character-for-character from the answer, diacritics included:\n"
-    "QUESTION: \"Bạn đã dùng Redis trong hệ thống của mình như thế nào?\"\n"
-    "ANSWER: \"Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm. Khi có "
-    "đợt flash sale, p99 giảm từ 800ms xuống 120ms và số lỗi 5xx giảm 90%. "
-    "Sau đó tôi thêm TTL 5 phút cho mỗi key để tránh dữ liệu cũ.\"\n"
-    "REPLY: {\"score\": 8.5, \"feedback\": \"Bạn nêu rõ công nghệ và kết quả "
-    "đo được: \\\"Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm\\\" và "
-    "\\\"p99 giảm từ 800ms xuống 120ms\\\", đáp ứng tiêu chí kỹ thuật và kết "
-    "quả. Bạn còn bổ sung vận hành với \\\"tôi thêm TTL 5 phút cho mỗi "
-    "key\\\", nhưng chưa nêu cách xử lý khi dữ liệu gốc thay đổi.\", "
-    "\"evidence\": [\"Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm\", "
-    "\"p99 giảm từ 800ms xuống 120ms\", \"tôi thêm TTL 5 phút cho mỗi key\"]}\n\n"
+    "character-for-character from the answer:\n"
+    "QUESTION: \"How have you used Redis in your system?\"\n"
+    "ANSWER: \"I used Redis to cache the product lookup API. During a flash "
+    "sale, p99 dropped from 800ms to 120ms and 5xx errors fell by 90%. "
+    "After that I added a 5-minute TTL to each key to avoid stale data.\"\n"
+    "REPLY: {\"score\": 8.5, \"feedback\": \"You covered the technology and a "
+    "measured result: \\\"I used Redis to cache the product lookup API\\\" "
+    "and \\\"p99 dropped from 800ms to 120ms\\\", meeting the technical and "
+    "outcome criteria. You also added operational care with \\\"I added a "
+    "5-minute TTL to each key\\\", but you did not explain how you handle "
+    "cache invalidation when the source data changes.\", "
+    "\"evidence\": [\"I used Redis to cache the product lookup API\", "
+    "\"p99 dropped from 800ms to 120ms\", \"I added a 5-minute TTL to each "
+    "key\"]}\n\n"
     "WORKED EXAMPLE 2 - a generic, correct-but-thin answer, scored 5.5. The "
     "evidence still has to be a verbatim span of the answer:\n"
-    "QUESTION: \"Bạn làm việc nhóm tốt như thế nào?\"\n"
-    "ANSWER: \"Tôi thường làm việc nhóm rất tốt và luôn cố gắng hết mình. Tôi "
-    "có kinh nghiệm với nhiều dự án và học hỏi nhanh. Tôi nghĩ mình phù hợp "
-    "với công việc này.\"\n"
-    "REPLY: {\"score\": 5.5, \"feedback\": \"Câu trả lời còn chung chung: cụm "
-    "như \\\"Tôi thường làm việc nhóm rất tốt\\\" là nhận định chung, chưa có "
-    "tình huống cụ thể, hành động của bạn hay kết quả, nên chỉ đạt một phần "
-    "nhỏ của rubric. Bạn cần một tình huống thật có vai trò và số liệu.\", "
-    "\"evidence\": [\"Tôi thường làm việc nhóm rất tốt\"]}"
+    "QUESTION: \"How well do you work in a team?\"\n"
+    "ANSWER: \"I usually work in a team very well and always try my best. "
+    "I have experience with many projects and learn quickly. I think I am a "
+    "good fit for this job.\"\n"
+    "REPLY: {\"score\": 5.5, \"feedback\": \"The answer is still generic: the "
+    "phrase \\\"I usually work in a team very well\\\" is a general claim "
+    "with no specific situation, your actions or a result, so it only covers "
+    "a small part of the rubric. You need a real situation with your role "
+    "and concrete numbers.\", "
+    "\"evidence\": [\"I usually work in a team very well\"]}"
 )
 
 
@@ -1146,26 +1154,30 @@ def grade_answer_with_evidence(question: str, answer: str, rubric: dict[str, Any
 # ==========================================================================
 REJECTED_REPLIES = {
     "evidence_not_found": (
-        "Trích dẫn không khớp nguyên văn câu trả lời nên điểm của câu này không được "
-        "ghi nhận. Vui lòng trả lời lại với những đoạn văn rõ ràng hơn để AI có thể "
-        "trích dẫn đúng từ bạn."
+        "The quotation did not match your answer word for word, so this "
+        "answer was not scored. Please answer again with clearer passages so "
+        "the AI can quote your exact words."
     ),
     "feedback_ungrounded": (
-        "Nhận xét trích dẫn một đoạn không có trong câu trả lời nên kết quả bị từ chối "
-        "để tránh ghi nhận nhận xét không khớp. Vui lòng trả lời lại câu hỏi."
+        "The feedback quoted a passage that is not in your answer, so the "
+        "result was rejected to avoid recording mismatched comments. Please "
+        "answer the question again."
     ),
     "bad_score": (
-        "AI không trả về điểm hợp lệ nên câu này chưa được chấm. Vui lòng gửi lại câu trả lời."
+        "The AI did not return a valid score, so this answer was not graded. "
+        "Please submit the answer again."
     ),
     "no_feedback": (
-        "AI không tạo được nhận xét cho câu này. Vui lòng gửi lại câu trả lời."
+        "The AI could not produce feedback for this answer. Please submit the "
+        "answer again."
     ),
     "no_evidence": (
-        "AI không trích dẫn được đoạn nào trong câu trả lời. Vui lòng trả lời rõ ràng hơn."
+        "The AI could not quote any passage of your answer. Please answer more "
+        "clearly."
     ),
     "bad_json": (
-        "AI trả về dữ liệu không đúng định dạng nên câu này chưa được chấm. "
-        "Vui lòng gửi lại câu trả lời."
+        "The AI returned data in the wrong format, so this answer was not "
+        "graded. Please submit the answer again."
     ),
 }
 
@@ -1214,9 +1226,9 @@ SUMMARIZER_SYSTEM = (
     "candidate.\n\n"
     "You receive a JSON list of graded items, each with a question, a "
     "verdict, a score (0-10) and feedback. Write ONE cohesive paragraph in "
-    "Vietnamese, 3 to 5 sentences, that covers:\n"
-    "1. Diem manh - cite the strongest items by their question.\n"
-    "2. Diem can cai thien - what to work on, naming the weaker items.\n"
+    "ENGLISH, 3 to 5 sentences, that covers:\n"
+    "1. Strengths - cite the strongest items by their question.\n"
+    "2. Areas to improve - what to work on, naming the weaker items.\n"
     "3. One concrete recommendation for the next practice round.\n\n"
     "Rules:\n"
     "- Plain prose only: no markdown, no bullet lists, no headings, no JSON.\n"
@@ -1275,23 +1287,23 @@ def _rule_based_summary(items: list[dict[str, Any]]) -> str:
     parts = [_item_parts(item) for item in items]
     scored = [p for p in parts if p[2] is not None]
     if not scored:
-        return ("Chưa có câu nào được chấm điểm nên chưa thể tổng hợp kết quả "
-                "phỏng vấn.")
+        return ("No answer was scored, so there is no interview result to "
+                "summarize yet.")
     strong = sorted(scored, key=lambda p: (-p[2], p[0]))[:2]
     weak = sorted(scored, key=lambda p: (p[2], p[0]))[:2]
     strengths = " ; ".join(_cite(entry) for entry in strong)
     improvements = " ; ".join(_cite(entry) for entry in weak)
     below = [p for p in scored if p[2] < GOOD_THRESHOLD]
     if below:
-        weakest = sorted(below, key=lambda p: p[0])[-1][0] or "các câu còn yếu"
-        recommendation = (f"dành buổi luyện tập tiếp theo cho \"{weakest}\" và "
-                          "trả lời với ví dụ cụ thể, số liệu.")
+        weakest = sorted(below, key=lambda p: p[0])[-1][0] or "the weaker questions"
+        recommendation = (f"spend the next practice round on \"{weakest}\" and "
+                          "answer with a concrete example and numbers.")
     else:
-        recommendation = ("tiếp tục luyện tập với câu hỏi khó hơn để giữ phong "
-                          "độ hiện tại.")
-    return (f"Điểm mạnh: bạn trả lời tốt ở {strengths}. "
-            f"Điểm cần cải thiện: {improvements}. "
-            f"Khuyến nghị: {recommendation}")
+        recommendation = ("keep practicing with harder questions to maintain "
+                          "your current level.")
+    return (f"Strengths: you answered well on {strengths}. "
+            f"Areas to improve: {improvements}. "
+            f"Recommendation: {recommendation}")
 
 
 def summarize_interview(items: list[dict[str, Any]], *,
