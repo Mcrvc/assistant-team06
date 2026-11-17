@@ -97,6 +97,19 @@ def test_stale_save_does_not_overwrite_newer_answers(service):
     assert service.get(OWNER, item["id"])["answers"][0]["text"] == ANSWER
 
 
+def test_save_progress_accepts_fewer_answers_than_questions(service):
+    """A stale or partial client may save fewer answers than the interview
+    has questions; only extra answers are rejected."""
+    item = create(service)
+    saved = service.save_progress(OWNER, item["id"], SaveProgress(
+        revision=item["revision"], answers=[ANSWER], current_question=0))
+    assert saved["answers"][0]["text"] == ANSWER
+    with pytest.raises(InterviewError) as exc:
+        service.save_progress(OWNER, item["id"], SaveProgress(
+            revision=saved["revision"], answers=["a", "b", "c", "d"], current_question=0))
+    assert exc.value.status == 400
+
+
 def test_atomic_store_update_rejects_stale_internal_version(store, service):
     item = create(service)
     other = store.get(item["id"], OWNER)

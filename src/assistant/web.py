@@ -69,7 +69,8 @@ def get_service(request: Request) -> InterviewService:
 
 User = Annotated[str, Depends(get_current_user)]
 Service = Annotated[InterviewService, Depends(get_service)]
-QuestionIndex = Annotated[int, ApiPath(ge=0, le=2)]
+# Upper bound is the interview's real question count, checked in the service.
+QuestionIndex = Annotated[int, ApiPath(ge=0)]
 
 
 def create_app(*, service: InterviewService | None = None,
@@ -154,7 +155,8 @@ def create_app(*, service: InterviewService | None = None,
     def create_interview(payload: CreateInterview, user: User, service: Service):
         item = service.create(user, payload)
         return {"id": item["id"], "revision": item["revision"], "status": item["status"],
-                "total_questions": 3, "current_question": 0, "question": item["questions"][0],
+                "total_questions": len(item["questions"]), "current_question": 0,
+                "question": item["questions"][0],
                 "question_generation": item["question_generation"]}
 
     @app.get("/api/interviews", response_model=list[InterviewView], tags=["Interviews"])
