@@ -57,39 +57,86 @@ def _completion(payload) -> Completion:
 # --------------------------------------------------------------------------
 # The contract the team's adapter consumes
 # --------------------------------------------------------------------------
-def test_generate_questions_accepts_and_forwards_timeout(monkeypatch):
-    seen = {}
+def _plan_payload(total=4):
+    """A valid interview plan: seniority, total and per-slot arc."""
+    arc = [("starter", "easy"), ("cv", "medium"), ("experience", "medium"),
+           ("skills", "medium"), ("technical", "hard"), ("market", "hard"),
+           ("behavioral", "hard")]
+    return {
+        "seniority": "intern",
+        "total": total,
+        "slots": [{"phase": phase, "focus": f"probe {phase} theme {index}",
+                   "difficulty": difficulty}
+                  for index, (phase, difficulty) in enumerate(arc[:total])],
+    }
+
+
+def _question_payload(index):
+    """One valid slot question (short, so the grounding pool check is a no-op)."""
+    return {
+        "question": f"Q{index}?",
+        "phase": "cv",
+        "why": "w",
+        "rubric": {"max_score": 10, "criteria": [
+            {"name": "a", "points": 5, "good": "g"},
+            {"name": "b", "points": 5, "good": "g"}]},
+    }
+
+
+def _router_fake(monkeypatch, seen=None, plan_total=4, fail_slots=False):
+    """Fake ``complete`` that answers the planner, then one question per slot."""
+    state = {"slots": 0}
 
     def fake_complete(messages, **options):
-        seen.update(options)
-        return _completion({"questions": [
-            {"question": f"Q{i}?", "category": "technical", "why": "w",
-             "rubric": {"max_score": 10, "criteria": [
-                 {"name": "a", "points": 5, "good": "g"},
-                 {"name": "b", "points": 5, "good": "g"}]}}
-            for i in range(3)]})
+        if seen is not None:
+            seen.update(options)
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion(_plan_payload(plan_total))
+        state["slots"] += 1
+        if fail_slots:
+            return _completion({"questions": "not a question object"})
+        return _completion(_question_payload(state["slots"]))
 
     monkeypatch.setattr(aiworker, "complete", fake_complete)
-    aiworker.generate_questions({"title": "x"}, {}, "", [], timeout_s=9.0)
+    return state
 
+
+def test_generate_questions_accepts_and_forwards_timeout(monkeypatch):
+    seen = {}
+    _router_fake(monkeypatch, seen)
+    out = aiworker.generate_questions({"title": "x"}, {}, "", [], timeout_s=9.0)
     assert seen["timeout_s"] == 9.0
+    assert len(out["questions"]) == 4  # the planner decided, not a fixed three
 
 
 def test_generate_questions_returns_source_notes_and_sources(monkeypatch):
-    def fake_complete(messages, **options):
-        return _completion({"questions": [
-            {"question": f"Q{i}?", "category": "behavioral", "why": "w",
-             "rubric": {"max_score": 10, "criteria": [
-                 {"name": "a", "points": 5, "good": "g"},
-                 {"name": "b", "points": 5, "good": "g"}]}}
-            for i in range(3)]})
-    monkeypatch.setattr(aiworker, "complete", fake_complete)
-
+    _router_fake(monkeypatch)
     out = aiworker.generate_questions({"title": "x"}, {}, "notes here", ["https://a"])
     assert out["source"] == "nvidia"
     assert out["research_notes"] == "notes here"
     assert out["sources"] == ["https://a"]
-    assert len(out["questions"]) == 3
+    assert len(out["questions"]) == 4
+
+
+def test_generate_questions_runs_one_call_per_planned_slot(monkeypatch):
+    state = _router_fake(monkeypatch, plan_total=6)
+    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    assert state["slots"] == 6
+    assert [f"Q{i}?" for i in range(1, 7)] == [q["question"] for q in out["questions"]]
+
+
+def test_generate_questions_falls_back_to_the_default_plan_when_the_planner_fails(monkeypatch):
+    asked = {"n": 0}
+
+    def planner_down(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            raise aiworker.AiError("planner offline")
+        asked["n"] += 1
+        return _completion(_question_payload(asked["n"]))
+
+    monkeypatch.setattr(aiworker, "complete", planner_down)
+    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    assert len(out["questions"]) == aiworker.DEFAULT_PLAN["total"]
 
 
 def test_grade_answer_with_evidence_returns_the_five_expected_keys(monkeypatch):
@@ -141,6 +188,45 @@ def test_fabricated_evidence_is_refused_not_passed(monkeypatch):
     # A grade must never be returned alongside the refusal.
     assert excinfo.value.reply["used_fallback"] is True
     assert "score" not in excinfo.value.reply
+
+
+def test_refused_grade_is_retried_three_times_before_it_is_given_up(monkeypatch):
+    """A refusal is repaired up to GRADE_REPAIR_TURNS times: first call plus
+    three repair turns, then EvidenceRejected - never a graded reply."""
+    calls = {"n": 0}
+
+    def always_fabricates(messages, **options):
+        calls["n"] += 1
+        return _completion({
+            "score": 9.0,
+            "feedback": 'Ban neu "em dung Redis de luu cache" nhung chua noi ttl.',
+            "evidence": ["em dung Redis de luu cache"],
+        })
+
+    monkeypatch.setattr(aiworker, "complete", always_fabricates)
+    with pytest.raises(aiworker.EvidenceRejected):
+        aiworker.grade_answer_with_evidence("q?", "Toi dung Redis.", RUBRIC)
+    assert calls["n"] == 1 + aiworker.GRADE_REPAIR_TURNS
+
+
+def test_grade_recovered_on_the_third_repair_turn_passes(monkeypatch):
+    """The repair loop keeps going while a turn can still fix the payload."""
+    calls = {"n": 0}
+
+    def bad_twice(messages, **options):
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            return _completion({
+                "score": 9.0,
+                "feedback": 'Ban neu "em dung Redis de luu cache" nhung chua noi ttl.',
+                "evidence": ["em dung Redis de luu cache"],
+            })
+        return _completion(GOOD_PAYLOAD)
+
+    monkeypatch.setattr(aiworker, "complete", bad_twice)
+    grade = aiworker.grade_answer_with_evidence("q?", ANSWER, RUBRIC)
+    assert grade["score"] == GOOD_PAYLOAD["score"] and grade["used_fallback"] is False
+    assert calls["n"] == 3
 
 
 def test_feedback_quoting_a_passage_not_in_the_answer_is_refused(monkeypatch):
@@ -291,8 +377,8 @@ def test_valid_writer_payload_is_accepted():
 
 
 @pytest.mark.parametrize("payload,needle", [
-    (_questions(count=2), "exactly 3"),
-    (_questions(count=4), "exactly 3"),
+    (_questions(count=0), "between 1 and 6"),
+    (_questions(count=7), "between 1 and 6"),
     (_questions(max_score="10"), "number 10"),
     (_questions(points=(4, 3, 2)), "expected exactly 10"),
 ])
@@ -300,6 +386,12 @@ def test_writer_shape_the_team_schema_cannot_take_is_refused(payload, needle):
     with pytest.raises(ValueError) as excinfo:
         aiworker._validate_questions(payload)
     assert needle in str(excinfo.value)
+
+
+def test_writer_may_return_more_than_three_questions():
+    """The question count is not capped at 3: 4-6 questions validate."""
+    for count in (3, 4, 5, 6):
+        assert len(aiworker._validate_questions(_questions(count=count))) == count
 
 
 def test_writer_payload_with_overlong_criterion_is_refused():
@@ -312,7 +404,7 @@ def test_writer_payload_with_overlong_criterion_is_refused():
 
 def test_generate_questions_rejects_bad_shape_before_returning(monkeypatch):
     monkeypatch.setattr(aiworker, "complete",
-                        lambda m, **o: _completion(_questions(count=2)))
+                        lambda m, **o: _completion(_questions(count=7)))
     with pytest.raises(ValueError):
         aiworker.generate_questions({"title": "x"}, {}, "", [])
 
@@ -383,10 +475,44 @@ def test_grader_few_shot_examples_are_self_consistent():
 
 
 def test_writer_prompt_pins_the_schema_limits():
-    system = aiworker.WRITER_SYSTEM
-    assert "exactly 3 questions" in system
+    system = aiworker.QUESTION_SYSTEM
     assert 'NUMBER 10' in system
     assert "1000 characters" in system
-    # HM3: every question must name a concrete JD/CV element, in "why" too.
-    assert "concrete element" in system
+    # The question must talk to the candidate, never cite paperwork.
+    assert "NEVER reference documents" in system
+    assert '"the job profile"' in system
+    # Every slot sees the earlier questions and must not repeat one.
+    assert "Do NOT repeat an already-asked question" in system
+    # The "why" field still ties the question to a concrete element.
     assert '"why"' in system
+
+
+def test_planner_prompt_decides_count_seniority_and_arc():
+    system = aiworker.PLANNER_SYSTEM
+    # The planner - not a hard-coded three - decides how many questions.
+    assert '"total"' in system
+    assert "4 to 6" in system
+    assert '"seniority"' in system
+    # The arc covers CV/experience/skills plus market reality from research.
+    for phase in aiworker.INTERVIEW_PHASES:
+        assert f'"{phase}"' in system
+    # The default plan satisfies the same validator as a model plan.
+    assert aiworker._validate_plan({
+        "seniority": "junior", "total": 2,
+        "slots": [{"phase": "cv", "focus": "a", "difficulty": "easy"},
+                  {"phase": "market", "focus": "b", "difficulty": "hard"}]})["total"] == 2
+    with pytest.raises(ValueError):
+        aiworker._validate_plan({"seniority": "wizard", "total": 4, "slots": []})
+
+
+def test_questions_may_not_reference_documents_or_repeat_themselves():
+    pool = set()  # grounding is covered elsewhere
+    item = _question_payload(1)
+    item["question"] = "The job profile requires FastAPI experience - tell me about it."
+    with pytest.raises(ValueError, match="reference documents"):
+        aiworker._validate_question(item, pool=pool, label="question 1")
+    repeat = _question_payload(2)
+    with pytest.raises(ValueError, match="repeats"):
+        aiworker._validate_question(repeat, pool=pool,
+                                    previous=[_question_payload(2)])
+    assert aiworker._validate_question(_question_payload(3), pool=pool)["question"] == "Q3?"

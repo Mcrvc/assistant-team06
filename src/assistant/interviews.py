@@ -37,7 +37,7 @@ def _answer(text: str = "") -> dict:
 
 def progress(interview: dict) -> dict:
     answers = interview["answers"]
-    return {"total": 3, "answered": sum(bool(a["text"].strip()) for a in answers),
+    return {"total": len(answers), "answered": sum(bool(a["text"].strip()) for a in answers),
             **{status: sum(a["grading_status"] == status for a in answers)
                for status in ("graded", "pending", "rejected")}}
 
@@ -63,7 +63,7 @@ class InterviewService:
             "job_profile": job_profile, "cv": request.cv,
             "questions": generated["questions"],
             "question_generation": {k: generated[k] for k in ("model", "used_fallback")},
-            "answers": [_answer() for _ in range(3)], "current_question": 0,
+            "answers": [_answer() for _ in generated["questions"]], "current_question": 0,
             "status": "in_progress", "report": None, "revision": 0, "version": 0,
             "created_at": now, "updated_at": now,
         }
@@ -118,7 +118,16 @@ class InterviewService:
                         answer["text"] for answer in interview["answers"]]))
 
         def change(interview: dict) -> None:
+            if request.current_question >= len(interview["questions"]):
+                raise InterviewError(400, "invalid_question",
+                                     "Current question index is outside this interview")
             if request.answers is not None:
+                # A client may send fewer answers than the interview has
+                # questions (an older cached page, a partial draft); apply what
+                # it sent and never let extra answers index past the interview.
+                if len(request.answers) > len(interview["questions"]):
+                    raise InterviewError(400, "invalid_request",
+                                         "More answers than the interview has questions")
                 for i, text in enumerate(request.answers):
                     if text != interview["answers"][i]["text"]:
                         interview["answers"][i] = _answer(text)
@@ -128,8 +137,6 @@ class InterviewService:
 
     def submit_answer(self, owner_id: str, interview_id: str, index: int,
                       request: SubmitAnswer) -> tuple[dict, str | None]:
-        if index not in range(3):
-            raise InterviewError(400, "invalid_question", "Question index must be 0, 1 or 2")
         grading_id = str(uuid4())
 
         def already_applied(interview: dict) -> bool:
@@ -139,10 +146,14 @@ class InterviewService:
                     and bool(answer["grading_id"]))
 
         def change(interview: dict) -> None:
+            if index >= len(interview["questions"]):
+                raise InterviewError(400, "invalid_question",
+                                     "Question index is outside this interview")
             interview["answers"][index] = {
                 **_answer(request.text), "grading_status": "pending", "grading_id": grading_id,
             }
-            interview.update(current_question=min(index + 1, 2), status="in_progress")
+            interview.update(current_question=min(index + 1, len(interview["questions"]) - 1),
+                             status="in_progress")
         result = self._change(owner_id, interview_id, request.revision, change,
                               already_applied=already_applied)
         # A replay must not schedule a second AI call for the same job. A fresh
@@ -248,7 +259,8 @@ class InterviewService:
             notices.append("Contains mock/fallback output; not a real AI assessment."
                            if used_fallback else "Evidence quotations passed exact text matching.")
             interview.update(
-                name=request.name or interview["name"], status="finalized", current_question=2,
+                name=request.name or interview["name"], status="finalized",
+                current_question=len(interview["questions"]) - 1,
                 report={"overall_score": overall, "items": items, "used_fallback": used_fallback,
                         "label": ("Good" if overall >= 6 else "Needs Improvement") if overall is not None else "Incomplete",
                         "notice": " ".join(notices)},
