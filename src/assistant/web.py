@@ -199,9 +199,16 @@ def create_app(*, service: InterviewService | None = None,
     def unknown_api(unknown: str):
         raise InterviewError(404, "not_found", "API endpoint not found")
 
-    app.mount("/app", StaticFiles(directory=ui_root, html=True), name="team_frontend")
-    app.mount("/prototype", StaticFiles(directory=ui_root, html=True), name="prototype")
-    app.mount("/", StaticFiles(directory=ui_root, html=True), name="ui")
+    class NoCacheStaticFiles(StaticFiles):
+        async def get_response(self, path: str, scope):
+            response = await super().get_response(path, scope)
+            if path == "." or path == "" or path.endswith((".html", ".js", ".css")):
+                response.headers.setdefault("Cache-Control", "no-cache")
+            return response
+
+    app.mount("/app", NoCacheStaticFiles(directory=ui_root, html=True), name="team_frontend")
+    app.mount("/prototype", NoCacheStaticFiles(directory=ui_root, html=True), name="prototype")
+    app.mount("/", NoCacheStaticFiles(directory=ui_root, html=True), name="ui")
     return app
 
 
