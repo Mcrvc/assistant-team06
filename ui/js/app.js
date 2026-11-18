@@ -447,8 +447,7 @@
     if (activeLink) activeLink.classList.add("is-active");
   }
 
-  $$("[data-sign-out]").forEach(link => link.addEventListener("click", async event => {
-    event.preventDefault();
+  async function signOutAndRedirect() {
     try {
       await api.signOut();
     } catch (err) {
@@ -457,6 +456,16 @@
     try { sessionStorage.removeItem("yourin:redirectAfterLogin"); } catch (_) { /* Ignore. */ }
     cacheUsername("");
     window.location.replace("sign-in.html");
+  }
+
+  let confirmInterviewSignOut = null;
+  $$("[data-sign-out]").forEach(link => link.addEventListener("click", event => {
+    event.preventDefault();
+    if (confirmInterviewSignOut) {
+      confirmInterviewSignOut(link);
+    } else {
+      signOutAndRedirect();
+    }
   }));
 
   // Toggle password visibility (show/hide)
@@ -1370,7 +1379,8 @@
           const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/answers/${index}`, {
             method: "POST",
             body: JSON.stringify({ revision: interview.revision, text }),
-            loading: false
+            loading: false,
+            notify: false
           });
           if (!result.ok || !result.data) {
             if (result.status === 409) await refreshServerInterview();
@@ -1533,6 +1543,11 @@
     const exitModal = $("#interview-exit-modal");
     const exitModalName = $("#saved-name");
     const exitModalConfirmBtn = $("#exit-modal-confirm-btn");
+    const exitModalCancelBtn = $("#exit-modal-cancel-btn");
+    const exitError = $("#interview-exit-error");
+    const answerError = $("#interview-answer-error");
+    let changingQuestion = false;
+    let exitLink = null;
 
     const robotStage = $("#robot-stage");
     const robotReplayBtn = $("#robot-replay-btn");
@@ -1663,12 +1678,14 @@
           : "This question is not available yet. Please reopen the interview from Your Interview.";
       }
       if (answerInput) {
+        clearAnswerError();
         answerInput.dataset.answer = currentStep;
         answerInput.value = interview.answers[currentStep] || "";
         updateCharCount();
       }
 
       if (prevBtn) {
+        prevBtn.disabled = false;
         if (currentStep === 0) {
           prevBtn.classList.add("is-hidden");
         } else {
@@ -1694,8 +1711,14 @@
       startRobotMime();
     }
 
+    function clearAnswerError() {
+      if (answerError) answerError.hidden = true;
+      answerInput?.removeAttribute("aria-invalid");
+    }
+
     if (answerInput) {
       answerInput.addEventListener("input", () => {
+        clearAnswerError();
         interview.answers[currentStep] = answerInput.value;
         save();
         updateCharCount();
@@ -1722,108 +1745,120 @@
       answerInput.addEventListener("click", updateGazeOnTyping);
     }
 
-    if (prevBtn) {
-      prevBtn.addEventListener("click", () => {
-        if (currentStep > 0) {
-          const fromStep = currentStep;
-          const toStep = currentStep - 1;
-          if (answerInput) interview.answers[fromStep] = answerInput.value;
-          save();
-          renderStep(toStep);
-          updateAnswerStatusUI();
-          if (isServerInterview()) {
-            submitCurrentAnswer(fromStep);
-            saveProgressToServer(toStep);
-          }
+    async function changeQuestion(direction, button) {
+      if (changingQuestion || exitLink || button.disabled) return;
+      const fromStep = currentStep;
+      const toStep = fromStep + direction;
+      const finishing = toStep === totalQuestions;
+      if (toStep < 0) return;
+
+      if (answerInput) interview.answers[fromStep] = answerInput.value;
+      save();
+      const missingStep = finishing
+        ? interview.answers.slice(0, totalQuestions).findIndex(text => !String(text || "").trim())
+        : (!String(interview.answers[fromStep] || "").trim() ? fromStep : -1);
+      if (direction > 0 && missingStep !== -1) {
+        if (missingStep !== fromStep) renderStep(missingStep);
+        if (answerError) {
+          answerError.textContent = "Enter an answer before continuing.";
+          answerError.hidden = false;
         }
-      });
-    }
+        answerInput?.setAttribute("aria-invalid", "true");
+        answerInput?.focus();
+        return;
+      }
 
-    if (nextBtn) {
-      nextBtn.addEventListener("click", async () => {
-        const fromStep = currentStep;
-        if (answerInput) interview.answers[fromStep] = answerInput.value;
-        save();
-
-        if (fromStep < totalQuestions - 1) {
-          const toStep = fromStep + 1;
-          renderStep(toStep);
-          updateAnswerStatusUI();
-          if (isServerInterview()) {
-            submitCurrentAnswer(fromStep);
-            saveProgressToServer(toStep);
-          }
-        } else {
-          if (isServerInterview()) {
-            const originalLabel = nextBtn.textContent;
-            nextBtn.disabled = true;
-            nextBtn.textContent = "Saving...";
-            try {
-              const submitted = await submitCurrentAnswer(fromStep);
-              await writeQueue;
-              if (!submitted) return;
-            } finally {
-              nextBtn.disabled = false;
-              nextBtn.textContent = originalLabel;
-            }
-          }
-          skipPageHideSave = true;
-          save();
-          go("done-interview.html");
+      if (isServerInterview()) {
+        changingQuestion = true;
+        const label = button.textContent;
+        button.disabled = true;
+        button.textContent = "Saving...";
+        if (isRecording) stopRecording();
+        if (answerInput) answerInput.readOnly = true;
+        try {
+          if (!await submitCurrentAnswer(fromStep)) return;
+          if (!finishing && !await saveProgressToServer(toStep)) return;
+          await writeQueue;
+        } finally {
+          if (answerInput) answerInput.readOnly = false;
+          button.disabled = false;
+          button.textContent = label;
+          changingQuestion = false;
         }
-      });
+      }
+      if (finishing) {
+        skipPageHideSave = true;
+        go("done-interview.html");
+      } else {
+        renderStep(toStep);
+      }
     }
 
-    // Trigger Save & Exit whenever the user attempts to exit the interview screen
-    if (exitModalConfirmBtn) {
-      exitModalConfirmBtn.addEventListener("click", async event => {
-        if (pendingServerWrites <= 0) return;
-        event.preventDefault();
-        const destination = exitModalConfirmBtn.getAttribute("href") || "dashboard.html";
-        exitModalConfirmBtn.textContent = "Saving...";
-        await writeQueue;
-        go(destination);
-      });
+    prevBtn?.addEventListener("click", () => changeQuestion(-1, prevBtn));
+    nextBtn?.addEventListener("click", () => changeQuestion(1, nextBtn));
+
+    const exitBackground = $$(".site-header, .interview-panel, .site-footer");
+    function setExitDialogOpen(open) {
+      exitModal.classList.toggle("is-hidden", !open);
+      exitBackground.forEach(element => { element.inert = open; });
     }
 
-    function triggerSaveAndExit(targetHref) {
-      skipPageHideSave = true;
+    exitModalConfirmBtn?.addEventListener("click", async () => {
+      exitModalConfirmBtn.disabled = true;
+      exitModalCancelBtn.disabled = true;
+      exitModalConfirmBtn.textContent = "Saving...";
+      exitError.hidden = true;
+      if (isRecording) stopRecording();
       if (answerInput) interview.answers[currentStep] = answerInput.value;
       save();
-      if (isServerInterview()) {
-        saveProgressToServer(currentStep, "interrupted").catch(() => {});
+      const saved = await saveProgressToServer(currentStep, "interrupted");
+      await writeQueue;
+      if (!saved) {
+        exitError.textContent = "Could not save your interview. Try again or keep answering.";
+        exitError.hidden = false;
+        exitModalConfirmBtn.disabled = false;
+        exitModalCancelBtn.disabled = false;
+        exitModalConfirmBtn.textContent = "Save and leave";
+        exitModalConfirmBtn.focus();
+        return;
       }
-
-      if (exitModal) {
-        if (exitModalName) exitModalName.textContent = interview.name;
-        if (exitModalConfirmBtn) {
-          const destination = targetHref || "dashboard.html";
-          exitModalConfirmBtn.href = destination;
-          exitModalConfirmBtn.textContent = "Proceed";
-        }
-        exitModal.classList.remove("is-hidden");
-        $(".site-header").inert = true;
-        const mainPanel = $(".interview-panel");
-        if (mainPanel) mainPanel.inert = true;
-        const footer = $(".site-footer");
-        if (footer) footer.inert = true;
-        if (exitModalConfirmBtn) exitModalConfirmBtn.focus();
+      skipPageHideSave = true;
+      if (exitLink?.hasAttribute("data-sign-out")) {
+        await signOutAndRedirect();
       } else {
-        go("interview-interrupt.html");
+        go(exitLink?.getAttribute("href") || "dashboard.html");
       }
+    });
+
+    exitModalCancelBtn?.addEventListener("click", () => {
+      const opener = exitLink;
+      exitLink = null;
+      setExitDialogOpen(false);
+      if (opener) opener.focus();
+      else answerInput?.focus();
+    });
+
+    function triggerSaveAndExit(link = null) {
+      if (changingQuestion || !exitModal || !exitModal.classList.contains("is-hidden")) return;
+      exitLink = link;
+      if (exitModalName) exitModalName.textContent = interview.name;
+      exitError.hidden = true;
+      setExitDialogOpen(true);
+      exitModalConfirmBtn.focus();
     }
 
-    $$(".site-header a").forEach(link => {
-      link.addEventListener("click", e => {
-        e.preventDefault();
-        triggerSaveAndExit(link.getAttribute("href") || "dashboard.html");
+    confirmInterviewSignOut = triggerSaveAndExit;
+    $$(".site-header a:not([data-sign-out])").forEach(link => {
+      link.addEventListener("click", event => {
+        event.preventDefault();
+        triggerSaveAndExit(link);
       });
     });
 
     try {
       history.pushState({ interview: true }, "");
       window.addEventListener("popstate", () => {
-        triggerSaveAndExit("dashboard.html");
+        triggerSaveAndExit();
       });
     } catch (_) {}
 
@@ -1924,6 +1959,7 @@
     }, { once: true });
 
     renderStep(currentStep);
+    if (answerInput) answerInput.readOnly = false;
     updateAnswerStatusUI();
     if (isServerInterview() && Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
       startGradingPoll();

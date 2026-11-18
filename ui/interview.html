@@ -173,7 +173,8 @@
           <span class="composer-word-count" id="answer-char-count">0 characters</span>
         </div>
         <div class="field answer-field">
-          <textarea id="answer" data-answer="0" rows="6" maxlength="10000" placeholder="Type or record your answer..."></textarea>
+          <textarea id="answer" data-answer="0" rows="6" maxlength="10000" placeholder="Type or record your answer..." aria-describedby="interview-answer-error" readonly></textarea>
+          <p class="form-error" id="interview-answer-error" role="alert" hidden></p>
         </div>
 
         <!-- Prominent Voice Recording Dock -->
@@ -209,19 +210,20 @@
 
     <!-- Centered Navigation Buttons (Same Color) -->
     <div class="interview-navigation">
-      <button type="button" class="btn is-hidden" id="prev-question-btn">← Previous Question</button>
-      <button type="button" class="btn" id="next-question-btn">Next Question →</button>
+      <button type="button" class="btn is-hidden" id="prev-question-btn" disabled>← Previous Question</button>
+      <button type="button" class="btn" id="next-question-btn" disabled>Next Question →</button>
     </div>
   </section>
 </main>
 <footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
 
-<!-- Auto-triggered Save and Exit Modal (Full-Page Blur Overlay) -->
+<!-- Confirm before saving and leaving the interview. -->
 <div class="dialog-backdrop is-hidden" id="interview-exit-modal" role="dialog" aria-modal="true" aria-labelledby="saved-title">
   <section class="saved-dialog">
-    <span class="badge">SAVED</span>
-    <h1 id="saved-title">Your interview has been saved as <span id="saved-name">interview 1</span></h1>
-    <a class="btn" id="exit-modal-confirm-btn" href="dashboard.html" autofocus>Proceed</a>
+    <h1 id="saved-title">Save <span id="saved-name">this interview</span> before leaving?</h1>
+    <p class="form-error" id="interview-exit-error" role="alert" hidden></p>
+    <button class="btn" id="exit-modal-confirm-btn" type="button">Save and leave</button>
+    <button class="btn btn-secondary" id="exit-modal-cancel-btn" type="button">Keep answering</button>
   </section>
 </div>
 <noscript><p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p></noscript>
