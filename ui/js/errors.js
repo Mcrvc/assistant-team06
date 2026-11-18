@@ -175,13 +175,24 @@
     return `${messages.slice(0, 3).join("; ")} (+${messages.length - 3} more)`;
   }
 
+  let handling401 = false;
+
   function handleStatus(status, payload) {
-    // 401: not authenticated -> redirect to sign-in (unless already there)
+    // 401: not authenticated -> clear stale session and redirect to sign-in
     if (status === 401) {
+      if (handling401) return "redirect";
+      handling401 = true;
       showToast(messageFromPayload(payload) || "Your session has expired. Please sign in again.", { type: "warning" });
       try { sessionStorage.setItem("yourin:redirectAfterLogin", window.location.pathname + window.location.search); } catch (_) {}
+      const clearSession = typeof window.YourinAPI?.signOut === "function"
+        ? Promise.resolve(window.YourinAPI.signOut()).catch(() => {})
+        : Promise.resolve();
       if (!/(^|\/)sign-in(\.html)?\/?$/.test(window.location.pathname)) {
-        setTimeout(() => { window.location.href = "sign-in.html"; }, 900);
+        clearSession.finally(() => {
+          setTimeout(() => { window.location.href = "sign-in.html"; }, 900);
+        });
+      } else {
+        clearSession.finally(() => { handling401 = false; });
       }
       return "redirect";
     }

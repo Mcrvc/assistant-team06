@@ -284,7 +284,21 @@
       throw new Error("The Supabase client library could not be loaded.");
     }
 
-    const result = await request("/api/config", { auth: false, notify: false });
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : null;
+    let result;
+    try {
+      result = await request("/api/config", {
+        auth: false,
+        notify: false,
+        signal: controller ? controller.signal : undefined
+      });
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+    if (result.aborted) {
+      throw new Error("The backend server is taking too long to respond. It may still be starting up — please retry.");
+    }
     if (!result.ok || !result.data) {
       throw new Error("Unable to load application configuration from the backend.");
     }
