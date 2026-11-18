@@ -194,9 +194,16 @@
     accounts: [newAccount(authenticatedUsername)]
   };
   const candidates = [];
+  let tabState = null;
   try { candidates.push(JSON.parse(localStorage.getItem(KEY))); } catch (_) { /* Storage may be disabled. */ }
   try {
-    if (window.name.startsWith(PREFIX)) candidates.push(JSON.parse(window.name.slice(PREFIX.length)));
+    if (window.name.startsWith(PREFIX)) {
+      const savedTab = JSON.parse(window.name.slice(PREFIX.length));
+      if (validState(savedTab)) {
+        tabState = savedTab;
+        candidates.push(savedTab);
+      }
+    }
   } catch (_) { /* Ignore unrelated window names. */ }
   for (const candidate of candidates) {
     if (validState(candidate) && candidate.updatedAt >= state.updatedAt) state = candidate;
@@ -1283,8 +1290,6 @@
       interview = startInterview();
     }
 
-    let skipPageHideSave = false;
-
     function isServerInterview() {
       return Boolean(interview && interview.server === true && interview.id);
     }
@@ -1307,9 +1312,8 @@
       }
     });
 
-    function applyServerView(target, view, options = {}) {
+    function applyServerView(target, view, draftSource = null) {
       if (!target || !view) return;
-      const preserveDrafts = options.preserveDrafts === true;
       if (typeof view.name === "string" && view.name.trim()) target.name = view.name.trim();
       if (typeof view.status === "string") target.status = view.status;
       if (Number.isInteger(view.revision)) target.revision = view.revision;
@@ -1323,8 +1327,8 @@
       }
       target.report = view.report || target.report || null;
       const answers = Array.isArray(view.answers) ? view.answers : [];
-      const prevAnswers = Array.isArray(target.answers) ? target.answers : [];
-      const prevSubmitted = Array.isArray(target.submittedTexts) ? target.submittedTexts : [];
+      const prevAnswers = draftSource?.answers || [];
+      const prevSubmitted = draftSource?.submittedTexts || [];
       const answerCount = (Array.isArray(view.questions) && view.questions.length)
         || (Number.isInteger(target.totalQuestions) && target.totalQuestions > 0 ? target.totalQuestions : 3);
       const texts = [];
@@ -1335,10 +1339,11 @@
       for (let i = 0; i < answerCount; i++) {
         const answer = answers[i] || {};
         const serverText = typeof answer.text === "string" ? answer.text : "";
-        const localText = typeof prevAnswers[i] === "string" ? prevAnswers[i] : "";
-        const submittedText = typeof prevSubmitted[i] === "string" ? prevSubmitted[i] : "";
-        const hasUnsentDraft = preserveDrafts && localText !== submittedText;
-        texts.push(hasUnsentDraft ? localText : serverText);
+        const hasUnsentDraft = view.status !== "finalized"
+          && typeof prevAnswers[i] === "string"
+          && typeof prevSubmitted[i] === "string"
+          && prevAnswers[i] !== prevSubmitted[i];
+        texts.push(hasUnsentDraft ? prevAnswers[i] : serverText);
         serverTexts.push(serverText);
         statuses.push(typeof answer.grading_status === "string" ? answer.grading_status : "unanswered");
         grades.push(answer.grade || null);
@@ -1358,7 +1363,7 @@
         loading: false,
         notify: false
       });
-      if (result.ok && result.data) applyServerView(interview, result.data, { preserveDrafts: true });
+      if (result.ok && result.data) applyServerView(interview, result.data, interview);
       else if (result.status === 409) {
         // keep local state; backend may have moved
       }
@@ -1389,7 +1394,7 @@
             }
             return false;
           }
-          applyServerView(interview, result.data, { preserveDrafts: true });
+          applyServerView(interview, result.data, interview);
           startGradingPoll();
           updateAnswerStatusUI();
           return true;
@@ -1400,7 +1405,7 @@
       });
     }
 
-    function saveProgressToServer(targetStep, status) {
+    function saveProgressToServer(targetStep, status = "in_progress", includeAnswers = false) {
       return enqueueServerWrite(async () => {
         if (!isServerInterview()) return true;
         const nextStatus = status === "interrupted" ? "interrupted" : "in_progress";
@@ -1413,13 +1418,13 @@
                 (Array.isArray(interview.questions) && interview.questions.length
                   ? interview.questions.length - 1 : 2), targetStep)),
               status: nextStatus,
-              answers: interview.answers
+              ...(includeAnswers ? { answers: interview.answers } : {})
             }),
             loading: false,
             notify: true
           });
           if (result.ok && result.data) {
-            applyServerView(interview, result.data, { preserveDrafts: true });
+            applyServerView(interview, result.data, interview);
             return true;
           }
           if (result.status === 409) await refreshServerInterview();
@@ -1478,7 +1483,12 @@
       if (!Array.isArray(interview.submittedTexts)) interview.submittedTexts = ["", "", ""];
       try {
         const initial = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, { loading: false, notify: true });
-        if (initial.ok && initial.data) applyServerView(interview, initial.data);
+        if (initial.ok && initial.data) {
+          // The shared cache can be newer when a second tab saves this interview.
+          const tabInterview = tabState?.accounts.find(item => identity(item.username) === identity(tabState.currentAccount))
+            ?.interviews.find(item => item.id === interview.id);
+          applyServerView(interview, initial.data, tabInterview);
+        }
       } catch (_) {}
       if (Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
         startGradingPoll();
@@ -1787,7 +1797,6 @@
         }
       }
       if (finishing) {
-        skipPageHideSave = true;
         go("done-interview.html");
       } else {
         renderStep(toStep);
@@ -1811,7 +1820,7 @@
       if (isRecording) stopRecording();
       if (answerInput) interview.answers[currentStep] = answerInput.value;
       save();
-      const saved = await saveProgressToServer(currentStep, "interrupted");
+      const saved = await saveProgressToServer(currentStep, "interrupted", true);
       await writeQueue;
       if (!saved) {
         exitError.textContent = "Could not save your interview. Try again or keep answering.";
@@ -1822,7 +1831,6 @@
         exitModalConfirmBtn.focus();
         return;
       }
-      skipPageHideSave = true;
       if (exitLink?.hasAttribute("data-sign-out")) {
         await signOutAndRedirect();
       } else {
@@ -1948,14 +1956,11 @@
     $$("[data-save-answer]").forEach(link => link.addEventListener("click", () => {
       if (answerInput) interview.answers[currentStep] = answerInput.value;
       save();
-      if (isServerInterview()) saveProgressToServer(currentStep).catch(() => {});
+      if (isServerInterview()) saveProgressToServer(currentStep, "in_progress", true).catch(() => {});
     }));
 
     window.addEventListener("pagehide", () => {
       if (gradingPoll) window.clearInterval(gradingPoll);
-      if (isServerInterview() && !skipPageHideSave) {
-        saveProgressToServer(currentStep, "interrupted").catch(() => {});
-      }
     }, { once: true });
 
     renderStep(currentStep);
