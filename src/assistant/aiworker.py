@@ -396,29 +396,106 @@ def research_notes(topic: str, queries: list[str]) -> tuple[str, list[str]]:
 
 
 # ==========================================================================
-# 5. Stage C - generate questions + rubrics
+# 5. Stage C - generate questions + rubrics, in planned phases
+#
+# C1: the planner sees CV + Job Profile + research and decides HOW MANY
+#     questions, at what seniority, and the arc of the interview.
+# C2: each slot is written in its own call, aware of the questions already
+#     asked, so a question can continue the previous thread instead of
+#     repeating it.
 # ==========================================================================
-WRITER_SYSTEM = (
-    "You are a senior technical interviewer writing mock interview questions.\n\n"
-    "You are given: a Job Profile, a CV, and research notes.\n\n"
-    "Write exactly 3 questions that fit THIS candidate and THIS role. Mix "
-    "behavioral and technical. Each question needs exactly 3 rubric criteria "
-    "whose points sum to exactly 10.\n\n"
-    "Hard requirements - a reply that breaks any of them is useless:\n"
-    "- exactly 3 questions, no more, no fewer\n"
-    "- rubric.max_score is the NUMBER 10, never the string \"10\"\n"
-    "- exactly 3 criteria per rubric, each points a number, summing to 10\n"
-    "- criterion.good is at most 1000 characters\n"
-    "- every question MUST reference at least one concrete element from the "
-    "Job Profile or the CV: a named skill, a metric, or a real scenario from "
-    "them. Generic questions (\"tell me about yourself\") are refused.\n"
-    "- the question's \"why\" field MUST name that same concrete element, so "
-    "the link between the role and the question is visible\n\n"
-    "Reply with ONLY a JSON object, no markdown fence, no commentary:\n"
-    "{\"questions\": [{\"question\": \"...\", \"category\": \"behavioral|technical\",\n"
-    "  \"why\": \"...\", \"rubric\": {\"max_score\": 10, \"criteria\":\n"
-    "  [{\"name\": \"...\", \"points\": 3, \"good\": \"what a strong answer covers\"}]}}]}"
+PLANNER_SYSTEM = (
+    "You are the interview architect for a mock interview service.\n\n"
+    "You are given: a Job Profile, a candidate CV, and research notes about "
+    "the role and the market.\n\n"
+    "Before any question is written, decide the STRUCTURE of this interview. "
+    "Reply with ONLY a JSON object, no markdown fence, no commentary:\n\n"
+    "{\"seniority\": \"intern|junior|mid|senior\",\n"
+    " \"total\": <number of questions, 4 to 6>,\n"
+    " \"slots\": [{\"phase\": \"<phase>\", \"focus\": \"<what this question must "
+    "probe>\", \"difficulty\": \"easy|medium|hard\"}]}\n\n"
+    "Rules:\n"
+    "- Phases, in a natural interview order: \"starter\" (one warm-up), then "
+    "\"cv\" (projects, metrics and skills from the CV), \"experience\" "
+    "(incidents, failures, ownership), \"skills\" (depth in a skill the role "
+    "needs), \"technical\" (design and problem solving for the role's real "
+    "work), \"market\" (industry practice and role reality from the research "
+    "notes), \"behavioral\" (teamwork, learning, motivation).\n"
+    "- Every cv/experience/skills focus MUST name a concrete CV item: a "
+    "project, a metric, or a named technology.\n"
+    "- The market focus MUST use the research notes, not generic knowledge.\n"
+    "- Pick seniority from the Job Profile level and the CV's demonstrated "
+    "depth; difficulty should rise across the interview.\n"
+    "- No two slots may probe the same thing.\n"
+    "- Use 4 to 6 slots; total must equal the number of slots."
 )
+
+QUESTION_SYSTEM = (
+    "You are a senior technical interviewer writing ONE question for a mock "
+    "interview.\n\n"
+    "You are given: the Job Profile, the candidate's CV, research notes, the "
+    "interview plan, the slot you must fill, and the questions already asked.\n\n"
+    "Write the question for THIS slot only.\n\n"
+    "Hard requirements - a reply that breaks any of them is useless:\n"
+    "- Speak directly to the candidate the way a real interviewer does: "
+    "\"You mentioned X - walk me through...\", \"Tell me about a time...\". "
+    "One question, natural spoken English.\n"
+    "- NEVER reference documents. Do not write \"the job profile\", \"the job "
+    "description\", \"your CV says\", \"according to your resume\". You are "
+    "talking to the person, not reading their paperwork.\n"
+    "- Ground the question in the slot's focus. For cv/experience/skills "
+    "slots, use the concrete CV item the focus names. For market/technical "
+    "slots, connect to what this role actually does day to day and to what "
+    "the research notes say.\n"
+    "- Match the slot difficulty and the plan's seniority.\n"
+    "- Do NOT repeat an already-asked question. If a previous question left "
+    "an interesting thread open, deepen that thread instead of starting "
+    "somewhere new.\n"
+    "- The \"why\" field MUST name the concrete element (CV item, role task, "
+    "or research finding) the question is built on.\n"
+    "- rubric.max_score is the NUMBER 10; exactly 3 criteria, points summing "
+    "to exactly 10; criterion.good at most 1000 characters.\n\n"
+    "Reply with ONLY a JSON object, no markdown fence, no commentary:\n"
+    "{\"question\": \"...\", \"phase\": \"<the slot phase>\", \"why\": \"...\", "
+    "\"rubric\": {\"max_score\": 10, \"criteria\": [{\"name\": \"...\", "
+    "\"points\": N, \"good\": \"what a strong answer covers\"}]}}"
+)
+
+# The phases an interview moves through, in the order a planner should use.
+INTERVIEW_PHASES = ("starter", "cv", "experience", "skills", "technical",
+                    "market", "behavioral")
+
+# Deterministic plan used when the planner call fails, so generation still
+# produces a full arc instead of aborting to the mock provider.
+DEFAULT_PLAN: dict[str, Any] = {
+    "seniority": "intern",
+    "total": 5,
+    "slots": [
+        {"phase": "starter",
+         "focus": "open with their background and what drew them to this role",
+         "difficulty": "easy"},
+        {"phase": "cv",
+         "focus": "a concrete project from the CV: their role, actions and outcome",
+         "difficulty": "medium"},
+        {"phase": "experience",
+         "focus": "a production incident or failure they handled and what changed after",
+         "difficulty": "medium"},
+        {"phase": "skills",
+         "focus": "depth in the core skill this role needs, proven with a real example",
+         "difficulty": "medium"},
+        {"phase": "technical",
+         "focus": "a design or problem-solving question drawn from the role's day-to-day work",
+         "difficulty": "hard"},
+        {"phase": "market",
+         "focus": "how industry practice or current tooling applies to this role",
+         "difficulty": "hard"},
+    ],
+}
+
+# How many questions the planner may schedule. The team's Generation schema
+# accepts 1..6; the planner is asked for 4..6 so a rich CV/Job Profile
+# produces several questions instead of always exactly three.
+MIN_QUESTIONS, MAX_QUESTIONS = 1, 6
 
 
 def _extract_json(text: str) -> dict[str, Any]:
@@ -446,26 +523,139 @@ def _significant_tokens(text: str) -> set[str]:
             if len(token) >= 4}
 
 
+def _validate_plan(payload: Any) -> dict[str, Any]:
+    """Check the interview planner's output, or raise ValueError.
+
+    A plan must say how many questions, at what seniority, and an arc of
+    slots whose count matches. Anything the schema below refuses is retried
+    once with the reason; a planner that still fails falls back to
+    ``DEFAULT_PLAN`` so generation never stalls.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError("plan is not a JSON object")
+    seniority = payload.get("seniority")
+    if seniority not in ("intern", "junior", "mid", "senior"):
+        raise ValueError(f"plan seniority must be intern|junior|mid|senior, got {seniority!r}")
+    total = payload.get("total")
+    if isinstance(total, bool) or not isinstance(total, int) \
+            or not MIN_QUESTIONS <= total <= MAX_QUESTIONS:
+        raise ValueError(
+            f"plan total must be an integer between {MIN_QUESTIONS} and "
+            f"{MAX_QUESTIONS}, got {total!r}")
+    slots = payload.get("slots")
+    if not isinstance(slots, list) or len(slots) != total:
+        raise ValueError(
+            f"plan needs exactly {total} slots, got {len(slots or [])}")
+    seen: set[str] = set()
+    for index, slot in enumerate(slots, 1):
+        if not isinstance(slot, dict):
+            raise ValueError(f"plan slot {index} is not an object")
+        phase = slot.get("phase")
+        if phase not in INTERVIEW_PHASES:
+            raise ValueError(
+                f"plan slot {index} phase must be one of {INTERVIEW_PHASES}, got {phase!r}")
+        focus = slot.get("focus")
+        if not isinstance(focus, str) or not focus.strip():
+            raise ValueError(f"plan slot {index} has no focus")
+        if len(focus) > 400:
+            raise ValueError(f"plan slot {index} focus exceeds 400 characters")
+        difficulty = slot.get("difficulty")
+        if difficulty not in ("easy", "medium", "hard"):
+            raise ValueError(
+                f"plan slot {index} difficulty must be easy|medium|hard, got {difficulty!r}")
+        key = focus.strip().casefold()
+        if key in seen:
+            raise ValueError(f"plan slot {index} repeats an earlier focus")
+        seen.add(key)
+    return {"seniority": seniority, "total": total, "slots": slots}
+
+
+# Phrases a real interviewer never says: they turn the question into a
+# reading-comprehension exercise about paperwork instead of a conversation.
+_DOCUMENT_PHRASES = ("job profile", "job description", "job posting",
+                     "your cv", "your resume", "the cv", "the resume")
+
+
+def _validate_question(item: Any, pool: set[str] | None = None,
+                       previous: list[dict[str, Any]] | None = None,
+                       label: str = "question") -> dict[str, Any]:
+    """Check ONE writer question against the team's ``Question`` schema.
+
+    ``pool`` is the significant-token set of the JD/CV/research text the
+    writer saw; a question sharing ZERO tokens with it is refused as a
+    generic question (HM3). ``previous`` holds the questions already asked:
+    a repeat of one of them is refused so the interview keeps moving.
+    """
+    if not isinstance(item, dict):
+        raise ValueError(f"{label} is not an object")
+    text = item.get("question")
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError(f"{label} has no question text")
+    if len(text) > 4000:
+        raise ValueError(f"{label} text exceeds 4000 characters")
+    lowered = text.casefold()
+    for phrase in _DOCUMENT_PHRASES:
+        if phrase in lowered:
+            raise ValueError(
+                f"{label} must talk to the candidate, not reference documents "
+                f"(found {phrase!r})")
+    if previous:
+        folded = _normalise(text)
+        for earlier in previous:
+            earlier_text = earlier.get("question") if isinstance(earlier, dict) else None
+            if isinstance(earlier_text, str) and _normalise(earlier_text) == folded:
+                raise ValueError(f"{label} repeats an already-asked question")
+    if pool:
+        tokens = _significant_tokens(text)
+        if tokens and not (tokens & pool):
+            raise ValueError(
+                f"{label} is generic: no significant token overlaps the Job "
+                f"Profile / CV / research text")
+    rubric = item.get("rubric")
+    if not isinstance(rubric, dict):
+        raise ValueError(f"{label} has no rubric")
+    max_score = rubric.get("max_score")
+    # strict=True refuses str for float; catch it before it becomes a
+    # silent fallback on the other side.
+    if isinstance(max_score, bool) or not isinstance(max_score, (int, float)) \
+            or float(max_score) != 10.0:
+        raise ValueError(f"{label} max_score must be the number 10, got {max_score!r}")
+    criteria = rubric.get("criteria")
+    if not isinstance(criteria, list) or not 1 <= len(criteria) <= 6:
+        raise ValueError(f"{label} needs 1-6 criteria")
+    total = 0.0
+    for criterion in criteria:
+        if not isinstance(criterion, dict):
+            raise ValueError(f"{label} has a non-object criterion")
+        points = criterion.get("points")
+        if isinstance(points, bool) or not isinstance(points, (int, float)) \
+                or not 0 < float(points) <= 10:
+            raise ValueError(f"{label} criterion points must be 0-10, got {points!r}")
+        total += float(points)
+        good = criterion.get("good")
+        if not isinstance(good, str) or not good.strip():
+            raise ValueError(f"{label} criterion has no 'good' description")
+        if len(good) > 1000:
+            raise ValueError(f"{label} criterion 'good' exceeds 1000 characters")
+    if abs(total - 10.0) > 1e-6:
+        raise ValueError(f"{label} rubric points sum to {total}, expected exactly 10")
+    return item
+
+
 def _validate_questions(payload: dict[str, Any],
                         context_text: str = "") -> list[dict[str, Any]]:
-    """Reject writer output that the team's ``Generation`` schema cannot accept.
+    """Validate a whole ``{"questions": [...]}`` writer payload.
 
-    Their schema is ``extra="forbid", strict=True`` with ``questions`` pinned to
-    exactly 3, ``Rubric.max_score == 10`` and criteria summing to exactly 10.
-    Anything else fails validation over there and silently degrades to the mock
-    provider, so we surface the problem here instead.
-
-    ``context_text`` is the masked JD+CV text the writer saw. When given, a
-    question that shares ZERO significant tokens with it is refused as a
-    generic question (HM3). The check is deliberately conservative - only a
-    total non-overlap is rejected, and questions too short to carry any
-    significant token are left alone - so a legitimately specific question
-    aimed at this JD/CV always passes.
+    Kept for the batch shape (and the unit tests): each item goes through
+    :func:`_validate_question`, so a payload-level caller gets the same
+    guarantees as the per-slot writer.
     """
-    questions = payload.get("questions")
-    if not isinstance(questions, list) or len(questions) != 3:
-        raise ValueError(f"writer returned {len(questions or [])} questions, expected exactly 3")
-
+    questions = payload.get("questions") if isinstance(payload, dict) else None
+    if not isinstance(questions, list) or not (
+            MIN_QUESTIONS <= len(questions) <= MAX_QUESTIONS):
+        raise ValueError(
+            f"writer returned {len(questions or [])} questions, "
+            f"expected between {MIN_QUESTIONS} and {MAX_QUESTIONS}")
     pool = _significant_tokens(context_text) if isinstance(context_text, str) else set()
     if pool:
         for index, item in enumerate(questions, 1):
@@ -479,44 +669,10 @@ def _validate_questions(payload: dict[str, Any],
                 raise ValueError(
                     f"question {index} is generic: no significant token of the "
                     f"question overlaps the Job Profile / CV text")
-
-    for index, item in enumerate(questions, 1):
-        if not isinstance(item, dict):
-            raise ValueError(f"question {index} is not an object")
-        text = item.get("question")
-        if not isinstance(text, str) or not text.strip():
-            raise ValueError(f"question {index} has no question text")
-        if len(text) > 4000:
-            raise ValueError(f"question {index} text exceeds 4000 characters")
-        rubric = item.get("rubric")
-        if not isinstance(rubric, dict):
-            raise ValueError(f"question {index} has no rubric")
-        max_score = rubric.get("max_score")
-        # strict=True refuses str for float; catch it before it becomes a
-        # silent fallback on the other side.
-        if isinstance(max_score, bool) or not isinstance(max_score, (int, float)) \
-                or float(max_score) != 10.0:
-            raise ValueError(f"question {index} max_score must be the number 10, got {max_score!r}")
-        criteria = rubric.get("criteria")
-        if not isinstance(criteria, list) or not 1 <= len(criteria) <= 6:
-            raise ValueError(f"question {index} needs 1-6 criteria")
-        total = 0.0
-        for criterion in criteria:
-            if not isinstance(criterion, dict):
-                raise ValueError(f"question {index} has a non-object criterion")
-            points = criterion.get("points")
-            if isinstance(points, bool) or not isinstance(points, (int, float)) \
-                    or not 0 < float(points) <= 10:
-                raise ValueError(f"question {index} criterion points must be 0-10, got {points!r}")
-            total += float(points)
-            good = criterion.get("good")
-            if not isinstance(good, str) or not good.strip():
-                raise ValueError(f"question {index} criterion has no 'good' description")
-            if len(good) > 1000:
-                raise ValueError(f"question {index} criterion 'good' exceeds 1000 characters")
-        if abs(total - 10.0) > 1e-6:
-            raise ValueError(f"question {index} rubric points sum to {total}, expected exactly 10")
-    return questions
+    return [
+        _validate_question(item, pool=set(), label=f"question {index}")
+        for index, item in enumerate(questions, 1)
+    ]
 
 
 def _research_for_questions(job_profile: dict[str, Any],
@@ -544,10 +700,139 @@ def _research_for_questions(job_profile: dict[str, Any],
         return "", []
 
 
+def plan_interview(job_profile: dict[str, Any], cv: dict[str, Any],
+                   notes: str, *, timeout_s: float | None = None) -> dict[str, Any]:
+    """Stage C1: decide the interview structure before writing anything.
+
+    The planner sees the CV, the Job Profile and the research notes and
+    returns how many questions, at what seniority, and the arc of slots. A
+    failed call (provider down, unusable shape) falls back to
+    ``DEFAULT_PLAN`` so generation still produces a full interview.
+    """
+    prompt = (
+        "JOB PROFILE:\n" + profile_summary(job_profile) +
+        "\n\nCV:\n" + _cv_prompt_text(cv) +
+        "\n\nRESEARCH NOTES:\n" + (notes or "(none available)")
+    )
+    try:
+        completion = complete(
+            [
+                {"role": "system", "content": PLANNER_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=1024,
+            temperature=0.3,
+            timeout_s=timeout_s,
+        )
+        payload = _extract_json(completion.text)
+        try:
+            return _validate_plan(payload)
+        except ValueError as fault:
+            # One repair turn with the exact reason, then give up on planning.
+            repair = _repair_instruction(fault)
+            completion = complete(
+                [
+                    {"role": "system", "content": PLANNER_SYSTEM},
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": completion.text},
+                    {"role": "user", "content": repair},
+                ],
+                max_tokens=1024,
+                temperature=0.3,
+                timeout_s=timeout_s,
+            )
+            return _validate_plan(_extract_json(completion.text))
+    except (AiError, ValueError) as exc:
+        print(f"[plan] interview structure unavailable "
+              f"({type(exc).__name__}); using default plan", file=sys.stderr)
+        return {**DEFAULT_PLAN, "slots": [dict(slot) for slot in DEFAULT_PLAN["slots"]]}
+
+
+def _slot_prompt(slot: dict[str, Any], plan: dict[str, Any],
+                 job_profile: dict[str, Any], cv: dict[str, Any],
+                 notes: str, sources: list[str],
+                 previous: list[dict[str, Any]]) -> str:
+    """The per-slot brief: material + plan + what was already asked."""
+    cv_text = _cv_prompt_text(cv)
+    context = (
+        "JOB PROFILE:\n" + profile_summary(job_profile) +
+        "\n\nCV:\n" + cv_text +
+        "\n\nRESEARCH NOTES:\n" + (notes or "(none available)") +
+        (("\n\nSOURCES YOU MAY CITE:\n" + "\n".join(sources)) if sources else "")
+    )
+    lines = [
+        context,
+        "\nINTERVIEW PLAN:",
+        f"seniority: {plan['seniority']}; total questions: {plan['total']}",
+        "arc: " + ", ".join(
+            f"{index}.{slot_['phase']}({slot_['difficulty']})"
+            for index, slot_ in enumerate(plan["slots"], 1)),
+        "\nTHIS SLOT:",
+        f"phase: {slot['phase']}; difficulty: {slot['difficulty']}",
+        f"focus: {slot['focus']}",
+    ]
+    if previous:
+        lines.append("\nQUESTIONS ALREADY ASKED (do not repeat; you may deepen one):")
+        for index, item in enumerate(previous, 1):
+            lines.append(f"{index}. {item.get('question', '')}")
+    else:
+        lines.append("\nQUESTIONS ALREADY ASKED: none - this opens the interview.")
+    return "\n".join(lines)
+
+
+def _write_slot_question(slot: dict[str, Any], plan: dict[str, Any],
+                         job_profile: dict[str, Any], cv: dict[str, Any],
+                         notes: str, sources: list[str],
+                         previous: list[dict[str, Any]],
+                         *, timeout_s: float | None = None) -> dict[str, Any]:
+    """Stage C2: write ONE question for this slot, aware of the earlier ones.
+
+    A question that fails validation gets one repair turn carrying the exact
+    reason; a second failure raises so the caller can stop the run.
+    """
+    prompt = _slot_prompt(slot, plan, job_profile, cv, notes, sources, previous)
+    # The overlap pool is the same text the writer saw, minus the masking
+    # placeholders (otherwise a question containing the word "email" would
+    # look grounded).
+    pool = _significant_tokens(prompt.replace("[email]", " ").replace("[phone]", " "))
+    label = f"{slot['phase']} question"
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": QUESTION_SYSTEM},
+        {"role": "user", "content": prompt},
+    ]
+    for turn in range(2):
+        completion = complete(
+            messages, max_tokens=2048, temperature=0.6, timeout_s=timeout_s)
+        try:
+            payload = _extract_json(completion.text)
+            if not isinstance(payload, dict):
+                raise ValueError("question payload is not a JSON object")
+            item = _validate_question(payload, pool=pool, previous=previous,
+                                      label=label)
+            item["phase"] = slot["phase"]
+            return item
+        except (json.JSONDecodeError, ValueError) as exc:
+            if turn == 1:
+                raise ValueError(f"{label} unusable after one repair: {exc}") from None
+            print(f"[write] {slot['phase']} slot refused "
+                  f"({exc}); repairing", file=sys.stderr)
+            messages.append({"role": "assistant", "content": completion.text})
+            messages.append({"role": "user", "content": _repair_instruction(exc)})
+    raise ValueError(f"{label} unusable")  # pragma: no cover - loop returns/raises
+
+
 def generate_questions(job_profile: dict[str, Any], cv: dict[str, Any],
                        notes: str, sources: list[str],
                        *, timeout_s: float | None = None) -> dict[str, Any]:
     """Write the mock interview questions (plus a rubric for each).
+
+    Three stages, in order:
+      1. research (only when the caller supplied none) so questions are
+         grounded in the real role, not vibes;
+      2. the planner decides how many questions, at what seniority, and the
+         arc of phases from the CV + Job Profile + research;
+      3. each slot is written in its own call and sees the questions already
+         asked, so the interview builds instead of repeating itself.
 
     When the caller supplies no research (``notes`` blank AND ``sources``
     empty - the interview adapter always calls it that way) the worker runs
@@ -561,27 +846,20 @@ def generate_questions(job_profile: dict[str, Any], cv: dict[str, Any],
         if researched_notes:
             notes, sources = researched_notes, researched_sources
 
-    prompt = (
-        "JOB PROFILE:\n" + profile_summary(job_profile) +
-        "\n\nCV:\n" + _cv_prompt_text(cv) +
-        "\n\nRESEARCH NOTES:\n" + (notes or "(none available)") +
-        (("\n\nSOURCES YOU MAY CITE:\n" + "\n".join(sources)) if sources else "")
-    )
-    completion = complete(
-        [
-            {"role": "system", "content": WRITER_SYSTEM},
-            {"role": "user", "content": prompt},
-        ],
-        max_tokens=2048,
-        temperature=0.6,
-        timeout_s=timeout_s,
-    )
-    payload = _extract_json(completion.text)
-    # The overlap pool is built from the same text the writer saw, minus the
-    # masking placeholders (otherwise any question containing the word
-    # "email" would look grounded).
-    pool_text = prompt.replace("[email]", " ").replace("[phone]", " ")
-    questions = _validate_questions(payload, pool_text)
+    plan = plan_interview(job_profile, cv, notes, timeout_s=timeout_s)
+    print(f"[plan] {plan['total']} questions, seniority {plan['seniority']}: "
+          + ", ".join(slot["phase"] for slot in plan["slots"]), file=sys.stderr)
+
+    questions: list[dict[str, Any]] = []
+    for slot in plan["slots"][:plan["total"]]:
+        item = _write_slot_question(slot, plan, job_profile, cv, notes, sources,
+                                    questions, timeout_s=timeout_s)
+        questions.append(item)
+        print(f"[write] {slot['phase']} question {len(questions)}/{plan['total']}: "
+              f"{item['question'][:80]}", file=sys.stderr)
+    if len(questions) < MIN_QUESTIONS:
+        raise ValueError(
+            f"only {len(questions)} usable questions, expected at least {MIN_QUESTIONS}")
     return {"source": "nvidia", "questions": questions, "research_notes": notes,
             "sources": sources}
 
@@ -593,6 +871,12 @@ def generate_questions(job_profile: dict[str, Any], cv: dict[str, Any],
 # or above this threshold counts as a pass (see eval/interview_eval.py, which
 # imports this constant so the offline harness and the service never drift).
 GOOD_THRESHOLD = 6.0
+
+# A refused grade gets this many repair turns before it is finally refused
+# (HM2). One turn was given up on too easily: the model often needs a second
+# or third try before it copies a span character-for-character. Each repair
+# appends the rejection reason to the same conversation and asks again.
+GRADE_REPAIR_TURNS = 3
 
 EVIDENCE_SYSTEM = (
     "You grade a candidate's interview answer against a weighted rubric "
@@ -615,19 +899,24 @@ EVIDENCE_SYSTEM = (
     "answer up to 9: a correct, specific answer is 7-8.5, and only a "
     "measured outcome earns 9 or more.\n\n"
     "Feedback rules:\n"
-    "- 2 to 4 sentences in Vietnamese that reference the rubric criteria by "
+    "- 2 to 4 sentences in ENGLISH that reference the rubric criteria by "
     "name.\n"
+    "- Every sentence of your own analysis is written in English. The only "
+    "exception is the quoted spans: they are copied from the answer and stay "
+    "in the answer's original language.\n"
     "- Every claim you make about the answer must quote the exact words it "
     "is based on, wrapped in double quotes, inline in the sentence. Example: "
-    "Ban neu \"em dung Redis de luu cache\" nhung chua giai thich cache "
+    "You say \"I used Redis to cache\" but never explained cache "
     "invalidation.\n"
     "- Write those quotations character-for-character as they appear in the "
     "answer: same casing, same spacing, same diacritics.\n\n"
     "Evidence rules:\n"
     "- 1 to 6 entries, each an exact substring of the answer, copied "
     "character-for-character.\n"
-    "- Never invent, translate, normalise, summarize or join fragments. If "
-    "you cannot quote the answer verbatim, you cannot grade that point.\n"
+    "- Never invent, translate, normalise, summarize or join fragments. A "
+    "translated quote is NOT in the answer and fails the exact-match check: "
+    "when the candidate answered in Vietnamese (or any other language), the "
+    "quote keeps that language while everything around it is English.\n"
     "- Never \"fix\" missing diacritics in an evidence entry: the entry must "
     "match the answer literally, including the answer's actual diacritics. "
     "If you are unsure, choose the shortest safe span instead of rewriting "
@@ -635,29 +924,32 @@ EVIDENCE_SYSTEM = (
     "- Every quoted span inside your feedback must also appear in evidence.\n\n"
     "WORKED EXAMPLE 1 - a strong answer, correctly scored 8.5 (not 9: the "
     "outcome is real but only partly measured). Every quoted span is copied "
-    "character-for-character from the answer, diacritics included:\n"
-    "QUESTION: \"Bạn đã dùng Redis trong hệ thống của mình như thế nào?\"\n"
-    "ANSWER: \"Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm. Khi có "
-    "đợt flash sale, p99 giảm từ 800ms xuống 120ms và số lỗi 5xx giảm 90%. "
-    "Sau đó tôi thêm TTL 5 phút cho mỗi key để tránh dữ liệu cũ.\"\n"
-    "REPLY: {\"score\": 8.5, \"feedback\": \"Bạn nêu rõ công nghệ và kết quả "
-    "đo được: \\\"Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm\\\" và "
-    "\\\"p99 giảm từ 800ms xuống 120ms\\\", đáp ứng tiêu chí kỹ thuật và kết "
-    "quả. Bạn còn bổ sung vận hành với \\\"tôi thêm TTL 5 phút cho mỗi "
-    "key\\\", nhưng chưa nêu cách xử lý khi dữ liệu gốc thay đổi.\", "
-    "\"evidence\": [\"Tôi đã dùng Redis làm cache cho API tra cứu sản phẩm\", "
-    "\"p99 giảm từ 800ms xuống 120ms\", \"tôi thêm TTL 5 phút cho mỗi key\"]}\n\n"
+    "character-for-character from the answer:\n"
+    "QUESTION: \"How have you used Redis in your system?\"\n"
+    "ANSWER: \"I used Redis to cache the product lookup API. During a flash "
+    "sale, p99 dropped from 800ms to 120ms and 5xx errors fell by 90%. "
+    "After that I added a 5-minute TTL to each key to avoid stale data.\"\n"
+    "REPLY: {\"score\": 8.5, \"feedback\": \"You covered the technology and a "
+    "measured result: \\\"I used Redis to cache the product lookup API\\\" "
+    "and \\\"p99 dropped from 800ms to 120ms\\\", meeting the technical and "
+    "outcome criteria. You also added operational care with \\\"I added a "
+    "5-minute TTL to each key\\\", but you did not explain how you handle "
+    "cache invalidation when the source data changes.\", "
+    "\"evidence\": [\"I used Redis to cache the product lookup API\", "
+    "\"p99 dropped from 800ms to 120ms\", \"I added a 5-minute TTL to each "
+    "key\"]}\n\n"
     "WORKED EXAMPLE 2 - a generic, correct-but-thin answer, scored 5.5. The "
     "evidence still has to be a verbatim span of the answer:\n"
-    "QUESTION: \"Bạn làm việc nhóm tốt như thế nào?\"\n"
-    "ANSWER: \"Tôi thường làm việc nhóm rất tốt và luôn cố gắng hết mình. Tôi "
-    "có kinh nghiệm với nhiều dự án và học hỏi nhanh. Tôi nghĩ mình phù hợp "
-    "với công việc này.\"\n"
-    "REPLY: {\"score\": 5.5, \"feedback\": \"Câu trả lời còn chung chung: cụm "
-    "như \\\"Tôi thường làm việc nhóm rất tốt\\\" là nhận định chung, chưa có "
-    "tình huống cụ thể, hành động của bạn hay kết quả, nên chỉ đạt một phần "
-    "nhỏ của rubric. Bạn cần một tình huống thật có vai trò và số liệu.\", "
-    "\"evidence\": [\"Tôi thường làm việc nhóm rất tốt\"]}"
+    "QUESTION: \"How well do you work in a team?\"\n"
+    "ANSWER: \"I usually work in a team very well and always try my best. "
+    "I have experience with many projects and learn quickly. I think I am a "
+    "good fit for this job.\"\n"
+    "REPLY: {\"score\": 5.5, \"feedback\": \"The answer is still generic: the "
+    "phrase \\\"I usually work in a team very well\\\" is a general claim "
+    "with no specific situation, your actions or a result, so it only covers "
+    "a small part of the rubric. You need a real situation with your role "
+    "and concrete numbers.\", "
+    "\"evidence\": [\"I usually work in a team very well\"]}"
 )
 
 
@@ -775,16 +1067,30 @@ def _grade_turn(messages: list[dict[str, Any]], answer: str, question: str,
     return score, feedback, quotes, completion.model
 
 
-def _repair_instruction(fault: EvidenceRejected) -> str:
-    """The repair note appended to the conversation after a refusal (HM2)."""
-    return (
-        "Your previous reply was refused.\n"
-        f"Reason: {fault.code} - {fault.message}\n"
+def _repair_instruction(fault: BaseException) -> str:
+    """The repair note appended to the conversation after a refusal (HM2).
+
+    Works for :class:`EvidenceRejected` (``code`` + ``message``) and for any
+    other :class:`Exception` raised by the validators, so the planner and the
+    slot writer share one repair loop.
+    """
+    code = getattr(fault, "code", None) or type(fault).__name__
+    message = getattr(fault, "message", None) or str(fault)
+    tail = (
         "Resubmit ONLY the corrected JSON object. Copy every quoted span "
         "character-for-character from the answer - same casing, same spacing, "
         "same diacritics - and make each evidence entry an exact substring of "
         "the answer. If you are unsure, choose the shortest safe span. Never "
         "invent a passage and never fix the answer's diacritics."
+    ) if code in REJECTED_REPLIES else (
+        "Resubmit ONLY the corrected JSON object that satisfies every hard "
+        "requirement. Speak to the candidate, never reference documents, and "
+        "keep the rubric exactly as specified."
+    )
+    return (
+        "Your previous reply was refused.\n"
+        f"Reason: {code} - {message}\n"
+        f"{tail}"
     )
 
 
@@ -797,12 +1103,12 @@ def grade_answer_with_evidence(question: str, answer: str, rubric: dict[str, Any
     ``evidence`` - is verified to be a verbatim span of the answer before this
     function returns.
 
-    When the model cannot quote verbatim it gets ONE repair turn (HM2): the
-    same conversation plus the rejection reason and the offending item. A
-    payload that still fails after that raises :class:`EvidenceRejected`
-    carrying a fallback reply - nothing is fabricated, the payload keeps
-    exactly its five keys, and the repair count is only counted in a stderr
-    log line.
+    When the model cannot quote verbatim it gets up to ``GRADE_REPAIR_TURNS``
+    repair turns (HM2): the same conversation plus the rejection reason and the
+    offending item, retried before the grade is given up on. A payload that
+    still fails after those turns raises :class:`EvidenceRejected` carrying a
+    fallback reply - nothing is fabricated, the payload keeps exactly its five
+    keys, and the repair count is only counted in a stderr log line.
     """
     if not isinstance(answer, str) or not answer.strip():
         raise ValueError("answer must be a non-empty string")
@@ -814,23 +1120,25 @@ def grade_answer_with_evidence(question: str, answer: str, rubric: dict[str, Any
             ensure_ascii=False,
         )},
     ]
-    try:
-        score, feedback, quotes, model = _grade_turn(
-            messages, answer, question, rubric, timeout_s=timeout_s)
-    except EvidenceRejected as first_fault:
-        echo = getattr(first_fault, "raw_reply", "") or "(previous reply rejected)"
-        print(f"[grade] self-repair 1/1 after {first_fault.code}", file=sys.stderr)
-        messages.append({"role": "assistant", "content": echo})
-        messages.append({"role": "user", "content": _repair_instruction(first_fault)})
+    fault: EvidenceRejected | None = None
+    for turn in range(GRADE_REPAIR_TURNS + 1):
         try:
             score, feedback, quotes, model = _grade_turn(
                 messages, answer, question, rubric, timeout_s=timeout_s)
-        except EvidenceRejected:
-            print(f"[grade] self-repair 1/1 after {first_fault.code} failed; "
-                  f"refusing", file=sys.stderr)
-            raise first_fault
-        print(f"[grade] self-repair 1/1 after {first_fault.code}: recovered",
-              file=sys.stderr)
+            break
+        except EvidenceRejected as exc:
+            fault = exc
+            if turn >= GRADE_REPAIR_TURNS:
+                print(f"[grade] self-repair {turn}/{GRADE_REPAIR_TURNS} after "
+                      f"{exc.code} failed; refusing", file=sys.stderr)
+                raise
+            echo = getattr(exc, "raw_reply", "") or "(previous reply rejected)"
+            print(f"[grade] self-repair {turn + 1}/{GRADE_REPAIR_TURNS} after "
+                  f"{exc.code}", file=sys.stderr)
+            messages.append({"role": "assistant", "content": echo})
+            messages.append({"role": "user", "content": _repair_instruction(exc)})
+    else:  # pragma: no cover - the loop breaks on success or raises
+        raise fault
 
     return {
         "score": score,
@@ -846,26 +1154,30 @@ def grade_answer_with_evidence(question: str, answer: str, rubric: dict[str, Any
 # ==========================================================================
 REJECTED_REPLIES = {
     "evidence_not_found": (
-        "Trích dẫn không khớp nguyên văn câu trả lời nên điểm của câu này không được "
-        "ghi nhận. Vui lòng trả lời lại với những đoạn văn rõ ràng hơn để AI có thể "
-        "trích dẫn đúng từ bạn."
+        "The quotation did not match your answer word for word, so this "
+        "answer was not scored. Please answer again with clearer passages so "
+        "the AI can quote your exact words."
     ),
     "feedback_ungrounded": (
-        "Nhận xét trích dẫn một đoạn không có trong câu trả lời nên kết quả bị từ chối "
-        "để tránh ghi nhận nhận xét không khớp. Vui lòng trả lời lại câu hỏi."
+        "The feedback quoted a passage that is not in your answer, so the "
+        "result was rejected to avoid recording mismatched comments. Please "
+        "answer the question again."
     ),
     "bad_score": (
-        "AI không trả về điểm hợp lệ nên câu này chưa được chấm. Vui lòng gửi lại câu trả lời."
+        "The AI did not return a valid score, so this answer was not graded. "
+        "Please submit the answer again."
     ),
     "no_feedback": (
-        "AI không tạo được nhận xét cho câu này. Vui lòng gửi lại câu trả lời."
+        "The AI could not produce feedback for this answer. Please submit the "
+        "answer again."
     ),
     "no_evidence": (
-        "AI không trích dẫn được đoạn nào trong câu trả lời. Vui lòng trả lời rõ ràng hơn."
+        "The AI could not quote any passage of your answer. Please answer more "
+        "clearly."
     ),
     "bad_json": (
-        "AI trả về dữ liệu không đúng định dạng nên câu này chưa được chấm. "
-        "Vui lòng gửi lại câu trả lời."
+        "The AI returned data in the wrong format, so this answer was not "
+        "graded. Please submit the answer again."
     ),
 }
 
@@ -914,9 +1226,9 @@ SUMMARIZER_SYSTEM = (
     "candidate.\n\n"
     "You receive a JSON list of graded items, each with a question, a "
     "verdict, a score (0-10) and feedback. Write ONE cohesive paragraph in "
-    "Vietnamese, 3 to 5 sentences, that covers:\n"
-    "1. Diem manh - cite the strongest items by their question.\n"
-    "2. Diem can cai thien - what to work on, naming the weaker items.\n"
+    "ENGLISH, 3 to 5 sentences, that covers:\n"
+    "1. Strengths - cite the strongest items by their question.\n"
+    "2. Areas to improve - what to work on, naming the weaker items.\n"
     "3. One concrete recommendation for the next practice round.\n\n"
     "Rules:\n"
     "- Plain prose only: no markdown, no bullet lists, no headings, no JSON.\n"
@@ -975,23 +1287,23 @@ def _rule_based_summary(items: list[dict[str, Any]]) -> str:
     parts = [_item_parts(item) for item in items]
     scored = [p for p in parts if p[2] is not None]
     if not scored:
-        return ("Chưa có câu nào được chấm điểm nên chưa thể tổng hợp kết quả "
-                "phỏng vấn.")
+        return ("No answer was scored, so there is no interview result to "
+                "summarize yet.")
     strong = sorted(scored, key=lambda p: (-p[2], p[0]))[:2]
     weak = sorted(scored, key=lambda p: (p[2], p[0]))[:2]
     strengths = " ; ".join(_cite(entry) for entry in strong)
     improvements = " ; ".join(_cite(entry) for entry in weak)
     below = [p for p in scored if p[2] < GOOD_THRESHOLD]
     if below:
-        weakest = sorted(below, key=lambda p: p[0])[-1][0] or "các câu còn yếu"
-        recommendation = (f"dành buổi luyện tập tiếp theo cho \"{weakest}\" và "
-                          "trả lời với ví dụ cụ thể, số liệu.")
+        weakest = sorted(below, key=lambda p: p[0])[-1][0] or "the weaker questions"
+        recommendation = (f"spend the next practice round on \"{weakest}\" and "
+                          "answer with a concrete example and numbers.")
     else:
-        recommendation = ("tiếp tục luyện tập với câu hỏi khó hơn để giữ phong "
-                          "độ hiện tại.")
-    return (f"Điểm mạnh: bạn trả lời tốt ở {strengths}. "
-            f"Điểm cần cải thiện: {improvements}. "
-            f"Khuyến nghị: {recommendation}")
+        recommendation = ("keep practicing with harder questions to maintain "
+                          "your current level.")
+    return (f"Strengths: you answered well on {strengths}. "
+            f"Areas to improve: {improvements}. "
+            f"Recommendation: {recommendation}")
 
 
 def summarize_interview(items: list[dict[str, Any]], *,

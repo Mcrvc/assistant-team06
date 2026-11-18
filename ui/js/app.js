@@ -146,6 +146,9 @@
   const jobKeys = ["job-source", "job-title", "domain", "company", "position"];
   const manualJobKeys = ["job-title", "domain", "company", "position"];
   const strings = (value, length) => Array.isArray(value) && value.length === length && value.every(item => typeof item === "string");
+  // An interview may hold any number of answers now (the writer returns 4-6
+  // questions), so cached state is validated by range, not a fixed 3.
+  const answerList = value => Array.isArray(value) && value.length >= 1 && value.length <= 8 && value.every(item => typeof item === "string");
   const identity = name => String(name || "").trim().toLocaleLowerCase();
   const go = url => { window.location.href = url; };
   const authenticatedUsername = authenticatedUser?.user_metadata?.username || cachedUsername || "User";
@@ -182,7 +185,7 @@
         Array.isArray(account.feedback) && Array.isArray(account.interviews) &&
         account.interviews.every(interview =>
           interview && typeof interview.id === "string" && typeof interview.name === "string" &&
-          typeof interview.date === "string" && strings(interview.answers, 3) &&
+          typeof interview.date === "string" && answerList(interview.answers) &&
           (interview.cv === null || strings(interview.cv, 4))));
   }
   let state = {
@@ -304,11 +307,12 @@
     const details = Array.isArray(view && view.questions) && view.questions.length
       ? view.questions
       : (created && created.question ? [created.question] : []);
+    const answerTotal = details.length || 3;
     const answers = Array.isArray(view && view.answers)
       ? view.answers.map(answer => (answer && typeof answer.text === "string" ? answer.text : ""))
-      : ["", "", ""];
-    while (answers.length < 3) answers.push("");
-    answers.length = 3;
+      : details.map(() => "");
+    while (answers.length < answerTotal) answers.push("");
+    answers.length = answerTotal;
 
     const name = typeof view?.name === "string" && view.name.trim()
       ? view.name.trim()
@@ -332,7 +336,7 @@
       questionDetails: details,
       totalQuestions: Number.isInteger(created.total_questions) && created.total_questions > 0
         ? created.total_questions
-        : 3,
+        : (details.length || 3),
       revision: Number.isInteger(view?.revision) ? view.revision : (Number.isInteger(created.revision) ? created.revision : 0),
       status: view?.status || created.status || "in_progress",
       currentQuestion: Number.isInteger(view?.current_question)
@@ -349,12 +353,6 @@
     return item;
   }
   function serverInterviewFromView(view, existing = null) {
-    const answers = Array.isArray(view?.answers)
-      ? view.answers.map(answer => (answer && typeof answer.text === "string" ? answer.text : ""))
-      : (Array.isArray(existing?.answers) ? [...existing.answers] : ["", "", ""]);
-    while (answers.length < 3) answers.push("");
-    answers.length = 3;
-
     const details = Array.isArray(view?.questions)
       ? view.questions
       : (Array.isArray(existing?.questionDetails)
@@ -365,6 +363,12 @@
         ? question
         : (question && typeof question.text === "string" ? question.text : "")
     ));
+    const answerTotal = questions.length || 3;
+    const answers = Array.isArray(view?.answers)
+      ? view.answers.map(answer => (answer && typeof answer.text === "string" ? answer.text : ""))
+      : (Array.isArray(existing?.answers) ? [...existing.answers] : questions.map(() => ""));
+    while (answers.length < answerTotal) answers.push("");
+    answers.length = answerTotal;
 
     const createdAt = view?.created_at ? new Date(view.created_at) : null;
     const date = createdAt && !Number.isNaN(createdAt.getTime())
@@ -1311,12 +1315,14 @@
       const answers = Array.isArray(view.answers) ? view.answers : [];
       const prevAnswers = Array.isArray(target.answers) ? target.answers : [];
       const prevSubmitted = Array.isArray(target.submittedTexts) ? target.submittedTexts : [];
+      const answerCount = (Array.isArray(view.questions) && view.questions.length)
+        || (Number.isInteger(target.totalQuestions) && target.totalQuestions > 0 ? target.totalQuestions : 3);
       const texts = [];
       const statuses = [];
       const grades = [];
       const errors = [];
       const serverTexts = [];
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < answerCount; i++) {
         const answer = answers[i] || {};
         const serverText = typeof answer.text === "string" ? answer.text : "";
         const localText = typeof prevAnswers[i] === "string" ? prevAnswers[i] : "";

@@ -58,9 +58,12 @@ BEGIN
   IF p_item IS NULL OR jsonb_typeof(p_item) <> 'object'
     OR (p_item->>'id') IS DISTINCT FROM p_id
     OR (p_item->>'owner_id')::uuid IS DISTINCT FROM p_owner
-    OR jsonb_array_length(p_item->'questions') IS DISTINCT FROM 3
-    OR jsonb_array_length(p_item->'answers') IS DISTINCT FROM 3
-    OR NOT coalesce((p_item->>'current_question')::integer BETWEEN 0 AND 2, false)
+    -- The interview planner decides the question count (4-6 typical, 1-6
+    -- allowed by the team schema); nothing is pinned to three anymore.
+    -- coalesce keeps the check NULL-safe, like IS DISTINCT FROM did.
+    OR NOT coalesce(jsonb_array_length(p_item->'questions') BETWEEN 1 AND 6, false)
+    OR jsonb_array_length(p_item->'answers') IS DISTINCT FROM jsonb_array_length(p_item->'questions')
+    OR NOT coalesce((p_item->>'current_question')::integer BETWEEN 0 AND 5, false)
     OR NOT coalesce(p_item->>'status' IN ('in_progress','interrupted','finalized'),false)
     OR (p_item->>'version') IS NULL THEN
     RAISE EXCEPTION 'Invalid interview state' USING ERRCODE='22023';
@@ -71,7 +74,7 @@ BEGIN
     END IF;
     INSERT INTO public.sessions(id,user_id,created)
       VALUES(p_id,p_owner,(p_item->>'created_at')::timestamptz);
-    FOR idx IN 0..2 LOOP
+    FOR idx IN 0..jsonb_array_length(p_item->'questions')-1 LOOP
       q := p_item->'questions'->idx;
       INSERT INTO public.questions(question_text,role_hint,seniority)
         VALUES(q->>'text',p_item->'job_profile'->>'title',p_item->'job_profile'->>'level')
@@ -100,7 +103,7 @@ BEGIN
     ai_overall_rating=p_item->'report'->>'label',
     interview_state=jsonb_build_object('format',1,'interview',p_item)
     WHERE id=p_id AND user_id=p_owner;
-  FOR idx IN 0..2 LOOP
+  FOR idx IN 0..jsonb_array_length(p_item->'answers')-1 LOOP
     SELECT question_id INTO STRICT qid FROM public.session_questions
       WHERE session_id=p_id AND display_order=idx;
     a := p_item->'answers'->idx;

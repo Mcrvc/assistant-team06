@@ -58,7 +58,7 @@ của phần khác không được triển khai thêm ở đây.
 
 | Method | Path | Chức năng |
 | --- | --- | --- |
-| POST | /api/interviews | Job Profile + CV tùy chọn, tạo 3 câu, trả câu đầu |
+| POST | /api/interviews | Job Profile + CV tùy chọn, tạo bộ câu hỏi theo kế hoạch (4-6 câu), trả câu đầu |
 | GET | /api/interviews/{id} | Đọc đầy đủ buổi để tiếp tục, gồm report nếu đã xong |
 | POST | /api/interviews/{id}/progress | Lưu draft/vị trí với revision hiện tại |
 | POST | /api/interviews/{id}/answers/{0..2} | Lưu trước, trả 202 pending rồi chấm nền |
