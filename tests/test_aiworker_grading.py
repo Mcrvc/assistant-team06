@@ -45,6 +45,7 @@ def offline(monkeypatch):
                         lambda *a, **k: (_ for _ in ()).throw(
                             AssertionError("unit tests must not reach a provider")))
     monkeypatch.setenv("AI_RETRY_DELAY_S", "0")
+    monkeypatch.setattr(aiworker, "SLOT_RETRY_DELAY_S", 0)
     ai.reset_config_cache()
     yield
     ai.reset_config_cache()
@@ -58,17 +59,19 @@ def _completion(payload) -> Completion:
 # The contract the team's adapter consumes
 # --------------------------------------------------------------------------
 def _plan_payload(total=4):
-    """A valid interview plan: seniority, total and per-slot arc."""
+    """A valid interview plan: seniority, total and per-slot arc.
+
+    Phases cycle with distinct focuses so any total (up to 15) validates.
+    """
     arc = [("starter", "easy"), ("cv", "medium"), ("experience", "medium"),
            ("skills", "medium"), ("technical", "hard"), ("market", "hard"),
            ("behavioral", "hard")]
-    return {
-        "seniority": "intern",
-        "total": total,
-        "slots": [{"phase": phase, "focus": f"probe {phase} theme {index}",
-                   "difficulty": difficulty}
-                  for index, (phase, difficulty) in enumerate(arc[:total])],
-    }
+    slots = []
+    for index in range(total):
+        phase, difficulty = arc[index % len(arc)]
+        slots.append({"phase": phase, "focus": f"probe {phase} theme {index}",
+                      "difficulty": difficulty})
+    return {"seniority": "intern", "total": total, "slots": slots}
 
 
 def _question_payload(index):
@@ -377,8 +380,8 @@ def test_valid_writer_payload_is_accepted():
 
 
 @pytest.mark.parametrize("payload,needle", [
-    (_questions(count=0), "between 1 and 6"),
-    (_questions(count=7), "between 1 and 6"),
+    (_questions(count=0), "between 1 and 15"),
+    (_questions(count=16), "between 1 and 15"),
     (_questions(max_score="10"), "number 10"),
     (_questions(points=(4, 3, 2)), "expected exactly 10"),
 ])
@@ -388,10 +391,144 @@ def test_writer_shape_the_team_schema_cannot_take_is_refused(payload, needle):
     assert needle in str(excinfo.value)
 
 
-def test_writer_may_return_more_than_three_questions():
-    """The question count is not capped at 3: 4-6 questions validate."""
-    for count in (3, 4, 5, 6):
+def test_writer_may_return_many_questions():
+    """The question count is not capped at 3 or 6: up to 15 validate."""
+    for count in (3, 6, 10, 15):
         assert len(aiworker._validate_questions(_questions(count=count))) == count
+
+
+# --------------------------------------------------------------------------
+# JSON extraction: the breakage a reasoning model actually produces
+# --------------------------------------------------------------------------
+def test_extract_json_tolerates_fences_trailing_commas_and_raw_newlines():
+    fenced = ('```json\n{"question": "Line one\nstill going", "why": "w",}\n```')
+    assert aiworker._extract_json(fenced)["why"] == "w"
+
+
+def test_extract_json_escapes_unescaped_inner_quotes():
+    broken = '{"question": "Tell me about "the incident" you fixed", "why": "w"}'
+    payload = aiworker._extract_json(broken)
+    assert payload["question"] == 'Tell me about "the incident" you fixed'
+    assert payload["why"] == "w"
+
+
+def test_extract_json_keeps_structural_quotes_and_escapes_intact():
+    payload = aiworker._extract_json('{"question": "say \\"hi\\" now", "why": "w"}')
+    assert payload == {"question": 'say "hi" now', "why": "w"}
+    with pytest.raises(ValueError):
+        aiworker._extract_json("no json object at all")
+
+
+def test_a_slot_is_retried_three_times_before_it_is_given_up(monkeypatch):
+    """Three repair turns, like grading: 4 calls for one stubborn slot."""
+    calls = {"n": 0}
+
+    def fake(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion(_plan_payload(1))
+        calls["n"] += 1
+        if calls["n"] <= 3:  # three refusals, then the repair lands
+            return _completion("not json at all")
+        return _completion(_question_payload(calls["n"]))
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    out = aiworker.generate_questions({"title": "x"}, {}, "", [])
+    assert calls["n"] == 4  # 1 initial + 3 repairs, slot then succeeds
+    assert len(out["questions"]) == 1
+
+
+def test_a_permanently_broken_slot_is_skipped_not_fatal(monkeypatch):
+    """One unusable slot is skipped; the interview still gets the rest."""
+    def fake(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion(_plan_payload(4))
+        about_cv = any("phase: cv" in m["content"] for m in messages
+                       if m["role"] == "user")
+        if about_cv:
+            return _completion("still not json")
+        return _completion(_question_payload(len(messages)))
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    assert len(out["questions"]) == 3  # the cv slot was skipped, rest kept
+
+
+def test_generate_questions_can_return_fifteen(monkeypatch):
+    state = _router_fake(monkeypatch, plan_total=15)
+    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    assert state["slots"] == 15 and len(out["questions"]) == 15
+
+
+# --------------------------------------------------------------------------
+# Provider hiccups: one bad call must not mock a working AI
+# --------------------------------------------------------------------------
+def test_one_provider_blip_on_a_slot_keeps_the_written_questions(monkeypatch):
+    """A 429 on one slot is retried, then skipped: the interview survives."""
+    calls = {"n": 0}
+
+    def fake(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion(_plan_payload(4))
+        calls["n"] += 1
+        if calls["n"] == 3:
+            raise aiworker.AiError("429 rate limited")
+        return _completion(_question_payload(calls["n"]))
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    assert calls["n"] == 5  # 4 slots, the blip cost one extra call
+    assert len(out["questions"]) == 4  # every slot still landed
+
+
+def test_a_slot_the_provider_keeps_refusing_is_skipped_not_fatal(monkeypatch):
+    answers = {"n": 0}
+
+    def fake(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion(_plan_payload(4))
+        about_cv = any("phase: cv" in m["content"] for m in messages
+                       if m["role"] == "user")
+        if about_cv:
+            raise aiworker.AiError("503 unavailable")
+        answers["n"] += 1
+        return _completion(_question_payload(answers["n"]))
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    assert len(out["questions"]) == 3  # the cv slot was skipped, rest kept
+
+
+def test_a_provider_down_at_the_first_slot_stops_the_run(monkeypatch):
+    """Nothing written at all means the provider is down: raise, so the
+    service falls back with the honest flag instead of a half-interview."""
+
+    def fake(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion(_plan_payload(4))
+        raise aiworker.AiError("provider offline")
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    with pytest.raises(aiworker.AiError):
+        aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+
+
+def test_a_criterion_the_team_schema_refuses_is_refused_at_the_source():
+    junk = _question_payload(1)
+    junk["rubric"]["criteria"][0] = {"name": "N" * 201, "points": 5,
+                                     "good": "g", "why": "because"}
+    with pytest.raises(ValueError, match="team schema refuses"):
+        aiworker._validate_question(junk)
+
+    nameless = _question_payload(2)
+    nameless["rubric"]["criteria"][0] = {"name": "  ", "points": 5, "good": "g"}
+    with pytest.raises(ValueError, match="has no name"):
+        aiworker._validate_question(nameless)
+
+
+def test_writer_prompt_pins_the_rubric_shape_the_team_schema_accepts():
+    system = aiworker.QUESTION_SYSTEM
+    assert "no other field" in system
+    assert "200 characters" in system
 
 
 def test_writer_payload_with_overlong_criterion_is_refused():
@@ -504,10 +641,15 @@ def test_writer_prompt_pins_the_schema_limits():
 
 def test_planner_prompt_decides_count_seniority_and_arc():
     system = aiworker.PLANNER_SYSTEM
-    # The planner - not a hard-coded three - decides how many questions.
+    # The planner - not a fixed count - decides how many questions.
     assert '"total"' in system
-    assert "4 to 6" in system
+    assert "6 to 12" in system
+    assert "15 is the hard maximum" in system
     assert '"seniority"' in system
+    # The split follows the role, not a template.
+    for weight in ("intern/junior", "mid", "senior", "regulated domains",
+                   "job description"):
+        assert weight in system
     # The arc covers CV/experience/skills plus market reality from research.
     for phase in aiworker.INTERVIEW_PHASES:
         assert f'"{phase}"' in system
@@ -518,6 +660,13 @@ def test_planner_prompt_decides_count_seniority_and_arc():
                   {"phase": "market", "focus": "b", "difficulty": "hard"}]})["total"] == 2
     with pytest.raises(ValueError):
         aiworker._validate_plan({"seniority": "wizard", "total": 4, "slots": []})
+
+
+def test_default_plan_is_a_full_arc():
+    plan = aiworker.DEFAULT_PLAN
+    assert plan["total"] == len(plan["slots"]) >= 6
+    assert plan["slots"][0]["phase"] == "starter"
+    assert sum(s["phase"] == "starter" for s in plan["slots"]) == 1
 
 
 def test_questions_may_not_reference_documents_or_repeat_themselves():

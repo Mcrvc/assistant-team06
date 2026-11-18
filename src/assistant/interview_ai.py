@@ -3,8 +3,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 from importlib import import_module
+import math
 import os
+import sys
 from typing import Protocol
+from assistant.ai import AiError
 from assistant.interview_schemas import Generation, Grade
 
 
@@ -117,23 +120,250 @@ class SafeInterviewAI:
 
     Evidence is checked separately. A well-shaped grade with fabricated evidence
     is rejected, never silently accepted. No provider exception data is logged.
+
+    Recovery policy (a real result must never be lost to a strict schema): a
+    payload the team schema refuses is first repaired in bounded ways - see
+    :meth:`_coerce_generation` and :meth:`_coerce_grade`; a provider outage
+    gets one extra attempt before the mock, and every fallback is logged with
+    its reason on stderr so the Render logs show exactly which path fired.
     """
+
+    # The team schema's limits for a generated interview.
+    QUESTION_TEXT_LIMIT = 4000
+    CRITERION_TEXT_LIMIT = 1000
+    MAX_CRITERIA = 6
+    MAX_QUESTIONS = 15
+    RUBRIC_NAME_LIMIT = 200
+    RUBRIC_GOOD_LIMIT = 2000
+    REFERENCE_LIMITS = {"title": 200, "locator": 2000, "excerpt": 8000}
+
     def __init__(self, provider: InterviewAI | None = None) -> None:
         self.provider = provider or MockInterviewAI()
         self.fallback = MockInterviewAI()
 
     def generate_questions(self, job_profile: dict, cv: str | None) -> dict:
         try:
-            result = self.provider.generate_questions(deepcopy(job_profile), cv)
+            result = self.provider.generate_questions(
+                deepcopy(job_profile), cv)
+        except Exception as exc:
+            # The provider retried per slot; this is the last resort.
+            print(f"[interview-ai] generation fell back to mock: "
+                  f"{type(exc).__name__}", file=sys.stderr)
+            return Generation.model_validate(
+                self.fallback.generate_questions(job_profile, cv)).model_dump()
+
+        try:
             return Generation.model_validate(result).model_dump()
         except Exception:
-            return Generation.model_validate(self.fallback.generate_questions(job_profile, cv)).model_dump()
+            pass
+
+        # A REAL generation the team schema refuses is repaired question by
+        # question: ONE unusable question (a 300-character criterion name, an
+        # extra rubric field, seven criteria) must not throw away the five
+        # good ones and hand the candidate a mock interview instead.
+        coerced = self._coerce_generation(result)
+        if coerced is None:
+            print("[interview-ai] generation fell back to mock: real "
+                  "generation unusable after coercion", file=sys.stderr)
+        else:
+            try:
+                return Generation.model_validate(coerced).model_dump()
+            except Exception:  # pragma: no cover - coercion is bounded
+                print("[interview-ai] generation fell back to mock: coerced "
+                      "generation still refused", file=sys.stderr)
+        return Generation.model_validate(
+            self.fallback.generate_questions(job_profile, cv)).model_dump()
+
+    @classmethod
+    def _coerce_rubric_criterion(cls, item: object) -> dict | None:
+        """Keep one rubric criterion if it carries a usable score and text."""
+        if not isinstance(item, dict):
+            return None
+        name, points, good = item.get("name"), item.get("points"), item.get("good")
+        if not isinstance(name, str) or not name.strip():
+            return None
+        if (isinstance(points, bool) or not isinstance(points, (int, float))
+                or not math.isfinite(float(points))):
+            return None
+        if not isinstance(good, str) or not good.strip():
+            return None
+        return {"name": name.strip()[:cls.RUBRIC_NAME_LIMIT],
+                "points": min(10.0, max(0.01, float(points))),
+                "good": good.strip()[:cls.RUBRIC_GOOD_LIMIT]}
+
+    @classmethod
+    def _coerce_rubric(cls, rubric: object) -> dict | None:
+        """Repair one rubric: drop junk criteria, cap at six, re-sum to 10."""
+        if not isinstance(rubric, dict):
+            return None
+        criteria = rubric.get("criteria")
+        if not isinstance(criteria, list):
+            return None
+        kept = [criterion for criterion in
+                (cls._coerce_rubric_criterion(item) for item in criteria)
+                if criterion][:cls.MAX_CRITERIA]
+        if not kept:
+            return None
+        total = sum(criterion["points"] for criterion in kept)
+        if total <= 0:  # pragma: no cover - points are clamped above 0
+            return None
+        kept = [{**criterion, "points": criterion["points"] * 10.0 / total}
+                for criterion in kept]
+        # Absorb the rounding drift on the heaviest criterion so the points
+        # still sum to exactly 10 (the team schema requires it).
+        heaviest = max(range(len(kept)), key=lambda index: kept[index]["points"])
+        drift = 10.0 - sum(criterion["points"] for criterion in kept)
+        kept[heaviest]["points"] = min(10.0, max(
+            0.01, kept[heaviest]["points"] + drift))
+        return {"max_score": 10.0, "criteria": kept}
+
+    @classmethod
+    def _coerce_question(cls, item: object) -> dict | None:
+        """Repair one generated question, or drop it when nothing is left.
+
+        The rubric is what grading needs; a question whose rubric cannot be
+        repaired is still asked, but with ``rubric: None`` so the answer is
+        graded through the honest fallback instead of silently.
+        """
+        if not isinstance(item, dict):
+            return None
+        text = item.get("text")
+        if not isinstance(text, str) or not text.strip():
+            return None
+        criteria = item.get("criteria")
+        quotes: list[str] = []
+        if isinstance(criteria, list):
+            for entry in criteria:
+                if isinstance(entry, str) and entry.strip():
+                    quotes.append(entry.strip()[:cls.CRITERION_TEXT_LIMIT])
+                if len(quotes) == cls.MAX_CRITERIA:
+                    break
+        if not quotes:
+            return None
+        source_type = item.get("source_type")
+        reference = item.get("reference")
+        if source_type != "reference":
+            source_type, reference = "open", None
+        elif not isinstance(reference, dict):
+            source_type, reference = "open", None
+        else:
+            repaired = {}
+            for field, limit in cls.REFERENCE_LIMITS.items():
+                value = reference.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    repaired = None
+                    break
+                repaired[field] = value.strip()[:limit]
+            if repaired is None:
+                source_type, reference = "open", None
+            else:
+                reference = repaired
+        return {"text": text.strip()[:cls.QUESTION_TEXT_LIMIT],
+                "source_type": source_type, "reference": reference,
+                "criteria": quotes, "rubric": cls._coerce_rubric(item.get("rubric"))}
+
+    @classmethod
+    def _coerce_generation(cls, result: object) -> dict | None:
+        """Repair a REAL generation the team schema would refuse.
+
+        Bounded repairs only: trim question/criterion text to the schema's
+        limits, drop unusable questions and criteria, cap both lists, drop
+        extra fields, and re-sum the rubric points to 10. Questions that
+        cannot be repaired are dropped, never faked. Returns None when no
+        usable question is left, which is the honest trigger for the mock.
+        """
+        if not isinstance(result, dict):
+            return None
+        questions = result.get("questions")
+        if not isinstance(questions, list):
+            return None
+        kept = [question for question in
+                (cls._coerce_question(item) for item in questions)
+                if question][:cls.MAX_QUESTIONS]
+        if not kept:
+            return None
+        dropped = len(questions) - len(kept)
+        if dropped:
+            print(f"[interview-ai] generation repair: dropped {dropped} of "
+                  f"{len(questions)} question(s) the team schema refuses",
+                  file=sys.stderr)
+        model = str(result.get("model") or "").strip()[:200] or "team-provider"
+        return {"questions": kept, "model": model,
+                "used_fallback": bool(result.get("used_fallback", False))}
+
+    @staticmethod
+    def _coerce_grade(result: object) -> dict | None:
+        """Repair a REAL grade the team schema would refuse, or return None.
+
+        Bounded repairs only: clamp the score to 0-10, trim
+        feedback/evidence/model to the schema's length limits, cap the
+        evidence list, and drop only truly empty strings (whitespace-only or
+        fabricated quotes survive for the service's verbatim check to
+        reject). Returns None when nothing usable is left - a non-finite or
+        non-numeric score, no feedback, or no evidence - which is the honest
+        trigger for the mock fallback.
+        """
+        if not isinstance(result, dict):
+            return None
+        repaired = dict(result)
+        score = repaired.get("score")
+        if (isinstance(score, bool) or not isinstance(score, (int, float))
+                or not math.isfinite(float(score))):
+            # NaN/inf mean the provider is broken, not a real grade to clamp.
+            return None
+        repaired["score"] = min(10.0, max(0.0, float(score)))
+        feedback = repaired.get("feedback")
+        if not isinstance(feedback, str) or not feedback.strip():
+            return None
+        repaired["feedback"] = feedback.strip()[:8000]
+        evidence = repaired.get("evidence")
+        if not isinstance(evidence, list):
+            return None
+        # Only schema limits are repaired here. Evidence CONTENT is left for
+        # the service's verbatim check: a whitespace-only or fabricated quote
+        # must still reach it so the answer is rejected, not silently dropped
+        # (dropping it would turn a rejection into an accepted grade).
+        quotes = [str(item)[:2000] for item in evidence
+                  if isinstance(item, str) and item != ""][:6]
+        if not quotes:
+            return None
+        repaired["evidence"] = quotes
+        repaired["model"] = (str(repaired.get("model") or "").strip()
+                             or "team-provider")[:200]
+        repaired["used_fallback"] = bool(repaired.get("used_fallback", False))
+        return repaired
 
     def grade_answer(self, job_profile: dict, question: dict, answer: str) -> dict:
-        try:
-            result = self.provider.grade_answer(deepcopy(job_profile), deepcopy(question), answer)
-            return Grade.model_validate(result).model_dump()
-        except GradeRejected:
-            raise
-        except Exception:
-            return Grade.model_validate(self.fallback.grade_answer(job_profile, question, answer)).model_dump()
+        # The provider retried inside itself; this second attempt covers a
+        # transient blip between the provider and this seam.
+        attempts = 2
+        for attempt in range(attempts):
+            try:
+                result = self.provider.grade_answer(
+                    deepcopy(job_profile), deepcopy(question), answer)
+            except GradeRejected:
+                raise
+            except AiError:
+                if attempt + 1 < attempts:
+                    continue
+                print("[interview-ai] grading fell back to mock: provider "
+                      "unavailable after a retry", file=sys.stderr)
+                break
+            except Exception as exc:
+                print(f"[interview-ai] grading fell back to mock: "
+                      f"{type(exc).__name__}", file=sys.stderr)
+                break
+            coerced = self._coerce_grade(result)
+            if coerced is None:
+                print("[interview-ai] grading fell back to mock: real grade "
+                      "not usable after coercion", file=sys.stderr)
+                break
+            try:
+                return Grade.model_validate(coerced).model_dump()
+            except Exception:
+                # Coercion should have made this impossible; fall through.
+                print("[interview-ai] grading fell back to mock: coerced "
+                      "grade still refused", file=sys.stderr)
+                break
+        return Grade.model_validate(
+            self.fallback.grade_answer(job_profile, question, answer)).model_dump()

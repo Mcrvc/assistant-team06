@@ -64,6 +64,17 @@ input::placeholder, textarea::placeholder { color: #82918f; opacity: 1; }
 .form-error { color: #943c34; background: #fbede8; border-left: 3px solid #b76c5e; border-radius: 5px; padding: 10px 12px; font-size: 14px; }
 .form-status { color: #33635a; font-size: 14px; }
 .demo-note { font-size: 12px; color: var(--muted); line-height: 1.6; }
+/* Honest "this interview is using fallback questions" note (never silent). */
+.generation-notice {
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid rgb(153 73 65 / 35%);
+  border-radius: var(--radius);
+  background: rgb(153 73 65 / 8%);
+  font-size: 13px;
+  color: var(--danger);
+  line-height: 1.6;
+}
 .auth-page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(400px, 1fr); }
 .auth-brand {
   background:

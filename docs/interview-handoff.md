@@ -58,7 +58,7 @@ của phần khác không được triển khai thêm ở đây.
 
 | Method | Path | Chức năng |
 | --- | --- | --- |
-| POST | /api/interviews | Job Profile + CV tùy chọn, tạo bộ câu hỏi theo kế hoạch (4-6 câu), trả câu đầu |
+| POST | /api/interviews | Job Profile + CV tùy chọn, tạo bộ câu hỏi theo kế hoạch (6-12 câu, tối đa 15), trả câu đầu |
 | GET | /api/interviews/{id} | Đọc đầy đủ buổi để tiếp tục, gồm report nếu đã xong |
 | POST | /api/interviews/{id}/progress | Lưu draft/vị trí với revision hiện tại |
 | POST | /api/interviews/{id}/answers/{0..2} | Lưu trước, trả 202 pending rồi chấm nền |
@@ -109,6 +109,30 @@ Test dùng resolver giả chỉ bên trong test, không có endpoint demo đăng
 Không đọc config thật, không gọi mạng ngoài. SQL tests cần DB localhost tên
 yourin_interview_test* qua INTERVIEW_TEST_POSTGRES_URL; tạo/xóa schema ngẫu
 nhiên, không viết Supabase. Chưa cấu hình thì skip các SQL tests.
+
+## Phục hồi khi AI hỏng (không im lặng trả mock)
+
+Ba lớp phục hồi, để một lỗi chớp nhoáng không biến cả buổi phỏng vấn thành bộ
+câu mẫu:
+
+1. **aiwriter (aiworker.py)**: planner hỏng -> DEFAULT_PLAN 8 slot; một câu
+   hỏng shape -> 3 lượt repair -> hỏng nữa thì **skip slot**, giữ các câu đã
+   viết; provider chớp nhoáng (429/5xx/timeout) trên một slot -> thử lại slot
+   đó một lần rồi skip. Chỉ khi **không có câu nào** viết được (provider chết
+   thật) thì raise để service fallback có cờ used_fallback trung thực.
+2. **SafeInterviewAI (interview_ai.py)**: bộ câu AI thật bị team schema từ chối
+   (tên criterion >200 ký tự, dư field, 7 criteria, text >4000...) được **coerce
+   có giới hạn** - trim đúng limit, bỏ câu/criterion không dùng được, cấp lại
+   điểm cho rubric đúng tổng 10 - thay vì ném hết 5 câu tốt vào mock. Hết cứu
+   thì mới mock, và **mọi fallback đều log lý do ra stderr**.
+3. **UI (ui/js/app.js)**: interview không còn hard-code 3 câu/3 slot trả lời -
+   số slot theo đúng số câu thật; khi question_generation.used_fallback là true
+   thì hiện dòng "These are fallback questions..." để người dùng biết ngay là
+   bộ câu dự phòng, không phải câu AI viết cho hồ sơ của họ.
+
+Kiểm tra nhanh bản deploy: `python scripts/deploy_probe.py` (so asset Vercel,
+gọi /api/config, tạo interview và in shape JSON); `python scripts/schema_gap_probe.py`
+liệt kê các shape model hay trả mà team schema từ chối.
 
 ## Trạng thái bàn giao
 

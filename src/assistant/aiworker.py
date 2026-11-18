@@ -406,28 +406,44 @@ def research_notes(topic: str, queries: list[str]) -> tuple[str, list[str]]:
 # ==========================================================================
 PLANNER_SYSTEM = (
     "You are the interview architect for a mock interview service.\n\n"
-    "You are given: a Job Profile, a candidate CV, and research notes about "
-    "the role and the market.\n\n"
+    "You are given: a Job Profile (title, level, domain, company, job "
+    "description), a candidate CV, and research notes about the role and the "
+    "market.\n\n"
     "Before any question is written, decide the STRUCTURE of this interview. "
     "Reply with ONLY a JSON object, no markdown fence, no commentary:\n\n"
     "{\"seniority\": \"intern|junior|mid|senior\",\n"
-    " \"total\": <number of questions, 4 to 6>,\n"
+    " \"total\": <number of questions, 6 to 12>,\n"
     " \"slots\": [{\"phase\": \"<phase>\", \"focus\": \"<what this question must "
     "probe>\", \"difficulty\": \"easy|medium|hard\"}]}\n\n"
     "Rules:\n"
-    "- Phases, in a natural interview order: \"starter\" (one warm-up), then "
-    "\"cv\" (projects, metrics and skills from the CV), \"experience\" "
-    "(incidents, failures, ownership), \"skills\" (depth in a skill the role "
-    "needs), \"technical\" (design and problem solving for the role's real "
-    "work), \"market\" (industry practice and role reality from the research "
-    "notes), \"behavioral\" (teamwork, learning, motivation).\n"
+    "- Use 6 to 12 slots (15 is the hard maximum); total must equal the "
+    "number of slots. Ask for MORE questions when the CV, the job "
+    "description and the research notes give more distinct material to "
+    "cover, and fewer when the material is thin.\n"
+    "- Weight the arc by the ROLE, not a fixed template:\n"
+    "  * intern/junior: more starter, cv, experience and skills probes; "
+    "technical stays concrete, not deep system design.\n"
+    "  * mid: balance cv/experience against technical design.\n"
+    "  * senior: more technical, market and behavioral probes, harder "
+    "difficulty, trade-off and ownership focus.\n"
+    "  * regulated domains (fintech, health, payments, security): market "
+    "probes must cover compliance, risk and reliability realities.\n"
+    "  * the job description's named tools and responsibilities decide "
+    "which skills and technical probes matter most; the company's product "
+    "and size decide behavioral and ownership probes.\n"
+    "- Phases, in a natural interview order: \"starter\" (exactly one "
+    "warm-up), then \"cv\" (projects, metrics and skills from the CV), "
+    "\"experience\" (incidents, failures, ownership), \"skills\" (depth in a "
+    "skill the role needs), \"technical\" (design and problem solving for "
+    "the role's real work), \"market\" (industry practice and role reality "
+    "from the research notes), \"behavioral\" (teamwork, learning, "
+    "motivation).\n"
     "- Every cv/experience/skills focus MUST name a concrete CV item: a "
     "project, a metric, or a named technology.\n"
     "- The market focus MUST use the research notes, not generic knowledge.\n"
     "- Pick seniority from the Job Profile level and the CV's demonstrated "
     "depth; difficulty should rise across the interview.\n"
-    "- No two slots may probe the same thing.\n"
-    "- Use 4 to 6 slots; total must equal the number of slots."
+    "- No two slots may probe the same thing."
 )
 
 QUESTION_SYSTEM = (
@@ -454,7 +470,9 @@ QUESTION_SYSTEM = (
     "- The \"why\" field MUST name the concrete element (CV item, role task, "
     "or research finding) the question is built on.\n"
     "- rubric.max_score is the NUMBER 10; exactly 3 criteria, points summing "
-    "to exactly 10; criterion.good at most 1000 characters.\n\n"
+    "to exactly 10; a criterion has ONLY name, points and good - no other "
+    "field; criterion.name at most 200 characters; criterion.good at most "
+    "1000 characters.\n\n"
     "Reply with ONLY a JSON object, no markdown fence, no commentary:\n"
     "{\"question\": \"...\", \"phase\": \"<the slot phase>\", \"why\": \"...\", "
     "\"rubric\": {\"max_score\": 10, \"criteria\": [{\"name\": \"...\", "
@@ -469,13 +487,16 @@ INTERVIEW_PHASES = ("starter", "cv", "experience", "skills", "technical",
 # produces a full arc instead of aborting to the mock provider.
 DEFAULT_PLAN: dict[str, Any] = {
     "seniority": "intern",
-    "total": 5,
+    "total": 8,
     "slots": [
         {"phase": "starter",
          "focus": "open with their background and what drew them to this role",
          "difficulty": "easy"},
         {"phase": "cv",
          "focus": "a concrete project from the CV: their role, actions and outcome",
+         "difficulty": "medium"},
+        {"phase": "cv",
+         "focus": "a second CV project or a measurable result from their work",
          "difficulty": "medium"},
         {"phase": "experience",
          "focus": "a production incident or failure they handled and what changed after",
@@ -486,6 +507,9 @@ DEFAULT_PLAN: dict[str, Any] = {
         {"phase": "technical",
          "focus": "a design or problem-solving question drawn from the role's day-to-day work",
          "difficulty": "hard"},
+        {"phase": "technical",
+         "focus": "a follow-up on the previous technical answer, going one layer deeper",
+         "difficulty": "hard"},
         {"phase": "market",
          "focus": "how industry practice or current tooling applies to this role",
          "difficulty": "hard"},
@@ -493,24 +517,95 @@ DEFAULT_PLAN: dict[str, Any] = {
 }
 
 # How many questions the planner may schedule. The team's Generation schema
-# accepts 1..6; the planner is asked for 4..6 so a rich CV/Job Profile
-# produces several questions instead of always exactly three.
-MIN_QUESTIONS, MAX_QUESTIONS = 1, 6
+# accepts 1..15; the planner is asked for 6..12 so a rich CV/Job Profile
+# produces a real interview arc instead of always exactly three.
+MIN_QUESTIONS, MAX_QUESTIONS = 1, 15
+
+# A refused question gets this many repair turns before the slot is skipped
+# (same policy as grading): the model often needs a second or third try
+# before the payload parses and validates.
+QUESTION_REPAIR_TURNS = 3
+
+# A provider hiccup (429, 5xx, timeout) on a single slot is retried this many
+# times before the slot is skipped, so one bad call never turns the questions
+# already written into a mock interview. When nothing written at all survives,
+# the provider really is down: the run stops so the service can fall back with
+# the honest flag instead of shipping a half-written interview.
+SLOT_PROVIDER_TURNS = 2
+SLOT_RETRY_DELAY_S = 2.0
+
+# The only fields the team's RubricCriterion schema accepts. A reasoning model
+# loves to add "why" or "weight"; the team schema forbids extra fields, so the
+# writer is told exactly which ones to drop instead of failing downstream.
+_CRITERION_FIELDS = {"name", "points", "good"}
+_CRITERION_NAME_LIMIT = 200
+
+
+def _escape_inner_quotes(text: str) -> str:
+    """Escape double quotes that sit INSIDE a JSON string value.
+
+    A reasoning model writing "Tell me about "the incident" you fixed..."
+    terminates the string early, and the rest of the payload stops parsing.
+    Walk the payload tracking string state: a quote inside a string is only
+    structural when the next non-space character can legally follow a string
+    (a comma, a colon, a closing bracket, or the end of the payload).
+    Everything else is a quote the model forgot to escape.
+    """
+    out: list[str] = []
+    in_string = False
+    escaped = False
+    for index, char in enumerate(text):
+        if escaped:
+            out.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            out.append(char)
+            escaped = True
+            continue
+        if char != '"':
+            out.append(char)
+            continue
+        if not in_string:
+            in_string = True
+            out.append(char)
+            continue
+        lookahead = index + 1
+        while lookahead < len(text) and text[lookahead] in " \t\r\n":
+            lookahead += 1
+        following = text[lookahead] if lookahead < len(text) else ""
+        if following in ",:}]" or following == "":
+            in_string = False
+            out.append(char)
+        else:
+            out.append('\\"')
+    return "".join(out)
 
 
 def _extract_json(text: str) -> dict[str, Any]:
-    """Pull the first JSON object out of a model reply."""
+    """Pull the first JSON object out of a model reply, tolerating the
+    breakage reasoning models actually produce.
+
+    Tried in order, first success wins: the payload as sent; trailing commas
+    removed; raw newlines/tabs inside strings tolerated (``strict=False``);
+    then the same two again with unescaped inner quotes escaped. Each repair
+    is a superset of the failures the previous one covers, so a healthy
+    payload always parses on the first attempt.
+    """
     start = text.find("{")
     end = text.rfind("}")
     if start == -1 or end == -1 or end <= start:
         raise ValueError("no JSON object in the reply")
     candidate = text[start:end + 1]
-    try:
-        return json.loads(candidate)
-    except json.JSONDecodeError:
-        # Common failure: trailing commas.
-        cleaned = re.sub(r",\s*([}\]])", r"\1", candidate)
-        return json.loads(cleaned)
+    without_trailing_commas = re.sub(r",\s*([}\]])", r"\1", candidate)
+    last_error: json.JSONDecodeError | None = None
+    for base in (candidate, without_trailing_commas):
+        for attempt in (base, _escape_inner_quotes(base)):
+            try:
+                return json.loads(attempt, strict=False)
+            except json.JSONDecodeError as exc:
+                last_error = exc
+    raise ValueError(f"no parsable JSON object in the reply: {last_error}")
 
 
 def _significant_tokens(text: str) -> set[str]:
@@ -627,6 +722,18 @@ def _validate_question(item: Any, pool: set[str] | None = None,
     for criterion in criteria:
         if not isinstance(criterion, dict):
             raise ValueError(f"{label} has a non-object criterion")
+        extra = set(criterion) - _CRITERION_FIELDS
+        if extra:
+            raise ValueError(
+                f"{label} criterion carries fields the team schema refuses: "
+                f"{sorted(extra)}; keep only name, points and good")
+        name = criterion.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(f"{label} criterion has no name")
+        if len(name.strip()) > _CRITERION_NAME_LIMIT:
+            raise ValueError(
+                f"{label} criterion name exceeds {_CRITERION_NAME_LIMIT} "
+                f"characters")
         points = criterion.get("points")
         if isinstance(points, bool) or not isinstance(points, (int, float)) \
                 or not 0 < float(points) <= 10:
@@ -787,8 +894,10 @@ def _write_slot_question(slot: dict[str, Any], plan: dict[str, Any],
                          *, timeout_s: float | None = None) -> dict[str, Any]:
     """Stage C2: write ONE question for this slot, aware of the earlier ones.
 
-    A question that fails validation gets one repair turn carrying the exact
-    reason; a second failure raises so the caller can stop the run.
+    A question that fails validation or parsing gets up to
+    ``QUESTION_REPAIR_TURNS`` repair turns, each carrying the exact reason.
+    A slot that still fails raises; the caller skips it instead of losing the
+    whole interview (see :func:`generate_questions`).
     """
     prompt = _slot_prompt(slot, plan, job_profile, cv, notes, sources, previous)
     # The overlap pool is the same text the writer saw, minus the masking
@@ -800,7 +909,7 @@ def _write_slot_question(slot: dict[str, Any], plan: dict[str, Any],
         {"role": "system", "content": QUESTION_SYSTEM},
         {"role": "user", "content": prompt},
     ]
-    for turn in range(2):
+    for turn in range(QUESTION_REPAIR_TURNS + 1):
         completion = complete(
             messages, max_tokens=2048, temperature=0.6, timeout_s=timeout_s)
         try:
@@ -812,10 +921,13 @@ def _write_slot_question(slot: dict[str, Any], plan: dict[str, Any],
             item["phase"] = slot["phase"]
             return item
         except (json.JSONDecodeError, ValueError) as exc:
-            if turn == 1:
-                raise ValueError(f"{label} unusable after one repair: {exc}") from None
+            if turn >= QUESTION_REPAIR_TURNS:
+                raise ValueError(
+                    f"{label} unusable after {QUESTION_REPAIR_TURNS} repairs: "
+                    f"{exc}") from None
             print(f"[write] {slot['phase']} slot refused "
-                  f"({exc}); repairing", file=sys.stderr)
+                  f"({exc}); repair {turn + 1}/{QUESTION_REPAIR_TURNS}",
+                  file=sys.stderr)
             messages.append({"role": "assistant", "content": completion.text})
             messages.append({"role": "user", "content": _repair_instruction(exc)})
     raise ValueError(f"{label} unusable")  # pragma: no cover - loop returns/raises
@@ -852,8 +964,39 @@ def generate_questions(job_profile: dict[str, Any], cv: dict[str, Any],
 
     questions: list[dict[str, Any]] = []
     for slot in plan["slots"][:plan["total"]]:
-        item = _write_slot_question(slot, plan, job_profile, cv, notes, sources,
-                                    questions, timeout_s=timeout_s)
+        item: dict[str, Any] | None = None
+        for provider_turn in range(SLOT_PROVIDER_TURNS):
+            try:
+                item = _write_slot_question(slot, plan, job_profile, cv, notes,
+                                            sources, questions, timeout_s=timeout_s)
+                break
+            except ValueError as exc:
+                # The writer already spent its repair turns: one unusable slot
+                # is skipped, never allowed to sink the interview into mock.
+                print(f"[write] {slot['phase']} slot gave up ({exc}); "
+                      f"continuing without it", file=sys.stderr)
+                break
+            except AiError as exc:
+                # A provider hiccup on ONE slot (429, 5xx, timeout) must not
+                # throw away the questions already written. Retry the slot
+                # once, then keep the interview we have.
+                if provider_turn + 1 < SLOT_PROVIDER_TURNS:
+                    print(f"[write] {slot['phase']} provider blip "
+                          f"({type(exc).__name__}); retrying the slot",
+                          file=sys.stderr)
+                    time.sleep(SLOT_RETRY_DELAY_S)
+                    continue
+                if questions:
+                    print(f"[write] {slot['phase']} slot skipped after a "
+                          f"provider failure ({type(exc).__name__}); keeping "
+                          f"the {len(questions)} questions already written",
+                          file=sys.stderr)
+                    break
+                # Nothing usable at all: the provider is down, so stop here and
+                # let the service fall back with the honest flag.
+                raise
+        if item is None:
+            continue
         questions.append(item)
         print(f"[write] {slot['phase']} question {len(questions)}/{plan['total']}: "
               f"{item['question'][:80]}", file=sys.stderr)
