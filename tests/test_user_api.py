@@ -44,12 +44,12 @@ def client(store):
 # ---------------------------------------------------------------- auth / config
 
 
-@pytest.mark.parametrize("method,path", [("get", "/api/cv"), ("put", "/api/cv"), ("post", "/api/feedback")])
-def test_every_route_needs_sign_in(client, method, path):
-    kwargs = {"json": {}} if method != "get" else {}
-    response = getattr(client, method)(path, headers={"Authorization": "Bearer stolen"}, **kwargs)
-    assert response.status_code == 401
-    assert response.json()["error"]["code"] == "authentication_required"
+def test_every_route_needs_sign_in(client):
+    for method, path in (("get", "/api/cv"), ("put", "/api/cv"), ("post", "/api/feedback")):
+        kwargs = {"json": {}} if method != "get" else {}
+        response = getattr(client, method)(path, headers={"Authorization": "Bearer stolen"}, **kwargs)
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "authentication_required"
 
 
 def test_no_storage_configured_is_503(monkeypatch):
@@ -83,29 +83,30 @@ def test_cv_is_private_per_user(client):
     assert client.get("/api/cv", headers=BOB).status_code == 404
 
 
-@pytest.mark.parametrize("size", [1234, "120 KB"])
-def test_pdf_cv(client, size):
+def test_pdf_cv(client):
     # ui/js/app.js sends size as a display string ("120 KB").
-    pdf = {**CV, "cvMode": "pdf", "cvPdf": {"name": "cv.pdf", "size": size, "date": "Nov 9, 2026"}}
-    assert client.put("/api/cv", json=pdf, headers=ALICE).status_code == 200
-    assert client.get("/api/cv", headers=ALICE).json()["cvPdf"]["size"] == size
+    for size in (1234, "120 KB"):
+        pdf = {**CV, "cvMode": "pdf", "cvPdf": {"name": "cv.pdf", "size": size, "date": "Nov 9, 2026"}}
+        assert client.put("/api/cv", json=pdf, headers=ALICE).status_code == 200
+        assert client.get("/api/cv", headers=ALICE).json()["cvPdf"]["size"] == size
 
 
-@pytest.mark.parametrize("bad", [
-    {},
-    {**CV, "cv": ["only", "three", "items"]},
-    {**CV, "cv": ["a", "b", "c", 4]},
-    {**CV, "cv": ["x" * 5001, "", "", ""]},
-    {**CV, "cvMode": "word"},
-    {**CV, "cvMode": "pdf", "cvPdf": None},
-    {**CV, "cvPdf": {"name": "", "size": 1, "date": "d"}},
-    {**CV, "cvPdf": {"name": "a.pdf", "size": -1, "date": "d"}},
-    {**CV, "user_id": BOB_ID},
-])
-def test_invalid_cv_is_400_and_not_saved(client, store, bad):
-    response = client.put("/api/cv", json=bad, headers=ALICE)
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == "invalid_request"
+def test_invalid_cv_is_400_and_not_saved(client, store):
+    bad_payloads = [
+        {},
+        {**CV, "cv": ["only", "three", "items"]},
+        {**CV, "cv": ["a", "b", "c", 4]},
+        {**CV, "cv": ["x" * 5001, "", "", ""]},
+        {**CV, "cvMode": "word"},
+        {**CV, "cvMode": "pdf", "cvPdf": None},
+        {**CV, "cvPdf": {"name": "", "size": 1, "date": "d"}},
+        {**CV, "cvPdf": {"name": "a.pdf", "size": -1, "date": "d"}},
+        {**CV, "user_id": BOB_ID},
+    ]
+    for bad in bad_payloads:
+        response = client.put("/api/cv", json=bad, headers=ALICE)
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "invalid_request"
     assert store.cvs == {}
 
 
@@ -118,10 +119,10 @@ def test_feedback_saved_with_verified_user(client, store):
     assert store.feedback == [{**FEEDBACK, "user_id": ALICE_ID}]
 
 
-@pytest.mark.parametrize("difficulty", ["easy", "medium", "hard", None])
-def test_feedback_difficulty_values(client, difficulty):
-    body = {**FEEDBACK, "difficulty": difficulty}
-    assert client.post("/api/feedback", json=body, headers=ALICE).status_code == 201
+def test_feedback_difficulty_values(client):
+    for difficulty in ("easy", "medium", "hard", None):
+        body = {**FEEDBACK, "difficulty": difficulty}
+        assert client.post("/api/feedback", json=body, headers=ALICE).status_code == 201
 
 
 def test_feedback_only_ratings_required(client, store):
@@ -130,21 +131,22 @@ def test_feedback_only_ratings_required(client, store):
     assert store.feedback[0]["comments"] == "" and store.feedback[0]["difficulty"] is None
 
 
-@pytest.mark.parametrize("bad", [
-    {},
-    {"grade_rating": 3},
-    {**FEEDBACK, "grade_rating": 0},
-    {**FEEDBACK, "quality_rating": 6},
-    {**FEEDBACK, "grade_rating": True},
-    {**FEEDBACK, "grade_rating": "4"},
-    {**FEEDBACK, "grade_rating": 4.5},
-    {**FEEDBACK, "difficulty": "too_hard"},
-    {**FEEDBACK, "comments": "x" * 2001},
-    {**FEEDBACK, "would_recommend": "yes"},
-    {**FEEDBACK, "user_id": BOB_ID},
-])
-def test_invalid_feedback_is_400(client, store, bad):
-    assert client.post("/api/feedback", json=bad, headers=ALICE).status_code == 400
+def test_invalid_feedback_is_400(client, store):
+    bad_payloads = [
+        {},
+        {"grade_rating": 3},
+        {**FEEDBACK, "grade_rating": 0},
+        {**FEEDBACK, "quality_rating": 6},
+        {**FEEDBACK, "grade_rating": True},
+        {**FEEDBACK, "grade_rating": "4"},
+        {**FEEDBACK, "grade_rating": 4.5},
+        {**FEEDBACK, "difficulty": "too_hard"},
+        {**FEEDBACK, "comments": "x" * 2001},
+        {**FEEDBACK, "would_recommend": "yes"},
+        {**FEEDBACK, "user_id": BOB_ID},
+    ]
+    for bad in bad_payloads:
+        assert client.post("/api/feedback", json=bad, headers=ALICE).status_code == 400
     assert store.feedback == []
 
 
