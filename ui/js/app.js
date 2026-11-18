@@ -55,14 +55,24 @@
       card.style.margin = "80px auto";
       card.style.padding = "32px";
       const heading = document.createElement("h1");
-      heading.textContent = "Authentication unavailable";
+      heading.textContent = "Connection unavailable";
       const copy = document.createElement("p");
       copy.textContent = message;
+      const actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.gap = "12px";
+      actions.style.marginTop = "16px";
+      const retryBtn = document.createElement("button");
+      retryBtn.type = "button";
+      retryBtn.className = "btn";
+      retryBtn.textContent = "Retry";
+      retryBtn.addEventListener("click", () => window.location.reload());
       const link = document.createElement("a");
-      link.className = "btn";
+      link.className = "btn btn-secondary";
       link.href = "sign-in.html";
       link.textContent = "Back to sign in";
-      card.append(heading, copy, link);
+      actions.append(retryBtn, link);
+      card.append(heading, copy, actions);
       main.appendChild(card);
     }
 
@@ -71,12 +81,27 @@
     });
   }
 
+  let startupLoading = null;
+  const startupLoadingTimer = setTimeout(() => {
+    if (window.YourinUI?.loading?.show) {
+      startupLoading = window.YourinUI.loading.show({
+        title: "Connecting to server",
+        eyebrow: "Please wait",
+        detail: "Checking your session and loading configuration.",
+        coldStartAfter: 3500
+      });
+    }
+  }, 1200);
+
   try {
     await window.YourinAPIReady;
   } catch (err) {
     console.error("Authentication initialization failed:", err);
     showStartupError(err?.message || "Authentication is not configured. Please contact the team.");
     return;
+  } finally {
+    clearTimeout(startupLoadingTimer);
+    if (startupLoading) startupLoading.hide();
   }
 
   const api = window.YourinAPI;
@@ -1154,7 +1179,7 @@
             "Writing three interview questions...",
             "Preparing your interview..."
           ],
-          coldStartAfter: 5000
+          coldStartAfter: null
         });
       }
 
@@ -1184,7 +1209,7 @@
           );
         }
 
-        addServerInterview(created, view, {
+        const createdItem = addServerInterview(created, view, {
           name: payload.name,
           cv: cvLocal,
           cvPdf,
@@ -1192,7 +1217,7 @@
           job: { ...account.job },
           jobProfile
         });
-        go("interview.html");
+        go(`interview.html?id=${encodeURIComponent(createdItem.id)}`);
       } catch (err) {
         console.error("Interview creation failed:", err);
         error("#job-error", "Unable to create the interview. Please try again.");
@@ -1208,7 +1233,41 @@
   }
 
   if (page === "interview" || page === "interview-1" || page === "interview-2" || page === "interview-3" || $("#interview-step-track")) {
-    const interview = activeInterview() || startInterview();
+    let requestedInterviewId = null;
+    try {
+      requestedInterviewId = new URLSearchParams(window.location.search).get("id");
+    } catch (_) {}
+
+    let interview = requestedInterviewId
+      ? account.interviews.find(item => item.id === requestedInterviewId)
+      : activeInterview();
+
+    if (requestedInterviewId && !interview) {
+      const fetched = await api.request(`/api/interviews/${encodeURIComponent(requestedInterviewId)}`, {
+        loading: { title: "Loading interview", detail: "Fetching your interview questions.", coldStartAfter: null },
+        notify: true
+      });
+      if (fetched.status === 401) return;
+      if (fetched.ok && fetched.data && fetched.data.id) {
+        interview = serverInterviewFromView(fetched.data);
+        account.interviews.unshift(interview);
+        account.activeId = interview.id;
+        save();
+      } else {
+        window.YourinErrors?.showBanner?.(
+          "Unable to load this interview from the server. Please return to Your Interview and try again.",
+          { type: "error", actionLabel: "Retry", onAction: () => window.location.reload() }
+        );
+        return;
+      }
+    } else if (requestedInterviewId && interview && account.activeId !== interview.id) {
+      account.activeId = interview.id;
+      save();
+    }
+
+    if (!interview) {
+      interview = startInterview();
+    }
 
     let skipPageHideSave = false;
 
@@ -2170,7 +2229,9 @@
 
         const actionLink = document.createElement("a");
         actionLink.className = "btn btn-secondary btn-session-action";
-        actionLink.href = interview.finished ? "report.html" : "interview.html";
+        actionLink.href = interview.finished
+          ? "report.html"
+          : (interview.server && interview.id ? `interview.html?id=${encodeURIComponent(interview.id)}` : "interview.html");
         actionLink.textContent = interview.finished ? "View report" : "Continue";
         actionLink.addEventListener("click", () => {
           account.activeId = interview.id;
@@ -2355,7 +2416,7 @@
           const result = await api.request("/api/interviews", {
             method: "POST",
             body: JSON.stringify(payload),
-            loading: true
+            loading: { title: "Creating your interview", detail: "Writing three interview questions...", coldStartAfter: null }
           });
           if (!result.ok || !result.data || !result.data.id) {
             window.YourinErrors?.showToast?.("Unable to create a retake interview. Please try again.", { type: "error" });
@@ -2366,7 +2427,7 @@
             notify: true
           });
           const view = viewResult.ok ? viewResult.data : null;
-          addServerInterview(result.data, view, {
+          const createdRetake = addServerInterview(result.data, view, {
             name: payload.name,
             cv: Array.isArray(interview.cv) ? interview.cv : ["", "", "", ""],
             cvPdf: interview.cvPdf,
@@ -2374,7 +2435,7 @@
             job: interview.job ? { ...interview.job } : {},
             jobProfile
           });
-          go("interview.html");
+          go(`interview.html?id=${encodeURIComponent(createdRetake.id)}`);
         } else {
           const newInt = startInterview(
             interview.cv,

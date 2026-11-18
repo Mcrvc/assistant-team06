@@ -2386,7 +2386,13 @@ td:first-child { max-width: 320px; overflow-wrap: anywhere; }
   .auth-panel { min-height: auto; padding: 32px 20px; }
   .auth-form { padding: 26px 20px; border-radius: 18px; }
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  .page, .loading-overlay, .loading-card, .loading-detail.is-swapping {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 
 .btn-link-inline {
   background: none;
