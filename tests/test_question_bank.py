@@ -186,10 +186,17 @@ def test_interview_uses_the_bank_questions_when_the_bank_answers(tmp_path, monke
 
 
 def test_interview_generates_when_the_bank_is_empty_or_broken(tmp_path, monkeypatch):
-    for payload in (None, [], [bank_questions()[0]], "not a list"):
+    for payload in (None, [], "not a list"):
         item = create_interview(tmp_path, monkeypatch, payload)
         assert item["question_generation"] == {"model": "local-mock", "used_fallback": True}
         assert len(item["questions"]) == 3
+
+
+def test_interview_follows_the_question_count_the_bank_serves(tmp_path, monkeypatch):
+    item = create_interview(tmp_path, monkeypatch, bank_questions()[:2])
+    assert item["question_generation"] == {"model": "question-bank", "used_fallback": False}
+    assert len(item["questions"]) == 2
+    assert len(item["answers"]) == 2
 
 
 def test_interview_generates_when_the_bank_raises(tmp_path, monkeypatch):

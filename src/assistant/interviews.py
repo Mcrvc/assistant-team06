@@ -76,7 +76,7 @@ class InterviewService:
         """Questions for one interview: bank first when enabled, provider otherwise.
 
         The bank is opt-in and optional. Any problem reading it falls back to
-        the provider, so an interview always gets its three questions.
+        the provider, so an interview always gets its questions.
         """
         bank_questions = self._bank_questions(job_profile)
         if bank_questions is not None:
@@ -90,7 +90,9 @@ class InterviewService:
             questions = draw_questions(job_profile)
         except Exception:
             return None
-        if not questions or len(questions) != 3:
+        # The bank decides how many questions it can serve (INTERVIEW_BANK_LIMIT),
+        # the same way the provider decides how many it plans.
+        if not questions:
             return None
         try:
             return [Question.model_validate(question).model_dump() for question in questions]
