@@ -6,7 +6,9 @@ import logging
 from typing import Callable, Protocol
 from uuid import uuid4
 from assistant.interview_ai import GradeRejected, InterviewAI, SafeInterviewAI, configured_ai
-from assistant.interview_schemas import CreateInterview, FinalizeInterview, SaveProgress, SubmitAnswer
+from assistant.interview_schemas import (
+    CreateInterview, FinalizeInterview, Question, SaveProgress, SubmitAnswer,
+)
 from assistant.interview_store import StoreConflict
 
 logger = logging.getLogger(__name__)
@@ -56,7 +58,7 @@ class InterviewService:
         from assistant.parsing import parse_job_profile
         parsed_job = parse_job_profile(request.job_profile)
         job_profile = parsed_job.model_dump()
-        generated = self.ai.generate_questions(job_profile, request.cv)
+        generated = self._questions_for(job_profile, request.cv)
         now = _now()
         interview = {
             "id": str(uuid4()), "owner_id": owner_id, "name": request.name,
@@ -69,6 +71,31 @@ class InterviewService:
         }
         self.repository.create(interview)
         return interview
+
+    def _questions_for(self, job_profile: dict, cv: str | None) -> dict:
+        """Questions for one interview: bank first when enabled, provider otherwise.
+
+        The bank is opt-in and optional. Any problem reading it falls back to
+        the provider, so an interview always gets its three questions.
+        """
+        bank_questions = self._bank_questions(job_profile)
+        if bank_questions is not None:
+            return {"questions": bank_questions, "model": "question-bank", "used_fallback": False}
+        return self.ai.generate_questions(job_profile, cv)
+
+    @staticmethod
+    def _bank_questions(job_profile: dict) -> list[dict] | None:
+        try:
+            from assistant.question_bank import draw_questions
+            questions = draw_questions(job_profile)
+        except Exception:
+            return None
+        if not questions or len(questions) != 3:
+            return None
+        try:
+            return [Question.model_validate(question).model_dump() for question in questions]
+        except Exception:
+            return None
 
     def get(self, owner_id: str, interview_id: str) -> dict:
         interview = self.repository.get(interview_id, owner_id)

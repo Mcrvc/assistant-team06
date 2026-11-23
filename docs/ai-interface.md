@@ -254,16 +254,26 @@ Returns exactly the five keys the team's `Grade` schema accepts:
 - Non-JSON replies surface as `bad_json` instead of a `JSONDecodeError`
   crash, and get the same one repair turn.
 
-### 9.3 `summarize_interview(items, *, timeout_s=None)` (HM4) — wiring needed
+### 9.3 `summarize_interview(items, *, timeout_s=None)` (HM4) — wired
 
 Returns `{"summary", "model", "used_fallback"}`: one Vietnamese paragraph
 (strengths by question, improvements, one next-round recommendation) built
 from graded items only — raw answers and CV text are never forwarded. On
 `AiError` it falls back to a deterministic rule-based summary
-(`model="rule-fallback"`). **The team's finalize/report path does not call
-this yet**; wiring it in finalize (or the report route) is a one-line change
-on their side, and the output maps naturally onto
-`sessions.ai_overall_comment`.
+(`model="rule-fallback"`).
+
+**Wired into finalize.** `TeamInterviewAI.summarize_interview` forwards the
+graded items with the seam timeout; `SafeInterviewAI` validates the payload
+and degrades to a deterministic mock summary when the provider fails or
+answers malformed. `InterviewService.finalize` stores the result as
+`report.overall_comment` and `report.summary_model` next to the scores, and
+the report page renders the comment when one exists.
+
+Only question, label, score and feedback leave the service — the raw answer
+and the CV are never forwarded. A summary failure never blocks finalizing an
+otherwise complete interview, and it never relabels a real grade as mock
+output: when the comment came from the offline fallback the report notice
+says so instead.
 
 ### 9.4 Latency budget (HM5) — measured 2026-11-15
 
@@ -276,14 +286,28 @@ self-repair turn). Both stages fit a 45s budget with headroom: set
 `INTERVIEW_AI_TIMEOUT_S=30`-`45` (seam caps 1-60, default 20). Note the retry
 budget: `ai.py` retries up to 3x per request with 5s gaps, so worst-case wall
 time is roughly 3x the measured p95 — the finalize timeout should assume
-that, not the p95.
+that, not the p95. The shipped default is now `INTERVIEW_AI_TIMEOUT_S=30`.
 
-### 9.5 Question bank import (information_technology)
+### 9.5 Question bank reader (information_technology) — opt-in
 
 `it.json` was imported into the shared Supabase project: `domains` 1 row,
 `rubrics` 70 rows (14 competencies x 5 levels), `questions` 69 rows. The
 bank's `positions` / `criteria_research` / `meta` sections have no matching
-tables in the current schema and were **not** imported — drawing runtime
-questions from `questions` (instead of generating every session) needs
-either new tables or a team-side reader; noted in
-`docs/interview-handoff.md` follow-ups.
+tables in the current schema and were **not** imported.
+
+`src/assistant/question_bank.py` now reads that bank at runtime. It is off
+by default (`INTERVIEW_QUESTION_BANK=0`). With `1`, the reader is asked
+first for the domain in `INTERVIEW_BANK_DOMAIN` (default
+`information_technology`) and `InterviewService.create` uses the bank rows
+only when three valid questions come back; the interview then stores
+`question_generation = {"model": "question-bank", "used_fallback": false}`.
+
+Because the imported column names are not documented anywhere, every row is
+read defensively: the question text is the first of `question` / `text` /
+`prompt` / `title`, the rubric rows come from an embedded `rubrics` /
+`rubric` list or from `criteria`, and each rubric is validated against the
+strict `Question` schema — including scaling its points to exactly 10. An
+unknown shape, an empty result, a network error or too few usable rows
+returns nothing, and the session generates its own questions exactly as
+before. The secret key is only used as a request header and is never
+logged.

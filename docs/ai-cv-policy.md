@@ -4,7 +4,9 @@
 
 Tai lieu nay quy dinh du lieu gi duoc phep gui toi LLM (NVIDIA host) trong tinh nang
 phong van thử, va phai duoc thong nhat TRUOC KHI bien `INTERVIEW_ALLOW_CV_TO_AI`
-duoc dat thanh `1`. Hien tai co dang TAT, chua co ai duyet tai lieu nay.
+duoc dat thanh `1`. Co che che PII da duoc cai dat va co test, va nguoi quan tri
+da thong nhat huong bat; moi moi truong trien khai van phai lam day du cac buoc
+o muc 6 truoc khi bat.
 
 ## 1. Muc dich
 
@@ -79,9 +81,13 @@ Quy tac bo sung:
 
 ## 8. Trang thai hien tai
 
-- `INTERVIEW_ALLOW_CV_TO_AI=0` — co dang TAT, CV khong duoc gui cho AI.
-- Tai chua ai duyet policy nay. Phai duyet xong va thuc hien du 5 buoc o muc 6
-  truoc khi bat.
+- Nguoi quan tri da thong nhat huong bat (2026-11-16) sau khi `mask_cv_pii()` co
+  test. Vi vay `.env.example` ship `INTERVIEW_ALLOW_CV_TO_AI=1` va
+  `INTERVIEW_AI_PROVIDER=mock`; chi khi bien doi sang `nvidia` va co that
+  `NVIDIA_API_KEY` thi cau hoi moi thuc su co CV trong prompt.
+- Moi moi truong trien khai van tu dat bien cua rieng theo muc 6: duyet policy,
+  test local voi CV gia lap, phe duyet quan tri, dat bien tren dashboard, roi
+  ghi nhan thoi diem bat. Dat `0` de quay lai hanh dong ngay lap tuc.
 
 ## 9. Lien ket voi code (tham chieu)
 

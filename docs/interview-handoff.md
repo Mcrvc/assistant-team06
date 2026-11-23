@@ -102,8 +102,16 @@ INTERVIEW_AI_PROVIDER=mock
 ```
 
 Sau khi ghép module Duy, đặt INTERVIEW_AI_PROVIDER=nvidia và NVIDIA_API_KEY,
-NVIDIA_MODEL; timeout adapter 1–60s, CV forwarding mặc định tắt. Không cần
+NVIDIA_MODEL; timeout adapter 1–60s (mẫu `.env.example` dùng 30s vì p95
+generate_questions là 28.5s). CV forwarding theo `INTERVIEW_ALLOW_CV_TO_AI`
+(mẫu `.env.example` bật 1, xem `docs/ai-cv-policy.md`). Không cần
 DATABASE_URL, không dùng MCP token làm credential. Không commit .env/secret.
+
+Trên nhánh `AI`, hai điểm nối đã được nối thêm: `summarize_interview` của
+Duy được gọi lúc finalize và lưu vào `report.overall_comment` (kèm
+`report.summary_model`), và `src/assistant/question_bank.py` đọc ngân hàng
+câu hới trên Supabase khi bật `INTERVIEW_QUESTION_BANK=1` — thiếu dữ liệu
+thì vẫn sinh câu như cũ. Chi tiết: `docs/ai-interface.md` mục 9.3 và 9.5.
 
 Test dùng resolver giả chỉ bên trong test, không có endpoint demo đăng nhập.
 Không đọc config thật, không gọi mạng ngoài. SQL tests cần DB localhost tên
