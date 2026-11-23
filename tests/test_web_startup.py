@@ -57,6 +57,7 @@ def test_startup_failure_returns_nonzero(monkeypatch):
     assert web.serve_ui(open_browser=False) == 1
 
 
+@pytest.mark.slow
 def test_real_cli_serves_backend_without_exposing_fake_login():
     with socket.socket() as probe:
         probe.bind(('127.0.0.1', 0))

@@ -156,6 +156,7 @@ def create(repo):
     return service,item
 
 
+@pytest.mark.slow
 def test_rpc_lifecycle_and_owner_isolation(rpc_repository):
     repo,engine = rpc_repository
     service,item = create(repo)
@@ -185,6 +186,7 @@ def test_rpc_lifecycle_and_owner_isolation(rpc_repository):
     assert repo.get(item["id"],OWNER) is None
 
 
+@pytest.mark.slow
 def test_rpc_lifecycle_with_more_than_three_questions(rpc_repository):
     """The Renderer path (Supabase RPC) must accept the planner's 4-6 questions:
     the old RPC pinned interviews to exactly three and rejected anything else."""
@@ -237,6 +239,7 @@ def test_rpc_lifecycle_with_more_than_three_questions(rpc_repository):
     assert repo.get(item["id"], OWNER) is None
 
 
+@pytest.mark.slow
 def test_rpc_conflict_foreign_delete_and_atomic_rollback(rpc_repository):
     repo,engine = rpc_repository
     service,item = create(repo)
@@ -258,6 +261,7 @@ def test_rpc_conflict_foreign_delete_and_atomic_rollback(rpc_repository):
         assert conn.execute(text("SELECT interview_name FROM sessions")).scalar_one() == changed["name"]
 
 
+@pytest.mark.slow
 def test_rpc_concurrent_cas_allows_only_one_writer(rpc_repository):
     from concurrent.futures import ThreadPoolExecutor
     repo,engine=rpc_repository
@@ -274,6 +278,7 @@ def test_rpc_concurrent_cas_allows_only_one_writer(rpc_repository):
         assert sorted(pool.map(write,[1,2])) == ["conflict","saved"]
 
 
+@pytest.mark.slow
 def test_rpc_via_http_routes_background_grading_and_report(rpc_repository):
     from fastapi.testclient import TestClient
     from assistant.web import create_app
@@ -295,6 +300,7 @@ def test_rpc_via_http_routes_background_grading_and_report(rpc_repository):
         assert client.get(path).json()['report'] is not None
 
 
+@pytest.mark.slow
 def test_rpc_http_replays_preserve_one_set_of_answers_and_report(rpc_repository):
     from fastapi.testclient import TestClient
     from assistant.web import create_app
@@ -333,6 +339,7 @@ def test_rpc_http_replays_preserve_one_set_of_answers_and_report(rpc_repository)
         assert conn.execute(text('SELECT count(*) FROM session_questions')).scalar_one() == 3
 
 
+@pytest.mark.slow
 def test_rpc_missing_account_is_actionable_and_leaves_no_partial_interview(rpc_repository):
     from fastapi.testclient import TestClient
     from assistant.web import create_app
@@ -350,6 +357,7 @@ def test_rpc_missing_account_is_actionable_and_leaves_no_partial_interview(rpc_r
             assert conn.execute(text(f'SELECT count(*) FROM {table}')).scalar_one() == 0
 
 
+@pytest.mark.slow
 def test_rpc_grading_collision_keeps_user_draft_and_ai_grade(rpc_repository, monkeypatch):
     repo, engine = rpc_repository
     service, item = create(repo)
