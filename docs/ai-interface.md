@@ -311,3 +311,17 @@ unknown shape, an empty result, a network error or too few usable rows
 returns nothing, and the session generates its own questions exactly as
 before. The secret key is only used as a request header and is never
 logged.
+
+### 9.6 Provider selection (`INTERVIEW_AI_PROVIDER`)
+
+`auto` (the shipped default) picks the real provider as soon as an NVIDIA
+key is configured and the offline mock otherwise, so putting the key into
+`.env` is the only step needed to make the product live. `mock` and
+`nvidia` pin the choice; any other value is a startup error.
+
+`INTERVIEW_ALLOW_CV_TO_AI=1` forwards the CV text (masked, see
+`docs/ai-cv-policy.md`), `INTERVIEW_AI_TIMEOUT_S` caps every AI stage
+(default 30s, seam range 1–60s). Without `TINYFISH_API_KEY` the
+self-research round is skipped and the questions are written from the
+job profile and CV alone — generation still works, only the research is
+missing.

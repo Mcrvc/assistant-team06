@@ -107,6 +107,11 @@ generate_questions là 28.5s). CV forwarding theo `INTERVIEW_ALLOW_CV_TO_AI`
 (mẫu `.env.example` bật 1, xem `docs/ai-cv-policy.md`). Không cần
 DATABASE_URL, không dùng MCP token làm credential. Không commit .env/secret.
 
+`INTERVIEW_AI_PROVIDER=auto` (mẫu mới) tự chọn provider nvidia ngay khi có
+NVIDIA_API_KEY trong `.env`, nếu không thì dùng mock offline — nên chỉ cần
+điền key là sản phẩm chạy thật. Thiếu TINYFISH_API_KEY thì vòng research
+được bỏ qua, câu hỏi vẫn sinh được từ JD và CV.
+
 Trên nhánh `AI`, hai điểm nối đã được nối thêm: `summarize_interview` của
 Duy được gọi lúc finalize và lưu vào `report.overall_comment` (kèm
 `report.summary_model`), và `src/assistant/question_bank.py` đọc ngân hàng

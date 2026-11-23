@@ -130,15 +130,33 @@ class TeamInterviewAI:
 
 
 def configured_ai() -> InterviewAI:
-    provider = os.environ.get("INTERVIEW_AI_PROVIDER", "mock")
+    """The provider for this process.
+
+    ``auto`` (or an unset variable) picks the real provider as soon as an
+    NVIDIA key is configured - so filling the key into ``.env`` is enough to
+    make the product live - and the offline mock otherwise. ``mock`` and
+    ``nvidia`` pin the choice.
+    """
+    provider = (os.environ.get("INTERVIEW_AI_PROVIDER") or "").strip().lower()
+    if provider in ("", "auto"):
+        provider = "nvidia" if _llm_ready() else "mock"
     if provider == "mock":
         return MockInterviewAI()
     if provider != "nvidia":
-        raise ValueError("INTERVIEW_AI_PROVIDER must be mock or nvidia")
+        raise ValueError("INTERVIEW_AI_PROVIDER must be mock, auto or nvidia")
     return TeamInterviewAI(
         allow_cv=os.environ.get("INTERVIEW_ALLOW_CV_TO_AI") == "1",
         timeout_s=float(os.environ.get("INTERVIEW_AI_TIMEOUT_S", "20")),
     )
+
+
+def _llm_ready() -> bool:
+    """True when a real NVIDIA key is configured (reads ``.env`` once)."""
+    try:
+        from assistant.ai import get_config
+        return get_config().llm_ready
+    except Exception:
+        return False
 
 
 class SafeInterviewAI:

@@ -3,7 +3,9 @@ from types import SimpleNamespace
 import pytest
 
 from assistant.ai import AiError
-from assistant.interview_ai import GradeRejected, SafeInterviewAI, TeamInterviewAI, configured_ai
+from assistant.interview_ai import (
+    GradeRejected, MockInterviewAI, SafeInterviewAI, TeamInterviewAI, configured_ai,
+)
 from assistant.interview_schemas import CreateInterview, SubmitAnswer
 from assistant.interview_store import SQLAlchemyInterviewRepository
 from assistant.interviews import InterviewService
@@ -57,6 +59,31 @@ def test_missing_duy_modules_fail_explicitly_instead_of_silent_mock(monkeypatch)
     monkeypatch.setattr('assistant.interview_ai.import_module', missing)
     monkeypatch.setenv('INTERVIEW_AI_PROVIDER', 'nvidia')
     with pytest.raises(ValueError, match="Duy's reviewed"):
+        configured_ai()
+
+
+def ready_config(ready=True):
+    return SimpleNamespace(llm_ready=ready, model='test-model')
+
+
+def test_provider_auto_selects_the_real_provider_once_a_key_is_configured(monkeypatch):
+    monkeypatch.delenv('INTERVIEW_AI_PROVIDER', raising=False)
+    monkeypatch.setattr('assistant.ai.get_config', lambda: ready_config(False))
+    assert isinstance(configured_ai(), MockInterviewAI)
+    monkeypatch.setattr('assistant.ai.get_config', lambda: ready_config(True))
+    assert isinstance(configured_ai(), TeamInterviewAI)
+    monkeypatch.setenv('INTERVIEW_AI_PROVIDER', 'auto')
+    assert isinstance(configured_ai(), TeamInterviewAI)
+
+
+def test_provider_choice_can_still_be_pinned(monkeypatch):
+    monkeypatch.setattr('assistant.ai.get_config', lambda: ready_config(True))
+    monkeypatch.setenv('INTERVIEW_AI_PROVIDER', 'mock')
+    assert isinstance(configured_ai(), MockInterviewAI)
+    monkeypatch.setenv('INTERVIEW_AI_PROVIDER', 'nvidia')
+    assert isinstance(configured_ai(), TeamInterviewAI)
+    monkeypatch.setenv('INTERVIEW_AI_PROVIDER', 'something-else')
+    with pytest.raises(ValueError, match='mock, auto or nvidia'):
         configured_ai()
 
 
