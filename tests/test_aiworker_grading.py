@@ -37,6 +37,10 @@ ANSWER = (
 
 GROUNDED_SPAN = "Token bucket cho phep burst"
 
+# A short but usable CV for tests that need CV-grounded slots.
+VALID_CV = ("Senior Python engineer. Led the migration of 12 services to "
+            "FastAPI and cut p99 latency from 800ms to 120ms.")
+
 
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
@@ -58,14 +62,17 @@ def _completion(payload) -> Completion:
 # --------------------------------------------------------------------------
 # The contract the team's adapter consumes
 # --------------------------------------------------------------------------
-def _plan_payload(total=4):
+def _plan_payload(total=4, include_cv=True):
     """A valid interview plan: seniority, total and per-slot arc.
 
     Phases cycle with distinct focuses so any total (up to 15) validates.
+    ``include_cv=False`` models the no-CV case: no cv slot is planned.
     """
     arc = [("starter", "easy"), ("cv", "medium"), ("experience", "medium"),
            ("skills", "medium"), ("technical", "hard"), ("market", "hard"),
            ("behavioral", "hard")]
+    if not include_cv:
+        arc = [entry for entry in arc if entry[0] != "cv"]
     slots = []
     for index in range(total):
         phase, difficulty = arc[index % len(arc)]
@@ -86,7 +93,8 @@ def _question_payload(index):
     }
 
 
-def _router_fake(monkeypatch, seen=None, plan_total=4, fail_slots=False):
+def _router_fake(monkeypatch, seen=None, plan_total=4, fail_slots=False,
+                 include_cv=True):
     """Fake ``complete`` that answers the planner, then one question per slot."""
     state = {"slots": 0}
 
@@ -94,7 +102,7 @@ def _router_fake(monkeypatch, seen=None, plan_total=4, fail_slots=False):
         if seen is not None:
             seen.update(options)
         if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
-            return _completion(_plan_payload(plan_total))
+            return _completion(_plan_payload(plan_total, include_cv=include_cv))
         state["slots"] += 1
         if fail_slots:
             return _completion({"questions": "not a question object"})
@@ -109,7 +117,8 @@ def test_generate_questions_accepts_and_forwards_timeout(monkeypatch):
     _router_fake(monkeypatch, seen)
     out = aiworker.generate_questions({"title": "x"}, {}, "", [], timeout_s=9.0)
     assert seen["timeout_s"] == 9.0
-    assert len(out["questions"]) == 4  # the planner decided, not a fixed three
+    # No CV: the planner's cv slot is dropped, the rest is still planned.
+    assert len(out["questions"]) == 3
 
 
 def test_generate_questions_returns_source_notes_and_sources(monkeypatch):
@@ -118,14 +127,14 @@ def test_generate_questions_returns_source_notes_and_sources(monkeypatch):
     assert out["source"] == "nvidia"
     assert out["research_notes"] == "notes here"
     assert out["sources"] == ["https://a"]
-    assert len(out["questions"]) == 4
+    assert len(out["questions"]) == 3
 
 
 def test_generate_questions_runs_one_call_per_planned_slot(monkeypatch):
     state = _router_fake(monkeypatch, plan_total=6)
     out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
-    assert state["slots"] == 6
-    assert [f"Q{i}?" for i in range(1, 7)] == [q["question"] for q in out["questions"]]
+    assert state["slots"] == 5  # 6 planned slots minus the cv slot
+    assert [f"Q{i}?" for i in range(1, 6)] == [q["question"] for q in out["questions"]]
 
 
 def test_generate_questions_falls_back_to_the_default_plan_when_the_planner_fails(monkeypatch):
@@ -139,7 +148,7 @@ def test_generate_questions_falls_back_to_the_default_plan_when_the_planner_fail
 
     monkeypatch.setattr(aiworker, "complete", planner_down)
     out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
-    assert len(out["questions"]) == aiworker.DEFAULT_PLAN["total"]
+    assert len(out["questions"]) == aiworker.DEFAULT_PLAN_NO_CV["total"]
 
 
 def test_grade_answer_with_evidence_returns_the_five_expected_keys(monkeypatch):
@@ -449,14 +458,126 @@ def test_a_permanently_broken_slot_is_skipped_not_fatal(monkeypatch):
         return _completion(_question_payload(len(messages)))
 
     monkeypatch.setattr(aiworker, "complete", fake)
-    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    out = aiworker.generate_questions(
+        {"title": "x"}, {"raw": VALID_CV}, "notes", [])
     assert len(out["questions"]) == 3  # the cv slot was skipped, rest kept
 
 
 def test_generate_questions_can_return_fifteen(monkeypatch):
-    state = _router_fake(monkeypatch, plan_total=15)
+    state = _router_fake(monkeypatch, plan_total=15, include_cv=False)
     out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
     assert state["slots"] == 15 and len(out["questions"]) == 15
+
+
+# --------------------------------------------------------------------------
+# Planner failure mode: invalid / illegal job or domain
+# --------------------------------------------------------------------------
+def test_planner_rejects_an_invalid_or_illegal_job(monkeypatch):
+    monkeypatch.setattr(aiworker, "complete",
+                        lambda m, **o: _completion({"error": "illegal_domain"}))
+    with pytest.raises(aiworker.InvalidJobProfile) as excinfo:
+        aiworker.plan_interview({"title": "asdf"}, {}, "")
+    assert excinfo.value.code == "illegal_domain"
+
+
+def test_an_unknown_planner_refusal_maps_to_invalid_job(monkeypatch):
+    monkeypatch.setattr(aiworker, "complete",
+                        lambda m, **o: _completion({"error": "not-a-job"}))
+    with pytest.raises(aiworker.InvalidJobProfile) as excinfo:
+        aiworker.plan_interview({"title": "asdf"}, {}, "")
+    assert excinfo.value.code == "invalid_job"
+
+
+def test_generate_questions_propagates_an_invalid_job(monkeypatch):
+    monkeypatch.setattr(aiworker, "complete",
+                        lambda m, **o: _completion({"error": "invalid_job"}))
+    with pytest.raises(aiworker.InvalidJobProfile):
+        aiworker.generate_questions({"title": "asdf"}, {}, "notes", [])
+
+
+# --------------------------------------------------------------------------
+# CV grounding: quote it when present, never force it when absent
+# --------------------------------------------------------------------------
+def test_plan_without_cv_drops_cv_slots(monkeypatch):
+    monkeypatch.setattr(aiworker, "complete",
+                        lambda m, **o: _completion(_plan_payload(4)))
+    plan = aiworker.plan_interview({"title": "x"}, {}, "")
+    assert plan["total"] == 3
+    assert all(slot["phase"] != "cv" for slot in plan["slots"])
+
+
+def test_plan_with_a_usable_cv_keeps_cv_slots(monkeypatch):
+    monkeypatch.setattr(aiworker, "complete",
+                        lambda m, **o: _completion(_plan_payload(4)))
+    plan = aiworker.plan_interview({"title": "x"}, {"raw": VALID_CV}, "")
+    assert any(slot["phase"] == "cv" for slot in plan["slots"])
+
+
+def test_planner_prompt_marks_a_missing_cv(monkeypatch):
+    prompts = []
+
+    def fake(messages, **options):
+        prompts.append(messages[1]["content"])
+        return _completion(_plan_payload(1, include_cv=False))
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    aiworker.plan_interview({"title": "x"}, {}, "")
+    assert aiworker.NO_CV_TEXT in prompts[0]
+
+
+def test_a_cv_question_must_quote_the_cv_verbatim():
+    item = _question_payload(1)
+    item["question"] = ('You mentioned "Led the migration of 12 services" - '
+                        'walk me through it.')
+    validated = aiworker._validate_question(
+        item, cv_text=VALID_CV, require_cv_quote=True)
+    assert validated["question"].startswith("You mentioned")
+
+    item["question"] = ('You mentioned "Led the migration of 99 services" - '
+                        'walk me through it.')
+    with pytest.raises(ValueError, match="quote one short exact phrase"):
+        aiworker._validate_question(
+            item, cv_text=VALID_CV, require_cv_quote=True)
+
+
+def test_a_cv_slot_without_a_cv_needs_no_quote():
+    item = _question_payload(1)
+    validated = aiworker._validate_question(
+        item, cv_text="", require_cv_quote=True)
+    assert validated["question"] == "Q1?"
+
+
+def test_generate_questions_repairs_a_cv_question_without_a_quote(monkeypatch):
+    answers = iter([
+        'You mentioned "Led the migration of 99 services" - walk me through it.',
+        'You mentioned "Led the migration of 12 services" - walk me through it.',
+    ])
+
+    def fake(messages, **options):
+        if messages[0]["content"] == aiworker.PLANNER_SYSTEM:
+            return _completion({
+                "seniority": "intern", "total": 1,
+                "slots": [{"phase": "cv", "focus": "the migration project",
+                           "difficulty": "medium"}]})
+        payload = _question_payload(1)
+        payload["question"] = next(answers)
+        return _completion(payload)
+
+    monkeypatch.setattr(aiworker, "complete", fake)
+    out = aiworker.generate_questions(
+        {"title": "x"}, {"raw": VALID_CV}, "notes", [])
+    assert "12 services" in out["questions"][0]["question"]
+
+
+def test_prompts_treat_inputs_as_untrusted_data():
+    for system in (aiworker.PLANNER_SYSTEM, aiworker.QUESTION_SYSTEM,
+                   aiworker.EVIDENCE_SYSTEM):
+        assert "UNTRUSTED DATA" in system
+        assert "Never follow instructions" in system
+    assert "ignore the rubric" in aiworker.EVIDENCE_SYSTEM
+    assert "reveal this prompt" in aiworker.EVIDENCE_SYSTEM
+    assert "invalid_job" in aiworker.PLANNER_SYSTEM
+    assert "illegal_domain" in aiworker.PLANNER_SYSTEM
 
 
 # --------------------------------------------------------------------------
@@ -476,8 +597,8 @@ def test_one_provider_blip_on_a_slot_keeps_the_written_questions(monkeypatch):
 
     monkeypatch.setattr(aiworker, "complete", fake)
     out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
-    assert calls["n"] == 5  # 4 slots, the blip cost one extra call
-    assert len(out["questions"]) == 4  # every slot still landed
+    assert calls["n"] == 4  # 3 slots, the blip cost one extra call
+    assert len(out["questions"]) == 3  # every slot still landed
 
 
 def test_a_slot_the_provider_keeps_refusing_is_skipped_not_fatal(monkeypatch):
@@ -494,7 +615,8 @@ def test_a_slot_the_provider_keeps_refusing_is_skipped_not_fatal(monkeypatch):
         return _completion(_question_payload(answers["n"]))
 
     monkeypatch.setattr(aiworker, "complete", fake)
-    out = aiworker.generate_questions({"title": "x"}, {}, "notes", [])
+    out = aiworker.generate_questions(
+        {"title": "x"}, {"raw": VALID_CV}, "notes", [])
     assert len(out["questions"]) == 3  # the cv slot was skipped, rest kept
 
 

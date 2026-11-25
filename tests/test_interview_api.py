@@ -1,11 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor
 import threading
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from assistant.interview_ai import MockInterviewAI
+from assistant.interview_ai import MockInterviewAI, TeamInterviewAI
 from assistant.interview_store import SQLAlchemyInterviewRepository
 from assistant.interviews import InterviewService
 from assistant.web import create_app
@@ -124,3 +125,26 @@ def test_response_is_sent_before_background_grading_completes(service):
             finally:
                 release.set()
             assert future.result(timeout=5).status_code == 202
+
+
+def test_invalid_job_returns_422_with_a_retry_message(tmp_path):
+    class RefusedJob(Exception):
+        code = 'invalid_job'
+
+    def generate(*args, **kwargs):
+        raise RefusedJob()
+
+    store = SQLAlchemyInterviewRepository.local(tmp_path / 'invalid-job-api.sqlite')
+    try:
+        service = InterviewService(store, TeamInterviewAI(
+            worker=SimpleNamespace(generate_questions=generate), timeout_s=9))
+        app = create_app(service=service, auth_resolver=lambda request: 'verified-a')
+        with TestClient(app) as client:
+            response = client.post('/api/interviews',
+                                   json={'job_profile': {'title': 'asdf'}})
+            assert response.status_code == 422
+            body = response.json()
+            assert body['error']['code'] == 'invalid_job'
+            assert 'different job description' in body['error']['message']
+    finally:
+        store.close()

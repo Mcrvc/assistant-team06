@@ -227,6 +227,30 @@ team's strict `Generation` schema.
   `mask_cv_pii` — emails become `[email]`, Vietnamese phone numbers become
   `[phone]`. Years/counts are untouched (the phone pattern needs 9+ digits).
   Policy: `docs/ai-cv-policy.md`.
+- **Job validity gate.** Before planning, the planner checks that the Job
+  Profile is a real, lawful job. Gibberish, placeholder text, a non-job, or an
+  illegal domain/activity is refused with one of `invalid_job`,
+  `invalid_domain`, `illegal_job`, `illegal_domain`. The refusal travels as
+  `aiworker.InvalidJobProfile` → `interview_ai.InvalidJobProfile` → HTTP
+  **422** with the fixed message "This job description does not describe a
+  valid, legal role. Please retry with a different job description." It never
+  falls back to the mock and never stores an interview. When the opt-in
+  question bank supplies questions, the provider's job-validity gate still runs
+  so invalid/illegal jobs are refused consistently.
+- **CV quoting.** With a usable CV, every `cv`-phase question must contain one
+  short phrase copied character-for-character from the CV inside double quotes
+  (`You mentioned "Led the migration of 12 services" — ...`). A paraphrased or
+  invented quote is refused and repaired before the question is accepted.
+  Experience/skills prompts are told to use a concrete CV item when one is
+  available, but they are not forced to quote.
+- **No/invalid CV.** Missing, too-short, or gibberish CV text is treated as no
+  CV (`_usable_cv_text`). The planner is told `(no usable CV provided)`, cv
+  slots are dropped from the returned plan, and the no-CV fallback plan has 6
+  job-based slots. No CV question is forced and no CV content is invented.
+- **Prompt-injection hardening.** The planner, writer and grader system
+  prompts mark the Job Profile, CV, research notes and candidate answer as
+  untrusted data and ignore instructions embedded inside them (including
+  requests to change the score, ignore the rubric, or reveal the prompt).
 
 ### 9.2 `grade_answer_with_evidence(question, answer, rubric, *, timeout_s)`
 
@@ -254,16 +278,26 @@ Returns exactly the five keys the team's `Grade` schema accepts:
 - Non-JSON replies surface as `bad_json` instead of a `JSONDecodeError`
   crash, and get the same one repair turn.
 
-### 9.3 `summarize_interview(items, *, timeout_s=None)` (HM4) — wiring needed
+### 9.3 `summarize_interview(items, *, timeout_s=None)` (HM4) — wired
 
 Returns `{"summary", "model", "used_fallback"}`: one Vietnamese paragraph
 (strengths by question, improvements, one next-round recommendation) built
 from graded items only — raw answers and CV text are never forwarded. On
 `AiError` it falls back to a deterministic rule-based summary
-(`model="rule-fallback"`). **The team's finalize/report path does not call
-this yet**; wiring it in finalize (or the report route) is a one-line change
-on their side, and the output maps naturally onto
-`sessions.ai_overall_comment`.
+(`model="rule-fallback"`).
+
+**Wired into finalize.** `TeamInterviewAI.summarize_interview` forwards the
+graded items with the seam timeout; `SafeInterviewAI` validates the payload
+and degrades to a deterministic mock summary when the provider fails or
+answers malformed. `InterviewService.finalize` stores the result as
+`report.overall_comment` and `report.summary_model` next to the scores, and
+the report page renders the comment when one exists.
+
+Only question, label, score and feedback leave the service — the raw answer
+and the CV are never forwarded. A summary failure never blocks finalizing an
+otherwise complete interview, and it never relabels a real grade as mock
+output: when the comment came from the offline fallback the report notice
+says so instead.
 
 ### 9.4 Latency budget (HM5) — measured 2026-11-15
 
@@ -276,14 +310,42 @@ self-repair turn). Both stages fit a 45s budget with headroom: set
 `INTERVIEW_AI_TIMEOUT_S=30`-`45` (seam caps 1-60, default 20). Note the retry
 budget: `ai.py` retries up to 3x per request with 5s gaps, so worst-case wall
 time is roughly 3x the measured p95 — the finalize timeout should assume
-that, not the p95.
+that, not the p95. The shipped default is now `INTERVIEW_AI_TIMEOUT_S=30`.
 
-### 9.5 Question bank import (information_technology)
+### 9.5 Question bank reader (information_technology) — opt-in
 
 `it.json` was imported into the shared Supabase project: `domains` 1 row,
 `rubrics` 70 rows (14 competencies x 5 levels), `questions` 69 rows. The
 bank's `positions` / `criteria_research` / `meta` sections have no matching
-tables in the current schema and were **not** imported — drawing runtime
-questions from `questions` (instead of generating every session) needs
-either new tables or a team-side reader; noted in
-`docs/interview-handoff.md` follow-ups.
+tables in the current schema and were **not** imported.
+
+`src/assistant/question_bank.py` now reads that bank at runtime. It is off
+by default (`INTERVIEW_QUESTION_BANK=0`). With `1`, the reader is asked
+first for the domain in `INTERVIEW_BANK_DOMAIN` (default
+`information_technology`) and `InterviewService.create` uses the bank rows
+only when three valid questions come back; the interview then stores
+`question_generation = {"model": "question-bank", "used_fallback": false}`.
+
+Because the imported column names are not documented anywhere, every row is
+read defensively: the question text is the first of `question` / `text` /
+`prompt` / `title`, the rubric rows come from an embedded `rubrics` /
+`rubric` list or from `criteria`, and each rubric is validated against the
+strict `Question` schema — including scaling its points to exactly 10. An
+unknown shape, an empty result, a network error or too few usable rows
+returns nothing, and the session generates its own questions exactly as
+before. The secret key is only used as a request header and is never
+logged.
+
+### 9.6 Provider selection (`INTERVIEW_AI_PROVIDER`)
+
+`auto` (the shipped default) picks the real provider as soon as an NVIDIA
+key is configured and the offline mock otherwise, so putting the key into
+`.env` is the only step needed to make the product live. `mock` and
+`nvidia` pin the choice; any other value is a startup error.
+
+`INTERVIEW_ALLOW_CV_TO_AI=1` forwards the CV text (masked, see
+`docs/ai-cv-policy.md`), `INTERVIEW_AI_TIMEOUT_S` caps every AI stage
+(default 30s, seam range 1–60s). Without `TINYFISH_API_KEY` the
+self-research round is skipped and the questions are written from the
+job profile and CV alone — generation still works, only the research is
+missing.

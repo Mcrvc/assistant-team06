@@ -2521,6 +2521,14 @@
         notice.classList.toggle("is-hidden", !noticeText);
       }
 
+      const summary = $("#report-summary");
+      const summaryText = $("#report-summary-text");
+      if (summary && summaryText) {
+        const summaryValue = report && typeof report.overall_comment === "string" ? report.overall_comment : "";
+        summaryText.textContent = summaryValue;
+        summary.classList.toggle("is-hidden", !summaryValue.trim());
+      }
+
       bindRetakeButton(interview);
       showReportState("content");
     }

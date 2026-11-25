@@ -16,9 +16,11 @@ class InterviewAI(Protocol):
 
     generate_questions may use a question bank or an LLM. Return exactly 3
     questions with source labels and criteria. grade_answer grades one answer.
+    summarize_interview turns graded items into one report paragraph.
     """
     def generate_questions(self, job_profile: dict, cv: str | None) -> dict: ...
     def grade_answer(self, job_profile: dict, question: dict, answer: str) -> dict: ...
+    def summarize_interview(self, items: list[dict]) -> dict: ...
 
 
 class GradeRejected(Exception):
@@ -27,6 +29,28 @@ class GradeRejected(Exception):
         self.code = code if code in {
             "evidence_not_found", "feedback_ungrounded", "bad_score", "no_feedback", "no_evidence"
         } else "evidence_not_found"
+        super().__init__(self.code)
+
+
+INVALID_JOB_CODES = frozenset({"invalid_job", "invalid_domain",
+                               "illegal_job", "illegal_domain"})
+INVALID_JOB_MESSAGE = (
+    "This job description does not describe a valid, legal role. "
+    "Please retry with a different job description."
+)
+
+
+class InvalidJobProfile(Exception):
+    """The provider refused the Job Profile as invalid or illegal.
+
+    This is a user-facing refusal, not a provider outage: SafeInterviewAI
+    re-raises it instead of falling back to a mock interview, and the service
+    maps it to a 422 response telling the candidate to retry with a different
+    job description.
+    """
+    def __init__(self, code: str = "invalid_job") -> None:
+        self.code = code if code in INVALID_JOB_CODES else "invalid_job"
+        self.message = INVALID_JOB_MESSAGE
         super().__init__(self.code)
 
 
@@ -55,6 +79,24 @@ class MockInterviewAI:
             "evidence": [answer.strip()[:120]], "model": "local-mock", "used_fallback": True,
         }
 
+    def summarize_interview(self, items: list[dict]) -> dict:
+        # Deterministic and offline: every number below comes from the items
+        # themselves, so the same report always produces the same summary.
+        scored = [(index, item) for index, item in enumerate(items)
+                  if isinstance(item, dict) and isinstance(item.get("score"), (int, float))
+                  and not isinstance(item.get("score"), bool)]
+        if not scored:
+            return {"summary": "No answer was graded, so there is no summary yet.",
+                    "model": "local-mock", "used_fallback": True}
+        position = lambda pair: f"Q{pair[0] + 1} ({pair[1]['score']:.1f}/10)"
+        strong = [position(pair) for pair in sorted(scored, key=lambda p: -p[1]["score"])[:2]]
+        weak = [position(pair) for pair in sorted(scored, key=lambda p: p[1]["score"])[:2]]
+        summary = (f"Strengths: {', '.join(strong)}. "
+                   f"Improvements: {', '.join(weak)}. "
+                   "Next round: retry the weakest questions with a concrete example "
+                   "and a measurable result.")
+        return {"summary": summary, "model": "local-mock", "used_fallback": True}
+
 
 class TeamInterviewAI:
     """Adapter for origin/AI. Web research and raw CV forwarding are off by default."""
@@ -77,10 +119,18 @@ class TeamInterviewAI:
         self.worker, self.model = worker, model or "team-provider"
 
     def generate_questions(self, job_profile: dict, cv: str | None) -> dict:
-        generated = self.worker.generate_questions(
-            job_profile, {"raw": cv} if self.allow_cv and cv else {}, "", [],
-            timeout_s=self.timeout_s,
-        )
+        try:
+            generated = self.worker.generate_questions(
+                job_profile, {"raw": cv} if self.allow_cv and cv else {}, "", [],
+                timeout_s=self.timeout_s,
+            )
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if isinstance(code, str) and code in INVALID_JOB_CODES:
+                # The planner refused the job profile. This is not a provider
+                # outage, so never let SafeInterviewAI replace it with a mock.
+                raise InvalidJobProfile(code) from None
+            raise
         questions = []
         for item in generated["questions"]:
             rubric = item["rubric"]
@@ -102,17 +152,54 @@ class TeamInterviewAI:
             # Do not forward provider messages, which may quote private answers.
             raise GradeRejected(exc.code) from None
 
+    def summarize_interview(self, items: list[dict]) -> dict:
+        # The worker itself forwards only question/verdict/score/feedback and
+        # never raises for a provider failure, but a missing entry point on an
+        # older worker must still degrade through SafeInterviewAI.
+        return self.worker.summarize_interview(items, timeout_s=self.timeout_s)
+
+    def validate_job_profile(self, job_profile: dict) -> None:
+        """Run the planner's job-validity gate without writing questions."""
+        planner = getattr(self.worker, "plan_interview", None)
+        if not callable(planner):
+            return
+        try:
+            planner(job_profile, {}, "", timeout_s=self.timeout_s)
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if isinstance(code, str) and code in INVALID_JOB_CODES:
+                raise InvalidJobProfile(code) from None
+            raise
+
 
 def configured_ai() -> InterviewAI:
-    provider = os.environ.get("INTERVIEW_AI_PROVIDER", "mock")
+    """The provider for this process.
+
+    ``auto`` (or an unset variable) picks the real provider as soon as an
+    NVIDIA key is configured - so filling the key into ``.env`` is enough to
+    make the product live - and the offline mock otherwise. ``mock`` and
+    ``nvidia`` pin the choice.
+    """
+    provider = (os.environ.get("INTERVIEW_AI_PROVIDER") or "").strip().lower()
+    if provider in ("", "auto"):
+        provider = "nvidia" if _llm_ready() else "mock"
     if provider == "mock":
         return MockInterviewAI()
     if provider != "nvidia":
-        raise ValueError("INTERVIEW_AI_PROVIDER must be mock or nvidia")
+        raise ValueError("INTERVIEW_AI_PROVIDER must be mock, auto or nvidia")
     return TeamInterviewAI(
         allow_cv=os.environ.get("INTERVIEW_ALLOW_CV_TO_AI") == "1",
         timeout_s=float(os.environ.get("INTERVIEW_AI_TIMEOUT_S", "20")),
     )
+
+
+def _llm_ready() -> bool:
+    """True when a real NVIDIA key is configured (reads ``.env`` once)."""
+    try:
+        from assistant.ai import get_config
+        return get_config().llm_ready
+    except Exception:
+        return False
 
 
 class SafeInterviewAI:
@@ -145,6 +232,9 @@ class SafeInterviewAI:
         try:
             result = self.provider.generate_questions(
                 deepcopy(job_profile), cv)
+        except InvalidJobProfile:
+            # A refusal is a user-facing answer, not a provider outage.
+            raise
         except Exception as exc:
             # The provider retried per slot; this is the last resort.
             print(f"[interview-ai] generation fell back to mock: "
@@ -367,3 +457,44 @@ class SafeInterviewAI:
                 break
         return Grade.model_validate(
             self.fallback.grade_answer(job_profile, question, answer)).model_dump()
+
+    @staticmethod
+    def _summary_of(result: dict | object) -> dict | None:
+        """Validate the worker summary shape; anything malformed returns None."""
+        if not isinstance(result, dict):
+            return None
+        summary = str(result.get("summary") or "").strip()
+        model = str(result.get("model") or "").strip()
+        if not summary or not model:
+            return None
+        return {"summary": summary, "model": model[:200],
+                "used_fallback": bool(result.get("used_fallback", True))}
+
+    def summarize_interview(self, items: list[dict]) -> dict | None:
+        """One report paragraph, or None when no provider could summarise.
+
+        Never raises: a missing provider, a network failure or a malformed
+        payload degrades to the deterministic mock summary instead.
+        """
+        try:
+            summary = self._summary_of(self.provider.summarize_interview(deepcopy(items)))
+        except Exception:
+            summary = None
+        if summary is None:
+            try:
+                summary = self._summary_of(self.fallback.summarize_interview(items))
+            except Exception:
+                return None
+        return summary
+
+    def validate_job_profile(self, job_profile: dict) -> None:
+        """Run the provider's job-validity gate; refusals always propagate."""
+        validator = getattr(self.provider, "validate_job_profile", None)
+        if not callable(validator):
+            return
+        try:
+            validator(deepcopy(job_profile))
+        except InvalidJobProfile:
+            raise
+        except Exception:
+            return

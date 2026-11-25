@@ -3,10 +3,13 @@ from types import SimpleNamespace
 import pytest
 
 from assistant.ai import AiError
-from assistant.interview_ai import GradeRejected, SafeInterviewAI, TeamInterviewAI, configured_ai
+from assistant.interview_ai import (
+    GradeRejected, InvalidJobProfile, MockInterviewAI, SafeInterviewAI,
+    TeamInterviewAI, configured_ai,
+)
 from assistant.interview_schemas import CreateInterview, SubmitAnswer
 from assistant.interview_store import SQLAlchemyInterviewRepository
-from assistant.interviews import InterviewService
+from assistant.interviews import InterviewError, InterviewService
 
 RUBRIC = {'max_score': 10, 'criteria': [{'name': 'actions', 'points': 10, 'good': 'Explain personal actions'}]}
 
@@ -60,12 +63,74 @@ def test_missing_duy_modules_fail_explicitly_instead_of_silent_mock(monkeypatch)
         configured_ai()
 
 
+def ready_config(ready=True):
+    return SimpleNamespace(llm_ready=ready, model='test-model')
+
+
+def test_provider_auto_selects_the_real_provider_once_a_key_is_configured(monkeypatch):
+    monkeypatch.delenv('INTERVIEW_AI_PROVIDER', raising=False)
+    monkeypatch.setattr('assistant.ai.get_config', lambda: ready_config(False))
+    assert isinstance(configured_ai(), MockInterviewAI)
+    monkeypatch.setattr('assistant.ai.get_config', lambda: ready_config(True))
+    assert isinstance(configured_ai(), TeamInterviewAI)
+    monkeypatch.setenv('INTERVIEW_AI_PROVIDER', 'auto')
+    assert isinstance(configured_ai(), TeamInterviewAI)
+
+
+def test_provider_choice_can_still_be_pinned(monkeypatch):
+    monkeypatch.setattr('assistant.ai.get_config', lambda: ready_config(True))
+    monkeypatch.setenv('INTERVIEW_AI_PROVIDER', 'mock')
+    assert isinstance(configured_ai(), MockInterviewAI)
+    monkeypatch.setenv('INTERVIEW_AI_PROVIDER', 'nvidia')
+    assert isinstance(configured_ai(), TeamInterviewAI)
+    monkeypatch.setenv('INTERVIEW_AI_PROVIDER', 'something-else')
+    with pytest.raises(ValueError, match='mock, auto or nvidia'):
+        configured_ai()
+
+
 def test_provider_outage_keeps_fallback_label():
     def offline(*args, **kwargs):
         raise TimeoutError('private provider details')
     provider = TeamInterviewAI(worker=SimpleNamespace(generate_questions=offline), timeout_s=9)
     result = SafeInterviewAI(provider).generate_questions({'title': 'Intern'}, None)
     assert len(result['questions']) == 3 and result['used_fallback'] is True
+
+
+def test_invalid_job_refusal_is_not_replaced_by_the_mock():
+    class RefusedJob(Exception):
+        code = 'illegal_domain'
+
+    def generate(*args, **kwargs):
+        raise RefusedJob()
+
+    provider = TeamInterviewAI(
+        worker=SimpleNamespace(generate_questions=generate), timeout_s=9)
+    with pytest.raises(InvalidJobProfile) as excinfo:
+        SafeInterviewAI(provider).generate_questions({'title': 'asdf'}, None)
+    assert excinfo.value.code == 'illegal_domain'
+    assert 'different job description' in excinfo.value.message
+
+
+def test_service_maps_an_invalid_job_to_a_retryable_422(tmp_path):
+    class RefusedJob(Exception):
+        code = 'invalid_job'
+
+    def generate(*args, **kwargs):
+        raise RefusedJob()
+
+    repo = SQLAlchemyInterviewRepository.local(tmp_path / 'invalid-job.sqlite')
+    try:
+        service = InterviewService(repo, TeamInterviewAI(
+            worker=SimpleNamespace(generate_questions=generate), timeout_s=9))
+        with pytest.raises(InterviewError) as excinfo:
+            service.create('verified-a', CreateInterview(
+                job_profile={'title': 'asdf'}))
+        assert excinfo.value.status == 422
+        assert excinfo.value.code == 'invalid_job'
+        assert 'different job description' in excinfo.value.message
+        assert service.list('verified-a') == []
+    finally:
+        repo.close()
 
 
 def generation_worker(questions):

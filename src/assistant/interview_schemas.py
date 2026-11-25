@@ -149,6 +149,10 @@ class Report(Contract):
     items: list[ReportItem]
     used_fallback: bool
     notice: str
+    # One provider-written paragraph about the whole interview. Absent on
+    # reports finalized before summaries were wired, and never blocking.
+    overall_comment: str | None = None
+    summary_model: str | None = None
 
 
 class InterviewView(Contract):

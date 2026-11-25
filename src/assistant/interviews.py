@@ -5,8 +5,12 @@ from datetime import datetime, timezone
 import logging
 from typing import Callable, Protocol
 from uuid import uuid4
-from assistant.interview_ai import GradeRejected, InterviewAI, SafeInterviewAI, configured_ai
-from assistant.interview_schemas import CreateInterview, FinalizeInterview, SaveProgress, SubmitAnswer
+from assistant.interview_ai import (
+    GradeRejected, InterviewAI, InvalidJobProfile, SafeInterviewAI, configured_ai,
+)
+from assistant.interview_schemas import (
+    CreateInterview, FinalizeInterview, Question, SaveProgress, SubmitAnswer,
+)
 from assistant.interview_store import StoreConflict
 
 logger = logging.getLogger(__name__)
@@ -56,7 +60,12 @@ class InterviewService:
         from assistant.parsing import parse_job_profile
         parsed_job = parse_job_profile(request.job_profile)
         job_profile = parsed_job.model_dump()
-        generated = self.ai.generate_questions(job_profile, request.cv)
+        try:
+            generated = self._questions_for(job_profile, request.cv)
+        except InvalidJobProfile as exc:
+            # A refusal is not a server error: tell the candidate to retry
+            # with a different job description and do not store anything.
+            raise InterviewError(422, exc.code, exc.message) from None
         now = _now()
         interview = {
             "id": str(uuid4()), "owner_id": owner_id, "name": request.name,
@@ -69,6 +78,36 @@ class InterviewService:
         }
         self.repository.create(interview)
         return interview
+
+    def _questions_for(self, job_profile: dict, cv: str | None) -> dict:
+        """Questions for one interview: bank first when enabled, provider otherwise.
+
+        The bank is opt-in and optional. Any problem reading it falls back to
+        the provider, so an interview always gets its questions. When the bank
+        supplies questions, the provider's job-validity gate still runs so
+        invalid or illegal job profiles are refused consistently.
+        """
+        bank_questions = self._bank_questions(job_profile)
+        if bank_questions is not None:
+            self.ai.validate_job_profile(job_profile)
+            return {"questions": bank_questions, "model": "question-bank", "used_fallback": False}
+        return self.ai.generate_questions(job_profile, cv)
+
+    @staticmethod
+    def _bank_questions(job_profile: dict) -> list[dict] | None:
+        try:
+            from assistant.question_bank import draw_questions
+            questions = draw_questions(job_profile)
+        except Exception:
+            return None
+        # The bank decides how many questions it can serve (INTERVIEW_BANK_LIMIT),
+        # the same way the provider decides how many it plans.
+        if not questions:
+            return None
+        try:
+            return [Question.model_validate(question).model_dump() for question in questions]
+        except Exception:
+            return None
 
     def get(self, owner_id: str, interview_id: str) -> dict:
         interview = self.repository.get(interview_id, owner_id)
@@ -256,14 +295,36 @@ class InterviewService:
                 notices.append(f"{rejected_count} answer(s) were rejected during evidence verification and excluded from scoring.")
             if unanswered_count:
                 notices.append(f"{unanswered_count} question(s) were left unanswered.")
+            report = {"overall_score": overall, "items": items,
+                      "label": ("Good" if overall >= 6 else "Needs Improvement") if overall is not None else "Incomplete"}
+            # One provider-written paragraph about the whole interview. Only
+            # question, label, score and feedback leave this function - raw
+            # answers and the CV are never forwarded - and a summary failure
+            # must never block finalizing an otherwise complete interview.
+            try:
+                summary = self.ai.summarize_interview([
+                    {"question": item["question"]["text"], "verdict": item["label"],
+                     "score": item["score"], "feedback": item["feedback"]}
+                    for item in items if item["score"] is not None
+                ])
+            except Exception:
+                logger.error("Interview summary did not finish; report stays without a summary")
+                summary = None
+            if summary:
+                report["overall_comment"] = summary["summary"]
+                report["summary_model"] = summary["model"]
+                if summary["used_fallback"]:
+                    # The comment is extra commentary, not the assessment: a
+                    # fallback summary must not relabel a real grade as mock.
+                    notices.append("The overall comment was written by the offline "
+                                   "fallback, not by the AI.")
             notices.append("Contains mock/fallback output; not a real AI assessment."
                            if used_fallback else "Evidence quotations passed exact text matching.")
+            report.update(used_fallback=used_fallback, notice=" ".join(notices))
             interview.update(
                 name=request.name or interview["name"], status="finalized",
                 current_question=len(interview["questions"]) - 1,
-                report={"overall_score": overall, "items": items, "used_fallback": used_fallback,
-                        "label": ("Good" if overall >= 6 else "Needs Improvement") if overall is not None else "Incomplete",
-                        "notice": " ".join(notices)},
+                report=report,
             )
         return self._change(owner_id, interview_id, request.revision, change,
             already_applied=lambda item: item["status"] == "finalized" and (
