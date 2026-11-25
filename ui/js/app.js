@@ -152,7 +152,8 @@
   const answerList = value => Array.isArray(value) && value.length >= 1 && value.length <= 15 && value.every(item => typeof item === "string");
   const identity = name => String(name || "").trim().toLocaleLowerCase();
   const go = url => { window.location.href = url; };
-  const authenticatedUsername = authenticatedUser?.user_metadata?.username || cachedUsername || "User";
+  const authenticatedUsername = authenticatedUser?.user_metadata?.username || cachedUsername ||
+    (authenticatedUser?.email ? String(authenticatedUser.email).split("@")[0] : "");
   if (authenticatedUser?.user_metadata?.username) {
     cacheUsername(authenticatedUser.user_metadata.username);
   }
@@ -168,12 +169,9 @@
       feedback: [],
       cvMode: "text",
       cvPdf: null,
-      interviews: [1, 2, 3, 4].map(n => ({
-        id: "sample-" + n, name: "Interview " + n, date: "29/2/2026",
-        finished: n !== 2, sample: true,
-        answers: n === 2 ? ["", "", ""] : [...DATA.answers],
-        cv: [...DATA.cv], job: {}
-      }))
+      // Interviews are loaded from the API. Never seed demo entries here, or
+      // they can stay on screen when the backend is slow or unavailable.
+      interviews: []
     };
   }
   // Ignore corrupt or incompatible stored state instead of breaking the page.
@@ -213,6 +211,21 @@
   account.username = authenticatedUsername;
   state.currentAccount = authenticatedUsername;
   if (!account.cvMode) account.cvMode = "text";
+
+  // Remove the old 29/2/2026 demo interviews from previously stored state so
+  // they cannot reappear when a sync is slow or fails.
+  let removedSampleInterviews = false;
+  for (const stored of state.accounts) {
+    if (!Array.isArray(stored.interviews)) continue;
+    const kept = stored.interviews.filter(item => !item || item.sample !== true);
+    if (kept.length === stored.interviews.length) continue;
+    stored.interviews = kept;
+    if (stored.activeId && !kept.some(item => item.id === stored.activeId)) {
+      stored.activeId = null;
+    }
+    removedSampleInterviews = true;
+  }
+  if (removedSampleInterviews) save();
 
   // Restore the saved CV only on pages that edit or use it. Other pages should
   // not wait for this request during startup. Keep the local cache as a fallback
@@ -1467,7 +1480,16 @@
       if (!Array.isArray(interview.answerErrors)) interview.answerErrors = [null, null, null];
       if (!Array.isArray(interview.submittedTexts)) interview.submittedTexts = ["", "", ""];
       try {
-        const initial = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, { loading: false, notify: true });
+        // Keep the loading overlay up until the real questions (or a cached
+        // copy) are ready, so the page never shows placeholder questions.
+        const initial = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
+          loading: {
+            title: "Loading your interview",
+            detail: "Fetching your questions and saved answers.",
+            coldStartAfter: 5000
+          },
+          notify: true
+        });
         if (initial.ok && initial.data) applyServerView(interview, initial.data);
       } catch (_) {}
       if (Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
@@ -1522,6 +1544,8 @@
     const questionBadge = $("#question-badge");
     const questionText = $("#question-text");
     const generationNotice = $("#generation-notice");
+    const answerSection = $("#answer-section");
+    const interviewNavigation = $("#interview-navigation");
     const answerInput = $("#answer");
     const charCountEl = $("#answer-char-count");
     const prevBtn = $("#prev-question-btn");
@@ -1662,6 +1686,11 @@
           ? text
           : "This question is not available yet. Please reopen the interview from Your Interview.";
       }
+      // Reveal the answer composer and navigation only once real content has
+      // been rendered, so the loading placeholder cannot leak into a session.
+      if (answerSection) answerSection.classList.remove("is-hidden");
+      if (interviewNavigation) interviewNavigation.classList.remove("is-hidden");
+      if (robotStage) robotStage.removeAttribute("aria-busy");
       if (answerInput) {
         answerInput.dataset.answer = currentStep;
         answerInput.value = interview.answers[currentStep] || "";
@@ -2105,7 +2134,10 @@
     const listContainer = $("#interview-list");
     const emptyContainer = $("#storage-empty");
     const gridHead = $(".storage-grid-head");
-    const hasCached = Array.isArray(account.interviews) && account.interviews.length > 0;
+    // Demo entries never count as cached data: if only those exist, treat the
+    // page as empty so the loading overlay and error feedback stay visible.
+    const hasCached = Array.isArray(account.interviews) &&
+      account.interviews.some(item => item && item.sample !== true);
 
     async function syncInterviewsFromServer() {
       try {
