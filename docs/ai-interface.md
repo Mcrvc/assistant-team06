@@ -234,9 +234,9 @@ team's strict `Generation` schema.
   `aiworker.InvalidJobProfile` → `interview_ai.InvalidJobProfile` → HTTP
   **422** with the fixed message "This job description does not describe a
   valid, legal role. Please retry with a different job description." It never
-  falls back to the mock and never stores an interview. The opt-in
-  question-bank path does not call the planner, so this gate applies to
-  generated interviews.
+  falls back to the mock and never stores an interview. When the opt-in
+  question bank supplies questions, the provider's job-validity gate still runs
+  so invalid/illegal jobs are refused consistently.
 - **CV quoting.** With a usable CV, every `cv`-phase question must contain one
   short phrase copied character-for-character from the CV inside double quotes
   (`You mentioned "Led the migration of 12 services" — ...`). A paraphrased or

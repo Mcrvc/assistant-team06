@@ -158,6 +158,19 @@ class TeamInterviewAI:
         # older worker must still degrade through SafeInterviewAI.
         return self.worker.summarize_interview(items, timeout_s=self.timeout_s)
 
+    def validate_job_profile(self, job_profile: dict) -> None:
+        """Run the planner's job-validity gate without writing questions."""
+        planner = getattr(self.worker, "plan_interview", None)
+        if not callable(planner):
+            return
+        try:
+            planner(job_profile, {}, "", timeout_s=self.timeout_s)
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if isinstance(code, str) and code in INVALID_JOB_CODES:
+                raise InvalidJobProfile(code) from None
+            raise
+
 
 def configured_ai() -> InterviewAI:
     """The provider for this process.
@@ -473,3 +486,15 @@ class SafeInterviewAI:
             except Exception:
                 return None
         return summary
+
+    def validate_job_profile(self, job_profile: dict) -> None:
+        """Run the provider's job-validity gate; refusals always propagate."""
+        validator = getattr(self.provider, "validate_job_profile", None)
+        if not callable(validator):
+            return
+        try:
+            validator(deepcopy(job_profile))
+        except InvalidJobProfile:
+            raise
+        except Exception:
+            return

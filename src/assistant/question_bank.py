@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import Request, build_opener
@@ -25,6 +27,11 @@ DEFAULT_COUNT = 3
 COUNT_RANGE = (1, 10)
 MAX_CRITERIA = 6
 MAX_BODY_BYTES = 16 * 1024 * 1024
+_TOKEN_RE = re.compile(r"[a-z0-9]{2,}")
+_STOPWORDS = frozenset({
+    "the", "and", "for", "with", "that", "this", "from", "are", "you", "your",
+    "have", "will", "about", "into", "our", "role", "job", "work", "experience",
+})
 
 
 class QuestionBankError(Exception):
@@ -137,6 +144,44 @@ def _question_from_row(row: dict) -> dict | None:
         return None
 
 
+def _normalize_domain(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    slug = re.sub(r"[^a-z0-9]+", "_", value.strip().lower()).strip("_")
+    return slug or None
+
+
+def _tokens(value: Any) -> set[str]:
+    if isinstance(value, str):
+        return {tok for tok in _TOKEN_RE.findall(value.lower()) if tok not in _STOPWORDS}
+    if isinstance(value, list):
+        result: set[str] = set()
+        for item in value:
+            result.update(_tokens(item))
+        return result
+    return set()
+
+
+def _row_relevance(row: dict, question: dict, job_profile: dict) -> int:
+    """Score how well a bank row matches the candidate's job profile."""
+    if not isinstance(job_profile, dict) or not job_profile:
+        return 0
+    title_tokens = _tokens(job_profile.get("title"))
+    level_tokens = _tokens(job_profile.get("level"))
+    other_tokens = _tokens(job_profile.get("domain")) | _tokens(job_profile.get("description"))
+    if not (title_tokens or level_tokens or other_tokens):
+        return 0
+    row_tokens: set[str] = set()
+    for key in ("category", "competency", "domain", "role", "position",
+                "level", "seniority", "difficulty", "tags"):
+        row_tokens.update(_tokens(row.get(key)))
+    row_tokens.update(_tokens(question.get("text")))
+    row_tokens.update(_tokens(question.get("criteria")))
+    return (3 * len(title_tokens & row_tokens)
+            + 2 * len(level_tokens & row_tokens)
+            + len(other_tokens & row_tokens))
+
+
 class SupabaseQuestionBank:
     """Reads questions from a shared Supabase project over PostgREST."""
 
@@ -156,9 +201,11 @@ class SupabaseQuestionBank:
         self._timeout_s = timeout_s
         self._opener = build_opener(_NoAuthRedirect())
 
-    def _fetch(self, count: int) -> list | None:
+    def _fetch(self, count: int, domain: str | None = None) -> list | None:
+        target_domain = (domain or "").strip() or self._domain
+        limit = min(max(count * 3, 15), 50)
         url = (self._questions_url + "?select=*,rubric:rubrics(*)&domain=eq."
-               + quote(self._domain, safe="") + f"&limit={count * 3}")
+               + quote(target_domain, safe="") + f"&limit={limit}")
         headers = {"apikey": self._secret_key, "Accept": "application/json"}
         # Modern secret API keys are not JWTs and must not be sent as Bearer JWTs.
         if not self._secret_key.startswith("sb_secret_"):
@@ -183,18 +230,27 @@ class SupabaseQuestionBank:
         """Draw ``count`` questions, or ``None`` so the caller generates instead."""
         if count < 1:
             return None
-        rows = self._fetch(count)
+        requested_domain = (_normalize_domain(job_profile.get("domain"))
+                            if isinstance(job_profile, dict) else None)
+        if requested_domain and requested_domain != self._domain:
+            rows = self._fetch(count, domain=requested_domain)
+        else:
+            rows = self._fetch(count)
         if rows is None:
             return None
         try:
-            questions = []
-            for row in rows:
+            candidates: list[tuple[int, int, dict]] = []
+            for index, row in enumerate(rows):
                 question = _question_from_row(row)
                 if question is not None:
-                    questions.append(question)
+                    score = _row_relevance(row, question, job_profile)
+                    candidates.append((score, index, question))
         except (AttributeError, KeyError, TypeError, ValueError):
             raise QuestionBankError("Question bank rows are not readable") from None
-        return questions[:count] if len(questions) >= count else None
+        if len(candidates) < count:
+            return None
+        candidates.sort(key=lambda entry: (-entry[0], entry[1]))
+        return [question for _, _, question in candidates[:count]]
 
 
 def draw_questions(job_profile: dict, count: int | None = None) -> list[dict] | None:

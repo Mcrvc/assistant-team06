@@ -83,10 +83,13 @@ class InterviewService:
         """Questions for one interview: bank first when enabled, provider otherwise.
 
         The bank is opt-in and optional. Any problem reading it falls back to
-        the provider, so an interview always gets its questions.
+        the provider, so an interview always gets its questions. When the bank
+        supplies questions, the provider's job-validity gate still runs so
+        invalid or illegal job profiles are refused consistently.
         """
         bank_questions = self._bank_questions(job_profile)
         if bank_questions is not None:
+            self.ai.validate_job_profile(job_profile)
             return {"questions": bank_questions, "model": "question-bank", "used_fallback": False}
         return self.ai.generate_questions(job_profile, cv)
 

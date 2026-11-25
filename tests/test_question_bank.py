@@ -4,9 +4,10 @@ from urllib.error import URLError
 
 import pytest
 
+from assistant.interview_ai import InvalidJobProfile, TeamInterviewAI
 from assistant.interview_schemas import CreateInterview, Question
 from assistant.interview_store import SQLAlchemyInterviewRepository
-from assistant.interviews import InterviewService
+from assistant.interviews import InterviewError, InterviewService
 from assistant.question_bank import (
     QuestionBankError, SupabaseQuestionBank, bank_count, bank_domain, bank_enabled, draw_questions,
 )
@@ -210,5 +211,84 @@ def test_interview_generates_when_the_bank_raises(tmp_path, monkeypatch):
         item = service.create("user-a", CreateInterview.model_validate({
             "job_profile": {"title": "Backend intern"}}))
         assert item["question_generation"] == {"model": "local-mock", "used_fallback": True}
+    finally:
+        repo.close()
+
+
+def test_draw_uses_job_profile_domain_when_present(monkeypatch):
+    bank = SupabaseQuestionBank(URL, SECRET, domain="information_technology")
+    seen_urls = []
+
+    def capture(request, timeout=None):
+        seen_urls.append(request.full_url)
+        return FakeResponse([bank_row(1), bank_row(2), bank_row(3)])
+
+    monkeypatch.setattr(bank._opener, "open", capture)
+    questions = bank.draw({"title": "Financial Analyst", "domain": "Corporate Finance"}, 3)
+    assert questions is not None and len(questions) == 3
+    assert "domain=eq.corporate_finance" in seen_urls[0]
+
+
+def test_draw_ranks_questions_by_job_profile_relevance(monkeypatch):
+    rows = [
+        {"id": 1, "question": "How do you optimize React rendering?",
+         "category": "frontend", "rubrics": [rubric_row(5, "Explains memoization")]},
+        {"id": 2, "question": "Explain iOS memory management.",
+         "category": "mobile", "rubrics": [rubric_row(5, "Explains ARC")]},
+        {"id": 3, "question": "Design a PostgreSQL indexing strategy for Python APIs.",
+         "category": "backend", "level": "senior",
+         "rubrics": [rubric_row(5, "Covers B-tree and query plans")]},
+        {"id": 4, "question": "How do you run safe PostgreSQL schema migrations?",
+         "category": "backend", "rubrics": [rubric_row(5, "Zero-downtime steps")]},
+    ]
+    bank = bank_with_payload(monkeypatch, rows)
+    questions = bank.draw({
+        "title": "Senior Backend Python Engineer",
+        "level": "senior",
+        "description": "Build PostgreSQL APIs",
+    }, 2)
+    assert questions is not None
+    assert [q["text"] for q in questions] == [
+        "Design a PostgreSQL indexing strategy for Python APIs.",
+        "How do you run safe PostgreSQL schema migrations?",
+    ]
+
+
+def test_bank_path_still_enforces_invalid_job_profile_gate(tmp_path, monkeypatch):
+    class RefusalWorker:
+        def plan_interview(self, job_profile, cv, notes, *, timeout_s=None):
+            err = RuntimeError("illegal_job")
+            err.code = "illegal_job"
+            raise err
+
+    monkeypatch.setattr("assistant.question_bank.draw_questions",
+                        lambda job_profile: bank_questions())
+    repo = SQLAlchemyInterviewRepository.local(tmp_path / "gate.sqlite")
+    try:
+        service = InterviewService(repo, ai=TeamInterviewAI(worker=RefusalWorker()))
+        with pytest.raises(InterviewError) as excinfo:
+            service.create("user-a", CreateInterview.model_validate({
+                "job_profile": {"title": "Money laundering specialist"}}))
+        assert excinfo.value.status == 422
+        assert excinfo.value.code == "illegal_job"
+        assert repo.list_for_owner("user-a") == []
+    finally:
+        repo.close()
+
+
+def test_bank_path_ignores_provider_outage_during_job_gate(tmp_path, monkeypatch):
+    class OutageWorker:
+        def plan_interview(self, job_profile, cv, notes, *, timeout_s=None):
+            raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr("assistant.question_bank.draw_questions",
+                        lambda job_profile: bank_questions())
+    repo = SQLAlchemyInterviewRepository.local(tmp_path / "outage.sqlite")
+    try:
+        service = InterviewService(repo, ai=TeamInterviewAI(worker=OutageWorker()))
+        item = service.create("user-a", CreateInterview.model_validate({
+            "job_profile": {"title": "Backend intern"}}))
+        assert item["question_generation"] == {"model": "question-bank", "used_fallback": False}
+        assert len(item["questions"]) == 3
     finally:
         repo.close()
