@@ -142,6 +142,14 @@ câu mẫu:
    số slot theo đúng số câu thật; khi question_generation.used_fallback là true
    thì hiện dòng "These are fallback questions..." để người dùng biết ngay là
    bộ câu dự phòng, không phải câu AI viết cho hồ sơ của họ.
+4. **Job Profile không hợp lệ / CV thiếu**: planner từ chối job rác hoặc
+   domain/hoạt động bất hợp pháp (`invalid_job`, `invalid_domain`,
+   `illegal_job`, `illegal_domain`) -> API trả 422 và bảo người dùng thử lại
+   bằng mô tả công việc khác; không lưu buổi, không fallback mock. Khi không
+   có CV dùng được, planner bỏ slot `cv` và dùng `DEFAULT_PLAN_NO_CV` 6 slot
+   theo JD; câu hỏi `cv` phải trích dẫn nguyên văn một cụm trong CV, không tự
+   bịa. Prompt planner/writer/grader coi JD, CV, research và câu trả lời là dữ
+   liệu không tin cậy và bỏ qua chỉ dẫn nằm trong đó.
 
 Kiểm tra nhanh bản deploy: `python scripts/deploy_probe.py` (so asset Vercel,
 gọi /api/config, tạo interview và in shape JSON); `python scripts/schema_gap_probe.py`

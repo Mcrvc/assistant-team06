@@ -4,11 +4,12 @@ import pytest
 
 from assistant.ai import AiError
 from assistant.interview_ai import (
-    GradeRejected, MockInterviewAI, SafeInterviewAI, TeamInterviewAI, configured_ai,
+    GradeRejected, InvalidJobProfile, MockInterviewAI, SafeInterviewAI,
+    TeamInterviewAI, configured_ai,
 )
 from assistant.interview_schemas import CreateInterview, SubmitAnswer
 from assistant.interview_store import SQLAlchemyInterviewRepository
-from assistant.interviews import InterviewService
+from assistant.interviews import InterviewError, InterviewService
 
 RUBRIC = {'max_score': 10, 'criteria': [{'name': 'actions', 'points': 10, 'good': 'Explain personal actions'}]}
 
@@ -93,6 +94,43 @@ def test_provider_outage_keeps_fallback_label():
     provider = TeamInterviewAI(worker=SimpleNamespace(generate_questions=offline), timeout_s=9)
     result = SafeInterviewAI(provider).generate_questions({'title': 'Intern'}, None)
     assert len(result['questions']) == 3 and result['used_fallback'] is True
+
+
+def test_invalid_job_refusal_is_not_replaced_by_the_mock():
+    class RefusedJob(Exception):
+        code = 'illegal_domain'
+
+    def generate(*args, **kwargs):
+        raise RefusedJob()
+
+    provider = TeamInterviewAI(
+        worker=SimpleNamespace(generate_questions=generate), timeout_s=9)
+    with pytest.raises(InvalidJobProfile) as excinfo:
+        SafeInterviewAI(provider).generate_questions({'title': 'asdf'}, None)
+    assert excinfo.value.code == 'illegal_domain'
+    assert 'different job description' in excinfo.value.message
+
+
+def test_service_maps_an_invalid_job_to_a_retryable_422(tmp_path):
+    class RefusedJob(Exception):
+        code = 'invalid_job'
+
+    def generate(*args, **kwargs):
+        raise RefusedJob()
+
+    repo = SQLAlchemyInterviewRepository.local(tmp_path / 'invalid-job.sqlite')
+    try:
+        service = InterviewService(repo, TeamInterviewAI(
+            worker=SimpleNamespace(generate_questions=generate), timeout_s=9))
+        with pytest.raises(InterviewError) as excinfo:
+            service.create('verified-a', CreateInterview(
+                job_profile={'title': 'asdf'}))
+        assert excinfo.value.status == 422
+        assert excinfo.value.code == 'invalid_job'
+        assert 'different job description' in excinfo.value.message
+        assert service.list('verified-a') == []
+    finally:
+        repo.close()
 
 
 def generation_worker(questions):

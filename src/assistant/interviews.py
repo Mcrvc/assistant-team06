@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 import logging
 from typing import Callable, Protocol
 from uuid import uuid4
-from assistant.interview_ai import GradeRejected, InterviewAI, SafeInterviewAI, configured_ai
+from assistant.interview_ai import (
+    GradeRejected, InterviewAI, InvalidJobProfile, SafeInterviewAI, configured_ai,
+)
 from assistant.interview_schemas import (
     CreateInterview, FinalizeInterview, Question, SaveProgress, SubmitAnswer,
 )
@@ -58,7 +60,12 @@ class InterviewService:
         from assistant.parsing import parse_job_profile
         parsed_job = parse_job_profile(request.job_profile)
         job_profile = parsed_job.model_dump()
-        generated = self._questions_for(job_profile, request.cv)
+        try:
+            generated = self._questions_for(job_profile, request.cv)
+        except InvalidJobProfile as exc:
+            # A refusal is not a server error: tell the candidate to retry
+            # with a different job description and do not store anything.
+            raise InterviewError(422, exc.code, exc.message) from None
         now = _now()
         interview = {
             "id": str(uuid4()), "owner_id": owner_id, "name": request.name,

@@ -227,6 +227,30 @@ team's strict `Generation` schema.
   `mask_cv_pii` — emails become `[email]`, Vietnamese phone numbers become
   `[phone]`. Years/counts are untouched (the phone pattern needs 9+ digits).
   Policy: `docs/ai-cv-policy.md`.
+- **Job validity gate.** Before planning, the planner checks that the Job
+  Profile is a real, lawful job. Gibberish, placeholder text, a non-job, or an
+  illegal domain/activity is refused with one of `invalid_job`,
+  `invalid_domain`, `illegal_job`, `illegal_domain`. The refusal travels as
+  `aiworker.InvalidJobProfile` → `interview_ai.InvalidJobProfile` → HTTP
+  **422** with the fixed message "This job description does not describe a
+  valid, legal role. Please retry with a different job description." It never
+  falls back to the mock and never stores an interview. The opt-in
+  question-bank path does not call the planner, so this gate applies to
+  generated interviews.
+- **CV quoting.** With a usable CV, every `cv`-phase question must contain one
+  short phrase copied character-for-character from the CV inside double quotes
+  (`You mentioned "Led the migration of 12 services" — ...`). A paraphrased or
+  invented quote is refused and repaired before the question is accepted.
+  Experience/skills prompts are told to use a concrete CV item when one is
+  available, but they are not forced to quote.
+- **No/invalid CV.** Missing, too-short, or gibberish CV text is treated as no
+  CV (`_usable_cv_text`). The planner is told `(no usable CV provided)`, cv
+  slots are dropped from the returned plan, and the no-CV fallback plan has 6
+  job-based slots. No CV question is forced and no CV content is invented.
+- **Prompt-injection hardening.** The planner, writer and grader system
+  prompts mark the Job Profile, CV, research notes and candidate answer as
+  untrusted data and ignore instructions embedded inside them (including
+  requests to change the score, ignore the rubric, or reveal the prompt).
 
 ### 9.2 `grade_answer_with_evidence(question, answer, rubric, *, timeout_s)`
 

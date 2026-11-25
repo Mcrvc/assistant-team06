@@ -32,6 +32,28 @@ class GradeRejected(Exception):
         super().__init__(self.code)
 
 
+INVALID_JOB_CODES = frozenset({"invalid_job", "invalid_domain",
+                               "illegal_job", "illegal_domain"})
+INVALID_JOB_MESSAGE = (
+    "This job description does not describe a valid, legal role. "
+    "Please retry with a different job description."
+)
+
+
+class InvalidJobProfile(Exception):
+    """The provider refused the Job Profile as invalid or illegal.
+
+    This is a user-facing refusal, not a provider outage: SafeInterviewAI
+    re-raises it instead of falling back to a mock interview, and the service
+    maps it to a 422 response telling the candidate to retry with a different
+    job description.
+    """
+    def __init__(self, code: str = "invalid_job") -> None:
+        self.code = code if code in INVALID_JOB_CODES else "invalid_job"
+        self.message = INVALID_JOB_MESSAGE
+        super().__init__(self.code)
+
+
 class MockInterviewAI:
     def generate_questions(self, job_profile: dict, cv: str | None) -> dict:
         title = job_profile.get("title", "").strip() or "this role"
@@ -97,10 +119,18 @@ class TeamInterviewAI:
         self.worker, self.model = worker, model or "team-provider"
 
     def generate_questions(self, job_profile: dict, cv: str | None) -> dict:
-        generated = self.worker.generate_questions(
-            job_profile, {"raw": cv} if self.allow_cv and cv else {}, "", [],
-            timeout_s=self.timeout_s,
-        )
+        try:
+            generated = self.worker.generate_questions(
+                job_profile, {"raw": cv} if self.allow_cv and cv else {}, "", [],
+                timeout_s=self.timeout_s,
+            )
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if isinstance(code, str) and code in INVALID_JOB_CODES:
+                # The planner refused the job profile. This is not a provider
+                # outage, so never let SafeInterviewAI replace it with a mock.
+                raise InvalidJobProfile(code) from None
+            raise
         questions = []
         for item in generated["questions"]:
             rubric = item["rubric"]
@@ -189,6 +219,9 @@ class SafeInterviewAI:
         try:
             result = self.provider.generate_questions(
                 deepcopy(job_profile), cv)
+        except InvalidJobProfile:
+            # A refusal is a user-facing answer, not a provider outage.
+            raise
         except Exception as exc:
             # The provider retried per slot; this is the last resort.
             print(f"[interview-ai] generation fell back to mock: "
