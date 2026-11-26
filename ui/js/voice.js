@@ -1,5 +1,6 @@
 /**
- * voice.js — Browser-native TTS (speechSynthesis) + STT (SpeechRecognition).
+ * voice.js — Edge TTS (/api/tts, en-US-AnaNeural) with Web Speech API fallback
+ * + STT (SpeechRecognition).
  *
  * Exposes window.Voice so app.js drives YORI's lip-sync (.is-miming),
  * #mime-audio-bars, #voice-waveform (.is-active), and #answer without
@@ -11,22 +12,72 @@
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
+  const DEFAULT_TTS_VOICE = "en-US-AnaNeural";
+  const TTS_TIMEOUT_MS = 8000;
+
+  function resolveTtsEndpoint(params) {
+    const base =
+      window.YourinAPI && typeof window.YourinAPI.getBaseUrl === "function"
+        ? String(window.YourinAPI.getBaseUrl() || "").replace(/\/+$/, "")
+        : "";
+    return `${base}/api/tts?${params.toString()}`;
+  }
+
   let currentUtterance = null;
+  let currentAudio = null;
+  let currentAudioUrl = null;
+  let currentAbort = null;
+  let speakToken = 0;
   let recognition = null;
   let isListening = false;
 
-  function ttsSupported() {
+  function speechSynthesisSupported() {
     return Boolean(
       window.speechSynthesis && typeof window.SpeechSynthesisUtterance === "function"
     );
+  }
+
+  function audioTtsSupported() {
+    return typeof window.Audio === "function" && typeof window.fetch === "function";
+  }
+
+  function ttsSupported() {
+    return audioTtsSupported() || speechSynthesisSupported();
   }
 
   function sttSupported() {
     return Boolean(SpeechRecognition);
   }
 
+  function cleanupAudio() {
+    if (currentAbort) {
+      try {
+        currentAbort.abort();
+      } catch (_) { /* Ignore abort errors. */ }
+      currentAbort = null;
+    }
+    if (currentAudio) {
+      try {
+        currentAudio.onplay = null;
+        currentAudio.onended = null;
+        currentAudio.onerror = null;
+        currentAudio.pause();
+        currentAudio.removeAttribute("src");
+      } catch (_) { /* Ignore audio cleanup errors. */ }
+      currentAudio = null;
+    }
+    if (currentAudioUrl) {
+      try {
+        URL.revokeObjectURL(currentAudioUrl);
+      } catch (_) { /* Ignore object URL errors. */ }
+      currentAudioUrl = null;
+    }
+  }
+
   function stopSpeaking() {
-    if (ttsSupported()) {
+    speakToken += 1;
+    cleanupAudio();
+    if (speechSynthesisSupported()) {
       try {
         window.speechSynthesis.cancel();
       } catch (_) { /* Ignore synthesis cancel errors. */ }
@@ -34,11 +85,11 @@
     currentUtterance = null;
   }
 
-  function speak(text, callbacks = {}) {
-    const clean = String(text || "").trim();
-    if (!clean || !ttsSupported()) return false;
-
-    stopSpeaking();
+  function speakWithSpeechSynthesis(clean, callbacks, token) {
+    if (token !== speakToken || !speechSynthesisSupported()) {
+      if (typeof callbacks.onEnd === "function") callbacks.onEnd();
+      return false;
+    }
 
     const utterance = new window.SpeechSynthesisUtterance(clean);
     utterance.lang = callbacks.lang || "en-US";
@@ -54,7 +105,7 @@
     };
 
     utterance.onstart = () => {
-      if (currentUtterance !== utterance) return;
+      if (token !== speakToken || currentUtterance !== utterance) return;
       if (typeof callbacks.onStart === "function") callbacks.onStart();
     };
     utterance.onend = finish;
@@ -67,6 +118,74 @@
       finish();
       return false;
     }
+  }
+
+  function speak(text, callbacks = {}) {
+    const clean = String(text || "").trim();
+    if (!clean || !ttsSupported()) return false;
+
+    stopSpeaking();
+    const token = speakToken;
+
+    if (!audioTtsSupported()) {
+      return speakWithSpeechSynthesis(clean, callbacks, token);
+    }
+
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    currentAbort = controller;
+    const timeoutId = controller
+      ? setTimeout(() => controller.abort(), TTS_TIMEOUT_MS)
+      : null;
+
+    const params = new URLSearchParams({
+      text: clean.slice(0, 2000),
+      voice: callbacks.voice || DEFAULT_TTS_VOICE,
+      rate: callbacks.rate || "+0%",
+    });
+
+    fetch(resolveTtsEndpoint(params), controller ? { signal: controller.signal } : {})
+      .then((res) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        if (token !== speakToken) return;
+        currentAbort = null;
+        const url = URL.createObjectURL(blob);
+        const audio = new window.Audio(url);
+        currentAudio = audio;
+        currentAudioUrl = url;
+
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          if (currentAudio === audio) cleanupAudio();
+          if (typeof callbacks.onEnd === "function") callbacks.onEnd();
+        };
+
+        audio.onplay = () => {
+          if (token !== speakToken || currentAudio !== audio) return;
+          if (typeof callbacks.onStart === "function") callbacks.onStart();
+        };
+        audio.onended = finish;
+        audio.onerror = finish;
+
+        return audio.play().catch((err) => {
+          if (token !== speakToken) return;
+          cleanupAudio();
+          throw err;
+        });
+      })
+      .catch(() => {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (token !== speakToken) return;
+        cleanupAudio();
+        speakWithSpeechSynthesis(clean, callbacks, token);
+      });
+
+    return true;
   }
 
   function stopListening() {
