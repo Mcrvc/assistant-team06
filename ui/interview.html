@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="js/api.js?v=20261118" defer></script>
   <script src="js/voice.js?v=20261118" defer></script>
-  <script src="js/app.js?v=20261118" defer></script>
+  <script src="js/app.js?v=20261126" defer></script>
 </head>
 <body data-page="interview">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -30,7 +30,7 @@
     <div class="header-right">
       <a class="profile-link" href="profile.html" aria-label="Profile" title="Profile" data-nav="profile">
         <img class="header-avatar" src="assets/avatar.svg" alt="">
-        <span class="profile-name" data-username>User</span>
+        <span class="profile-name" data-username></span>
       </a>
       <span class="header-divider" aria-hidden="true"></span>
       <a class="header-logout-link" href="sign-in.html" data-sign-out aria-label="Sign out" title="Sign out">
@@ -47,12 +47,12 @@
 <main id="main" class="page interview-page">
   <section class="panel interview-panel">
     <div class="interview-header">
-      <h2 id="question-title">Question 1</h2>
-      <span class="interview-step-badge" id="question-badge">1 of 3</span>
+      <h2 id="question-title">Loading interview</h2>
+      <span class="interview-step-badge" id="question-badge">Preparing…</span>
     </div>
 
     <!-- AI Interviewer Stage: Cute 2D Robot + Question Banner -->
-    <div class="interviewer-stage is-miming" id="robot-stage">
+    <div class="interviewer-stage" id="robot-stage" aria-busy="true">
       <!-- Left Pod: Robot YORI -->
       <div class="robot-stage-pod">
         <span class="robot-name-badge">YORI</span>
@@ -140,7 +140,7 @@
       <div class="question-speech-card">
         <div class="speech-bubble-tail" aria-hidden="true"></div>
         <blockquote class="question-content" id="question-text">
-          Imagine you're tasked with curating a time capsule that defines the year 2026 for an alien civilization. What are three objects you put inside?
+          Preparing your interview questions…
         </blockquote>
         <div class="question-card-bottom">
           <div class="question-voice-tag">
@@ -166,7 +166,7 @@
     <p class="generation-notice is-hidden" id="generation-notice" role="status"></p>
 
     <!-- Unified Answer Composer with Prominent Voice Dock -->
-    <div class="answer-section">
+    <div class="answer-section is-hidden" id="answer-section">
       <div class="answer-composer">
         <div class="composer-header">
           <label class="answer-label" for="answer">Your Answer</label>
@@ -208,7 +208,7 @@
     </div>
 
     <!-- Centered Navigation Buttons (Same Color) -->
-    <div class="interview-navigation">
+    <div class="interview-navigation is-hidden" id="interview-navigation">
       <button type="button" class="btn is-hidden" id="prev-question-btn">← Previous Question</button>
       <button type="button" class="btn" id="next-question-btn">Next Question →</button>
     </div>
