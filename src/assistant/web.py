@@ -12,7 +12,7 @@ import webbrowser
 from typing import Annotated, Callable
 from uuid import UUID
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Path as ApiPath, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Path as ApiPath, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -29,6 +29,7 @@ from assistant.interview_runtime import configured_repository
 from assistant.interviews import InterviewError, InterviewService, progress, public_view
 from assistant.user_api import ProfileStore, build_router as build_user_router, configured_profile_store
 from assistant.ai import answer
+from assistant.tts import DEFAULT_TTS_VOICE, synthesize_tts_response
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 UI_DIR = REPO_ROOT / "ui"
@@ -150,6 +151,14 @@ def create_app(*, service: InterviewService | None = None,
     def legacy_answer(payload: dict):
         status, result = handle_api_answer(payload)
         return JSONResponse(status_code=status, content=result)
+
+    @app.get("/api/tts", tags=["Existing API"])
+    async def text_to_speech(
+        text: str = Query(..., min_length=1, max_length=2000),
+        voice: str = Query(DEFAULT_TTS_VOICE),
+        rate: str = Query("+0%"),
+    ):
+        return await synthesize_tts_response(text, voice=voice, rate=rate)
 
     @app.post("/api/interviews", response_model=CreatedInterview, status_code=201, tags=["Interviews"])
     def create_interview(payload: CreateInterview, user: User, service: Service):
