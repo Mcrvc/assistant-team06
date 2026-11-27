@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dashboard · Yourin</title>
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/styles.css?v=20261127e">
+  <link rel="stylesheet" href="css/styles.css?v=20261127f">
   <script src="js/data.js?v=20261118" defer></script>
   <script src="js/ui.js?v=20261118" defer></script>
   <script src="js/errors.js?v=20261118" defer></script>
@@ -72,7 +72,7 @@
         <span>YORI Assistant · Ready when you are</span>
       </div>
       <h1 class="hero-banner-title">Welcome back, <span class="hero-username" data-username>there</span></h1>
-      <p class="hero-banner-description">Practice role-tailored mock interviews, align your CV, and review evidence-backed AI critique in one focused workspace.</p>
+      <p class="hero-banner-description">Practice company-tailored technical and behavioral mock interviews, align your CV, and get evidence-based AI critique.</p>
       <div class="hero-banner-action">
         <a class="btn btn-hero-primary" href="job-profile.html" data-new-interview>
           <span>Start a new interview</span>
@@ -89,7 +89,67 @@
     </div>
 
     <div class="hero-banner-artwork" aria-hidden="true">
-      <img src="assets/dashboard-hero-banner.svg" alt="Yourin AI Glass Orb illustration">
+      <div class="hero-mascot">
+        <svg class="hero-mascot-svg" viewBox="0 0 160 180" width="280" height="315" focusable="false">
+          <!-- Twinkling accent sparkles -->
+          <g class="hero-mascot-sparkles">
+            <path class="hero-mascot-sparkle hero-mascot-sparkle-1" d="M 118 8 L 120.2 13.4 L 125.6 15.6 L 120.2 17.8 L 118 23.2 L 115.8 17.8 L 110.4 15.6 L 115.8 13.4 Z" fill="#F2B84B"/>
+            <path class="hero-mascot-sparkle hero-mascot-sparkle-2" d="M 24 15 L 25.9 19.6 L 30.5 21.5 L 25.9 23.4 L 24 28 L 22.1 23.4 L 17.5 21.5 L 22.1 19.6 Z" fill="#FFD97D"/>
+          </g>
+
+          <!-- Antenna -->
+          <g class="hero-mascot-antenna">
+            <line x1="80" y1="36" x2="80" y2="18" stroke="#4F8F9B" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="80" cy="15" r="9" fill="#92C7CF"/>
+            <circle cx="80" cy="15" r="4.5" fill="#FBF9F1"/>
+          </g>
+
+          <!-- Left arm (resting) -->
+          <g class="hero-mascot-arm-left">
+            <rect x="22" y="104" width="14" height="32" rx="7" fill="#6AAEB8"/>
+            <circle cx="29" cy="136" r="7" fill="#AAD7D9"/>
+          </g>
+
+          <!-- Right arm (friendly wave) -->
+          <g class="hero-mascot-arm-right">
+            <rect x="124" y="104" width="14" height="32" rx="7" fill="#6AAEB8"/>
+            <circle cx="131" cy="136" r="7" fill="#AAD7D9"/>
+          </g>
+
+          <!-- Torso with Yourin chest badge -->
+          <g class="hero-mascot-body">
+            <rect x="42" y="94" width="76" height="66" rx="28" fill="#FBF9F1" stroke="#4F8F9B" stroke-width="3"/>
+            <g class="hero-mascot-belly-logo">
+              <circle cx="80" cy="127" r="17.5" fill="#6AAEB8" stroke="#4F8F9B" stroke-width="1.6"/>
+              <g transform="translate(64.5, 117.8) scale(0.275)">
+                <ellipse cx="55.5071" cy="33.1148" rx="44.4929" ry="33.1148" fill="#FBF9F1"/>
+                <path d="M28.2591 16.4663L69.0427 48.5547L12.5244 67.2825L28.2591 16.4663Z" fill="#FBF9F1"/>
+                <path d="M72.005 41.8112C69.2788 45.6863 65.2031 48.4155 60.534 49.4925C55.8648 50.5696 50.9192 49.9213 46.6143 47.6679C42.3095 45.4146 38.9376 41.7092 37.1242 37.239C35.3108 32.7688 35.179 27.8372 36.7531 23.359C38.3272 18.8808 41.5005 15.1599 45.6843 12.8866C49.8682 10.6132 54.7786 9.9417 59.5047 10.9966C64.2308 12.0514 68.4519 14.7611 71.385 18.6229C74.3181 22.4847 75.7641 27.2365 75.4547 31.997L55.5786 30.255L72.005 41.8112Z" fill="#203D43"/>
+              </g>
+            </g>
+          </g>
+
+          <!-- Head -->
+          <g class="hero-mascot-head">
+            <rect x="20" y="52" width="12" height="26" rx="6" fill="#4F8F9B"/>
+            <circle cx="26" cy="65" r="3" fill="#92C7CF"/>
+            <rect x="128" y="52" width="12" height="26" rx="6" fill="#4F8F9B"/>
+            <circle cx="134" cy="65" r="3" fill="#92C7CF"/>
+            <rect x="28" y="32" width="104" height="68" rx="26" fill="#FBF9F1" stroke="#4F8F9B" stroke-width="3.5"/>
+            <rect x="38" y="42" width="84" height="48" rx="18" fill="#203D43"/>
+            <circle cx="48" cy="74" r="4.5" fill="#F4A5A5" opacity="0.88"/>
+            <circle cx="112" cy="74" r="4.5" fill="#F4A5A5" opacity="0.88"/>
+            <g class="hero-mascot-eyes">
+              <ellipse cx="58" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
+              <circle cx="60" cy="57.5" r="2" fill="#FFFFFF"/>
+              <ellipse cx="102" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
+              <circle cx="104" cy="57.5" r="2" fill="#FFFFFF"/>
+            </g>
+            <path class="hero-mascot-mouth" d="M 70 71 Q 80 80.5 90 71" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
+          </g>
+        </svg>
+        <div class="hero-mascot-shadow"></div>
+      </div>
     </div>
   </section>
 
@@ -109,8 +169,8 @@
           </svg>
         </span>
         <span class="workflow-step-text">
-          <span class="workflow-step-title">1. Sync your CV</span>
-          <span class="workflow-step-sub">Ground questions in your experience</span>
+          <span class="workflow-step-title">1. Sync CV &amp; Target Role</span>
+          <span class="workflow-step-sub">Set your target company, role, and resume</span>
         </span>
       </li>
       <li class="workflow-connector" aria-hidden="true">→</li>
@@ -124,7 +184,7 @@
         </span>
         <span class="workflow-step-text">
           <span class="workflow-step-title">2. Practice with YORI</span>
-          <span class="workflow-step-sub">Answer realistic role prompts</span>
+          <span class="workflow-step-sub">Simulate company-specific technical &amp; behavioral rounds</span>
         </span>
       </li>
       <li class="workflow-connector" aria-hidden="true">→</li>
@@ -137,7 +197,7 @@
         </span>
         <span class="workflow-step-text">
           <span class="workflow-step-title">3. Review AI Critique</span>
-          <span class="workflow-step-sub">Inspect scores and evidence</span>
+          <span class="workflow-step-sub">Inspect rubric scores and answer improvements</span>
         </span>
       </li>
     </ol>
@@ -147,17 +207,22 @@
   <section class="feature-section" aria-label="Workspace actions">
     <div class="feature-grid">
       <!-- Card 1: Manage your CV -->
-      <a class="feature-card reveal-on-scroll" href="profile.html#your-cv">
-        <div class="feature-card-media">
-          <img src="assets/card-banner-1.svg" alt="Manage your CV">
-        </div>
+      <a class="feature-card feature-card-cv reveal-on-scroll" href="profile.html#your-cv">
         <div class="feature-card-body">
           <div class="feature-card-top">
-            <span class="feature-status-pill">Resume Sync</span>
+            <span class="feature-card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+            </span>
+            <span class="feature-status-pill">Resume &amp; Target</span>
           </div>
           <div class="feature-card-text">
             <h3>Manage your CV</h3>
-            <p>Upload your PDF resume or edit CV text so every mock interview adapts to your background.</p>
+            <p>Upload your PDF resume or update your tech stack so YORI tailors questions to your background.</p>
           </div>
           <div class="feature-card-footer">
             <span class="feature-card-action">Upload / Update CV</span>
@@ -167,17 +232,22 @@
       </a>
 
       <!-- Card 2: View your interview -->
-      <a class="feature-card reveal-on-scroll" href="storage.html">
-        <div class="feature-card-media">
-          <img src="assets/card-banner-2.svg" alt="View your interview">
-        </div>
+      <a class="feature-card feature-card-history reveal-on-scroll" href="storage.html">
         <div class="feature-card-body">
           <div class="feature-card-top">
+            <span class="feature-card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3v5h5"></path>
+                <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path>
+                <line x1="12" y1="7" x2="12" y2="12"></line>
+                <line x1="12" y1="12" x2="16" y2="14"></line>
+              </svg>
+            </span>
             <span class="feature-status-pill">Session History</span>
           </div>
           <div class="feature-card-text">
             <h3>View your interview</h3>
-            <p>Pick up unfinished practice sessions or revisit detailed rubric feedback on past answers.</p>
+            <p>Resume unfinished mock sessions or review detailed rubric feedback on past answers.</p>
           </div>
           <div class="feature-card-footer">
             <span class="feature-card-action">Open Interviews</span>
@@ -187,17 +257,20 @@
       </a>
 
       <!-- Card 3: Rate our assistant -->
-      <a class="feature-card reveal-on-scroll" href="system-feedback.html">
-        <div class="feature-card-media">
-          <img src="assets/card-banner-3.svg" alt="Rate our assistant">
-        </div>
+      <a class="feature-card feature-card-feedback reveal-on-scroll" href="system-feedback.html">
         <div class="feature-card-body">
           <div class="feature-card-top">
+            <span class="feature-card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                <path d="M12 7.5l1.2 2.4 2.7.4-1.95 1.9.46 2.7L12 13.6l-2.41 1.3.46-2.7L8.1 10.3l2.7-.4z"></path>
+              </svg>
+            </span>
             <span class="feature-status-pill">YORI Feedback</span>
           </div>
           <div class="feature-card-text">
             <h3>Rate our assistant</h3>
-            <p>Tell us how accurate the AI critique and question alignment felt to help sharpen YORI.</p>
+            <p>Share feedback on question relevance and AI grading to help sharpen YORI.</p>
           </div>
           <div class="feature-card-footer">
             <span class="feature-card-action">Share Feedback</span>
