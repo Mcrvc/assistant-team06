@@ -2622,9 +2622,126 @@
     }
 
     const feedbackForm = $("#feedback-form");
+    const commentsInput = $("#feedback-comments");
+    const charCountEl = $("#feedback-char-count");
+    const tagChips = $$("[data-feedback-tag]");
     const thankYouOverlay = $("#feedback-thankyou-overlay");
     const thankYouHomeBtn = $("#feedback-thankyou-home");
     const thankYouCloseBtn = $("#feedback-thankyou-close");
+    const yoriCheerBtn = $("#yori-thankyou-cheer");
+    const yoriCheerBubble = $("#yori-cheer-bubble");
+    const cheerMessages = [
+      "Thank you! ✨",
+      "You're awesome!",
+      "High five! 🙌",
+      "Thanks for helping me grow!"
+    ];
+    let cheerIndex = 0;
+    let cheerTimer = null;
+
+    if (yoriCheerBtn) {
+      yoriCheerBtn.addEventListener("click", () => {
+        cheerIndex = (cheerIndex + 1) % cheerMessages.length;
+        if (yoriCheerBubble) yoriCheerBubble.textContent = cheerMessages[cheerIndex];
+        yoriCheerBtn.classList.remove("is-cheering");
+        void yoriCheerBtn.offsetWidth;
+        yoriCheerBtn.classList.add("is-cheering");
+        clearTimeout(cheerTimer);
+        cheerTimer = setTimeout(() => yoriCheerBtn.classList.remove("is-cheering"), 950);
+      });
+    }
+
+    function populateSessionContext() {
+      const titleEl = $("#feedback-session-title");
+      const roleEl = $("#feedback-session-role");
+      const dateEl = $("#feedback-session-date");
+      if (!titleEl || !roleEl || !dateEl) return;
+
+      const recent = reportInterview()
+        || activeInterview()
+        || account.interviews.find(item => item && item.sample !== true)
+        || null;
+      const profile = recent?.jobProfile || null;
+      const job = recent?.job || account.job || {};
+      const roleParts = [
+        profile?.job_title || job["job-title"],
+        profile?.company || job.company,
+        profile?.domain || job.domain,
+        profile?.position || job.position
+      ].map(part => (typeof part === "string" ? part.trim() : "")).filter(Boolean);
+
+      if (recent) {
+        titleEl.textContent = recent.name || "Yourin Mock Interview";
+        roleEl.textContent = roleParts.length ? roleParts.join(" · ") : "Recent mock interview session";
+        dateEl.textContent = recent.date || "Recent session";
+      } else if (roleParts.length) {
+        titleEl.textContent = roleParts[0];
+        roleEl.textContent = roleParts.slice(1).join(" · ") || "Configured target role";
+        dateEl.textContent = "Target role";
+      }
+    }
+    populateSessionContext();
+
+    function updateCharCount() {
+      if (!commentsInput || !charCountEl) return;
+      const maxLen = commentsInput.maxLength > 0 ? commentsInput.maxLength : 2000;
+      charCountEl.textContent = `${commentsInput.value.length} / ${maxLen}`;
+    }
+
+    function syncChipsFromTextarea() {
+      if (!commentsInput) return;
+      const lower = commentsInput.value.toLowerCase();
+      tagChips.forEach(chip => {
+        const tag = chip.dataset.feedbackTag || "";
+        const active = tag ? lower.includes(tag.toLowerCase()) : false;
+        chip.classList.toggle("is-active", active);
+        chip.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    }
+
+    function escapeRegExp(text) {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function toggleFeedbackTag(chip) {
+      if (!commentsInput) return;
+      const tag = chip.dataset.feedbackTag || "";
+      if (!tag) return;
+      const isActive = chip.classList.contains("is-active");
+      let value = commentsInput.value;
+
+      if (isActive) {
+        const pattern = new RegExp(`(?:^|,\\s*|\\n)${escapeRegExp(tag)}(?=,|\\s*$|\\n)`, "gi");
+        value = value
+          .replace(pattern, "")
+          .replace(/^[,\s]+|[,\s]+$/g, "")
+          .replace(/,\s*,+/g, ", ");
+      } else if (!value.toLowerCase().includes(tag.toLowerCase())) {
+        const trimmed = value.trim();
+        const next = trimmed ? `${trimmed}, ${tag}` : tag;
+        const maxLen = commentsInput.maxLength > 0 ? commentsInput.maxLength : 2000;
+        if (next.length <= maxLen) {
+          value = next;
+        } else {
+          window.YourinErrors?.showToast?.("Comment limit reached (2000 characters).", { type: "warning" });
+        }
+      }
+
+      commentsInput.value = value;
+      syncChipsFromTextarea();
+      updateCharCount();
+    }
+
+    tagChips.forEach(chip => {
+      chip.addEventListener("click", () => toggleFeedbackTag(chip));
+    });
+    if (commentsInput) {
+      commentsInput.addEventListener("input", () => {
+        syncChipsFromTextarea();
+        updateCharCount();
+      });
+      updateCharCount();
+    }
 
     function showThankYouOverlay() {
       if (!thankYouOverlay) return;
@@ -2636,6 +2753,12 @@
       if (!thankYouOverlay) return;
       thankYouOverlay.classList.add("is-hidden");
     }
+
+    try {
+      if (new URLSearchParams(window.location.search).get("demo") === "thankyou") {
+        showThankYouOverlay();
+      }
+    } catch (_) { /* Ignore URL parsing issues. */ }
 
     if (thankYouCloseBtn) {
       thankYouCloseBtn.addEventListener("click", hideThankYouOverlay);
@@ -2659,6 +2782,10 @@
         const qualityRating = radioValue("quality_rating");
         if (!gradeRating || !qualityRating) {
           window.YourinErrors?.showToast?.("Please select a rating for both questions.", { type: "error" });
+          const missingInput = !gradeRating
+            ? feedbackForm.querySelector('input[name="grade_rating"]')
+            : feedbackForm.querySelector('input[name="quality_rating"]');
+          missingInput?.focus();
           return;
         }
 
@@ -2668,7 +2795,7 @@
           grade_rating: Number(gradeRating),
           quality_rating: Number(qualityRating),
           difficulty: difficulty || null,
-          comments: $("#feedback-comments")?.value?.trim() || "",
+          comments: commentsInput?.value?.trim() || "",
           would_recommend: recommend === null ? null : recommend === "true"
         };
 
@@ -2689,6 +2816,9 @@
             return;
           }
           feedbackForm.reset();
+          syncChipsFromTextarea();
+          updateCharCount();
+          window.YourinErrors?.showToast?.("Feedback submitted — thank you!", { type: "success" });
           showThankYouOverlay();
         } catch (err) {
           window.YourinErrors?.showToast?.(err?.message || "Could not submit feedback.", { type: "error" });
