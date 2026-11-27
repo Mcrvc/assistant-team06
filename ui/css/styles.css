@@ -1695,6 +1695,25 @@ td:first-child { max-width: 320px; overflow-wrap: anywhere; }
   100% { height: 13px; }
 }
 
+.tts-loading-label {
+  display: none;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #476b72;
+  margin-left: 4px;
+  letter-spacing: 0.01em;
+}
+
+.interviewer-stage.is-loading-tts .tts-loading-label {
+  display: inline-block;
+  animation: tts-loading-pulse 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes tts-loading-pulse {
+  0% { opacity: 0.55; }
+  100% { opacity: 1; }
+}
+
 /* Replay Question Button */
 .btn-replay-question {
   display: inline-flex;

@@ -1194,7 +1194,7 @@
           steps: [
             "Reading the job profile...",
             "Finding role-specific themes...",
-            "Writing three interview questions...",
+            "Writing interview questions...",
             "Preparing your interview..."
           ],
           coldStartAfter: null
@@ -1624,15 +1624,16 @@
       if (mimeTimer) clearTimeout(mimeTimer);
       if (typingGazeTimer) clearTimeout(typingGazeTimer);
       resetRobotGaze();
-      robotStage.classList.remove("is-idle", "is-listening", "is-watching", "is-typing");
-      robotStage.classList.add("is-miming");
 
       const qText = questions[currentStep] || "";
       if (window.Voice && typeof window.Voice.speak === "function" && window.Voice.ttsSupported()) {
+        robotStage.classList.remove("is-miming", "is-listening", "is-watching", "is-typing");
+        robotStage.classList.add("is-idle", "is-loading-tts");
+
         const started = window.Voice.speak(qText, {
           onStart: () => {
             if (!robotStage) return;
-            robotStage.classList.remove("is-idle", "is-listening", "is-watching", "is-typing");
+            robotStage.classList.remove("is-idle", "is-listening", "is-watching", "is-typing", "is-loading-tts");
             robotStage.classList.add("is-miming");
           },
           onEnd: () => {
@@ -1640,7 +1641,11 @@
           }
         });
         if (started) return;
+        robotStage.classList.remove("is-loading-tts");
       }
+
+      robotStage.classList.remove("is-idle", "is-listening", "is-watching", "is-typing", "is-loading-tts");
+      robotStage.classList.add("is-miming");
 
       const duration = customDuration || Math.max(3000, Math.min(5500, qText.length * 40));
 
@@ -1655,7 +1660,7 @@
         window.Voice.stopSpeaking();
       }
       if (!robotStage) return;
-      robotStage.classList.remove("is-miming");
+      robotStage.classList.remove("is-miming", "is-loading-tts");
       if (!isRecording) {
         robotStage.classList.add("is-idle");
       }
@@ -1864,7 +1869,7 @@
       if (robotStage) {
         if (mimeTimer) clearTimeout(mimeTimer);
         if (typingGazeTimer) clearTimeout(typingGazeTimer);
-        robotStage.classList.remove("is-miming", "is-idle", "is-watching", "is-typing");
+        robotStage.classList.remove("is-miming", "is-loading-tts", "is-idle", "is-watching", "is-typing");
         robotStage.classList.add("is-listening");
         setRobotGaze(0, 3.5);
       }
@@ -2476,7 +2481,7 @@
           const result = await api.request("/api/interviews", {
             method: "POST",
             body: JSON.stringify(payload),
-            loading: { title: "Creating your interview", detail: "Writing three interview questions...", coldStartAfter: null }
+            loading: { title: "Creating your interview", detail: "Writing interview questions...", coldStartAfter: null }
           });
           if (!result.ok || !result.data || !result.data.id) {
             window.YourinErrors?.showToast?.("Unable to create a retake interview. Please try again.", { type: "error" });
