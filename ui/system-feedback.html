@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>System Feedback - Yourin</title>
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/styles.css?v=20261127d">
+  <link rel="stylesheet" href="css/styles.css?v=20261127e">
   <script src="js/data.js?v=20261118" defer></script>
   <script src="js/ui.js?v=20261118" defer></script>
   <script src="js/errors.js?v=20261118" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="js/api.js?v=20261118" defer></script>
-  <script src="js/app.js?v=20261127d" defer></script>
+  <script src="js/app.js?v=20261127e" defer></script>
 </head>
 <body data-page="system-feedback">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -44,65 +44,18 @@
   </nav>
 </header>
 <main id="main" class="page feedback-page">
-  <form class="panel feedback-split-card" id="feedback-form" novalidate>
-    <div class="feedback-split-grid">
-      <!-- Left Column: Context Panel -->
-      <aside class="feedback-context-panel" aria-label="Feedback context">
-        <div class="feedback-context-top">
-          <div class="feedback-brand-pill">
-            <img src="assets/avatar.svg" alt="" width="24" height="24" aria-hidden="true">
-            <span>YORI Assistant Feedback</span>
-          </div>
-          <h1>Help Shape Yourin</h1>
-          <p class="feedback-subtitle">
-            Tell us how your mock interview felt. It takes under a minute and directly guides how we tune YORI's questions and grading.
-          </p>
-        </div>
-
-        <div class="feedback-session-card" id="feedback-session-card">
-          <div class="feedback-session-head">
-            <span class="feedback-session-kicker">Session Context</span>
-            <span class="feedback-session-date" id="feedback-session-date">Recent session</span>
-          </div>
-          <p class="feedback-session-title" id="feedback-session-title">Yourin Mock Interview</p>
-          <p class="feedback-session-role" id="feedback-session-role">General interview experience &amp; AI critique</p>
-        </div>
-
-        <div class="feedback-impact">
-          <p class="feedback-impact-heading">How your notes help</p>
-          <ul class="feedback-impact-list">
-            <li>
-              <span class="feedback-impact-icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 20h9"></path>
-                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
-                </svg>
-              </span>
-              <span>Calibrates rubric accuracy and evidence-based scoring</span>
-            </li>
-            <li>
-              <span class="feedback-impact-icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="9"></circle>
-                  <circle cx="12" cy="12" r="4"></circle>
-                </svg>
-              </span>
-              <span>Aligns question depth and relevance to your target role</span>
-            </li>
-            <li>
-              <span class="feedback-impact-icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"></path>
-                </svg>
-              </span>
-              <span>Flags UI, voice, or prompt hiccups for our next release</span>
-            </li>
-          </ul>
-        </div>
-      </aside>
-
-      <!-- Right Column: Interactive Feedback Controls -->
-      <div class="feedback-controls-panel">
+  <form class="panel feedback-single-card" id="feedback-form" novalidate>
+    <!-- Compact Card Header -->
+    <div class="feedback-card-header">
+      <div class="feedback-card-header-left">
+        <h1 class="feedback-card-title">Share Your Feedback</h1>
+        <p class="feedback-card-subtitle">Rate your mock interview experience with YORI</p>
+      </div>
+      <div class="feedback-brand-pill">
+        <img src="assets/avatar.svg" alt="" width="22" height="22" aria-hidden="true">
+        <span>YORI Assistant</span>
+      </div>
+    </div>
         <!-- 1. AI Feedback Accuracy -->
         <section class="feedback-section" aria-labelledby="heading-grade-rating">
           <div class="feedback-section-head">
@@ -383,8 +336,6 @@
             </svg>
           </button>
         </div>
-      </div>
-    </div>
   </form>
 </main>
 <div class="feedback-thankyou-overlay is-hidden" id="feedback-thankyou-overlay" role="dialog" aria-modal="true" aria-labelledby="feedback-thankyou-title">

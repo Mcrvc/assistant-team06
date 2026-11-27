@@ -2651,36 +2651,7 @@
       });
     }
 
-    function populateSessionContext() {
-      const titleEl = $("#feedback-session-title");
-      const roleEl = $("#feedback-session-role");
-      const dateEl = $("#feedback-session-date");
-      if (!titleEl || !roleEl || !dateEl) return;
-
-      const recent = reportInterview()
-        || activeInterview()
-        || account.interviews.find(item => item && item.sample !== true)
-        || null;
-      const profile = recent?.jobProfile || null;
-      const job = recent?.job || account.job || {};
-      const roleParts = [
-        profile?.job_title || job["job-title"],
-        profile?.company || job.company,
-        profile?.domain || job.domain,
-        profile?.position || job.position
-      ].map(part => (typeof part === "string" ? part.trim() : "")).filter(Boolean);
-
-      if (recent) {
-        titleEl.textContent = recent.name || "Yourin Mock Interview";
-        roleEl.textContent = roleParts.length ? roleParts.join(" · ") : "Recent mock interview session";
-        dateEl.textContent = recent.date || "Recent session";
-      } else if (roleParts.length) {
-        titleEl.textContent = roleParts[0];
-        roleEl.textContent = roleParts.slice(1).join(" · ") || "Configured target role";
-        dateEl.textContent = "Target role";
-      }
-    }
-    populateSessionContext();
+    /* Session context panel removed — single-column layout */
 
     function updateCharCount() {
       if (!commentsInput || !charCountEl) return;
@@ -2830,6 +2801,26 @@
     }
   }
   if (page === "dashboard") {
+    const resumeLink = $("[data-resume-session]");
+    if (resumeLink) {
+      const current = activeInterview();
+      const lastUnfinished = (current && current.sample !== true && !current.finished)
+        ? current
+        : (Array.isArray(account.interviews)
+          ? account.interviews.find(item => item && item.sample !== true && !item.finished)
+          : null);
+      if (lastUnfinished && lastUnfinished.server === true && lastUnfinished.id) {
+        resumeLink.href = `interview.html?id=${encodeURIComponent(lastUnfinished.id)}`;
+        if (lastUnfinished.name) {
+          resumeLink.title = `Resume: ${lastUnfinished.name}`;
+        }
+        resumeLink.addEventListener("click", () => {
+          account.activeId = lastUnfinished.id;
+          save();
+        });
+      }
+    }
+
     const cards = $$(".reveal-on-scroll");
     if (cards.length > 0) {
       document.body.classList.add("js-scroll-ready");
