@@ -12,7 +12,7 @@
       steps: [
         "Researching the role and company…",
         "Reading your CV for relevant experience…",
-        "Writing three targeted questions…",
+        "Writing targeted questions…",
         "Preparing what you'll be assessed on…"
       ],
       stepInterval: 2000,
