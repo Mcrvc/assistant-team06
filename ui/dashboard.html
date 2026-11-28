@@ -9,30 +9,29 @@
   <style id="yori-mascot-motion">
     /* Scoped only to the dashboard YORI mascot. */
     .dashboard-hero-banner .hero-mascot {
-      --yori-eye-x: 0px;
-      --yori-eye-y: 0px;
-      --yori-head-tilt: 0deg;
+      --yori-face-x: 0px;
+      --yori-face-y: 0px;
     }
 
-    /* Resting arm replaces the old perpetual wave. */
+    /* The outer head, ears, helmet and antenna stay rigid. */
+    .dashboard-hero-banner .hero-mascot .hero-mascot-head {
+      transform: none;
+      animation: none;
+    }
+
+    /* Only the inner face glides inside the dark visor. */
+    .dashboard-hero-banner .hero-mascot #yori-face {
+      transform: translate(var(--yori-face-x), var(--yori-face-y));
+      transition: transform 0.2s ease-out;
+    }
+
+    /* Resting arm sits at the robot's side. */
     .dashboard-hero-banner .hero-mascot .hero-mascot-arm-right {
-      transform-origin: 131px 111px;
-      transform: rotate(-118deg);
+      transform-box: fill-box;
+      transform-origin: top center;
+      transform: rotate(0deg);
       animation: none;
       transition: transform 0.45s ease;
-    }
-
-    .dashboard-hero-banner .hero-mascot .hero-mascot-head {
-      transform-origin: 80px 94px;
-      transform: rotate(var(--yori-head-tilt));
-      animation: none;
-      transition: transform 0.2s ease-out;
-    }
-
-    .dashboard-hero-banner .hero-mascot .hero-mascot-eye,
-    .dashboard-hero-banner .hero-mascot .hero-mascot-pupil {
-      transform: translate(var(--yori-eye-x), var(--yori-eye-y));
-      transition: transform 0.2s ease-out;
     }
 
     .dashboard-hero-banner .hero-mascot .hero-mascot-happy-eyes {
@@ -44,7 +43,15 @@
 
     @media (prefers-reduced-motion: no-preference) {
       .dashboard-hero-banner .hero-mascot .hero-mascot-svg {
-        animation: yori-idle-float 3.5s ease-in-out infinite;
+        animation: yori-idle-float 3s ease-in-out infinite;
+      }
+
+      .dashboard-hero-banner .hero-mascot .hero-mascot-sparkle-1 {
+        animation: yori-sparkle-drift 3s ease-in-out infinite;
+      }
+
+      .dashboard-hero-banner .hero-mascot .hero-mascot-sparkle-2 {
+        animation: yori-sparkle-drift 3s ease-in-out 0.55s infinite;
       }
 
       .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-arm-right {
@@ -75,18 +82,23 @@
     }
 
     @keyframes yori-idle-float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+
+    @keyframes yori-sparkle-drift {
+      0%, 100% { transform: translateY(0); opacity: 0.55; }
+      50% { transform: translateY(-4px); opacity: 1; }
     }
 
     @keyframes yori-greeting-wave {
-      0% { transform: rotate(-118deg); }
-      16% { transform: rotate(-150deg); }
-      32% { transform: rotate(-122deg); }
-      48% { transform: rotate(-150deg); }
-      64% { transform: rotate(-122deg); }
-      80% { transform: rotate(-145deg); }
-      100% { transform: rotate(-118deg); }
+      0% { transform: rotate(-15deg); }
+      16% { transform: rotate(25deg); }
+      33% { transform: rotate(-15deg); }
+      50% { transform: rotate(25deg); }
+      66% { transform: rotate(-15deg); }
+      83% { transform: rotate(25deg); }
+      100% { transform: rotate(0deg); }
     }
 
     @keyframes yori-happy-eyes {
@@ -236,19 +248,21 @@
             <circle cx="134" cy="65" r="3" fill="#92C7CF"/>
             <rect x="28" y="32" width="104" height="68" rx="26" fill="#FBF9F1" stroke="#4F8F9B" stroke-width="3.5"/>
             <rect x="38" y="42" width="84" height="48" rx="18" fill="#203D43"/>
-            <circle cx="48" cy="74" r="4.5" fill="#F4A5A5" opacity="0.88"/>
-            <circle cx="112" cy="74" r="4.5" fill="#F4A5A5" opacity="0.88"/>
-            <g class="hero-mascot-eyes">
-              <ellipse class="hero-mascot-eye" cx="58" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
-              <circle class="hero-mascot-pupil" cx="60" cy="57.5" r="2" fill="#FFFFFF"/>
-              <ellipse class="hero-mascot-eye" cx="102" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
-              <circle class="hero-mascot-pupil" cx="104" cy="57.5" r="2" fill="#FFFFFF"/>
+            <g id="yori-face">
+              <circle cx="48" cy="74" r="4.5" fill="#F4A5A5" opacity="0.88"/>
+              <circle cx="112" cy="74" r="4.5" fill="#F4A5A5" opacity="0.88"/>
+              <g class="hero-mascot-eyes">
+                <ellipse cx="58" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
+                <circle cx="60" cy="57.5" r="2" fill="#FFFFFF"/>
+                <ellipse cx="102" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
+                <circle cx="104" cy="57.5" r="2" fill="#FFFFFF"/>
+              </g>
+              <g class="hero-mascot-happy-eyes" aria-hidden="true">
+                <path d="M 52.5 62 Q 58 55 63.5 62" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M 96.5 62 Q 102 55 107.5 62" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
+              </g>
+              <path class="hero-mascot-mouth" d="M 70 71 Q 80 80.5 90 71" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
             </g>
-            <g class="hero-mascot-happy-eyes" aria-hidden="true">
-              <path d="M 52.5 62 Q 58 55 63.5 62" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
-              <path d="M 96.5 62 Q 102 55 107.5 62" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
-            </g>
-            <path class="hero-mascot-mouth" d="M 70 71 Q 80 80.5 90 71" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
           </g>
         </svg>
         <div class="hero-mascot-shadow"></div>
@@ -408,9 +422,8 @@
         cancelAnimationFrame(frame);
         frame = 0;
       }
-      mascot.style.setProperty("--yori-eye-x", "0px");
-      mascot.style.setProperty("--yori-eye-y", "0px");
-      mascot.style.setProperty("--yori-head-tilt", "0deg");
+      mascot.style.setProperty("--yori-face-x", "0px");
+      mascot.style.setProperty("--yori-face-y", "0px");
     }
 
     function applyTracking() {
@@ -426,9 +439,8 @@
       const normX = clamp((pending.clientX - centerX) / halfWidth, -1, 1);
       const normY = clamp((pending.clientY - centerY) / halfHeight, -1, 1);
 
-      mascot.style.setProperty("--yori-eye-x", `${(normX * 5).toFixed(2)}px`);
-      mascot.style.setProperty("--yori-eye-y", `${(normY * 5).toFixed(2)}px`);
-      mascot.style.setProperty("--yori-head-tilt", `${(normX * 3).toFixed(2)}deg`);
+      mascot.style.setProperty("--yori-face-x", `${(normX * 6).toFixed(2)}px`);
+      mascot.style.setProperty("--yori-face-y", `${(normY * 4).toFixed(2)}px`);
       pending = null;
     }
 
