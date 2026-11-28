@@ -394,6 +394,7 @@ def test_rpc_preserves_follow_up_and_report(rpc_repository, monkeypatch):
     service.grade_answer(OWNER, item["id"], 0, job)
     item, request_id = service.start_follow_up(OWNER, item["id"], StartFollowUp(revision=item["revision"], parent_grading_id=job))
     monkeypatch.setattr(interview_follow_up, "generate", lambda *args: {"quote": "40%", "question": "How did you measure it?"})
+    request_id = request_id or item["follow_up"]["request_id"]
     service.generate_follow_up(OWNER, item["id"], request_id)
     item = service.get(OWNER, item["id"])
     item = service.finish_follow_up(OWNER, item["id"], FollowUpAnswer(revision=item["revision"], request_id=request_id, text="Ten requests before and after."))

@@ -191,6 +191,9 @@ def create_app(*, service: InterviewService | None = None,
                       tasks: BackgroundTasks, user: User, service: Service):
         item, grading_id = service.submit_answer(user, str(interview_id), index, payload)
         if grading_id is not None:
+            follow = item.get("follow_up")
+            if follow and follow["status"] == "generating":
+                tasks.add_task(service.generate_follow_up, user, str(interview_id), follow["request_id"])
             tasks.add_task(service.grade_answer, user, str(interview_id), index, grading_id)
         return public_view(item)
 

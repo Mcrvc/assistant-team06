@@ -22,12 +22,13 @@ def setup(tmp_path, monkeypatch):
     store.close()
 
 def start(service, item):
-    return service.start_follow_up("owner", item["id"], StartFollowUp(revision=item["revision"], parent_grading_id=item["answers"][0]["grading_id"]))
+    state, job = service.start_follow_up("owner", item["id"], StartFollowUp(revision=item["revision"], parent_grading_id=item["answers"][0]["grading_id"]))
+    return state, job or state["follow_up"]["request_id"]
 
 def test_lifecycle_restart_report_and_retry(setup):
     service, item = setup
     state, job = start(service, item)
-    replay, duplicate = start(service, item)
+    replay, duplicate = service.start_follow_up("owner", item["id"], StartFollowUp(revision=item["revision"], parent_grading_id=item["answers"][0]["grading_id"]))
     assert duplicate is None and replay == state
     service.generate_follow_up("owner", item["id"], job)
     state = service.get("owner", item["id"])
@@ -75,12 +76,16 @@ def test_failure_and_expired_work_can_retry(setup, monkeypatch):
 def test_api_owner_validation_and_old_data(setup):
     service, item = setup
     path = "/api/interviews/" + item["id"]
-    assert item.get("follow_up") is None
+    item.pop("follow_up", None)
+    item.pop("follow_ups", None)
+    service.repository.save(item, item["version"])
     with TestClient(create_app(service=service, auth_resolver=lambda request: request.headers.get("x-owner", "owner"))) as client:
         assert client.get(path).json()["follow_up"] is None
         body = {"revision": item["revision"], "parent_grading_id": item["answers"][0]["grading_id"]}
         assert client.post(path + "/follow-up", json=body, headers={"x-owner": "other"}).status_code == 404
         assert client.post(path + "/follow-up", json=body).status_code == 202
+        state = client.get(path).json()
+        service.generate_follow_up("owner", item["id"], state["follow_up"]["request_id"])
         ready = client.get(path).json()
         assert ready["follow_up"]["status"] == "ready"
         body = {"revision": ready["revision"], "request_id": ready["follow_up"]["request_id"], "text": "   "}
@@ -92,16 +97,20 @@ def test_api_owner_validation_and_old_data(setup):
 def test_provider_refuses_invalid_or_invented_quotes(monkeypatch, payload):
     monkeypatch.setattr(interview_follow_up, "complete", lambda *args, **kwargs: SimpleNamespace(text=payload))
     with pytest.raises(ValueError):
-        interview_follow_up.generate("What did you do?", ANSWER)
+        interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, [])
 
-def test_provider_uses_actual_answer(monkeypatch):
+def test_provider_uses_actual_answer_and_verifies_proposal(monkeypatch):
     calls = []
     def complete(messages, **kwargs):
         calls.append(messages)
-        return SimpleNamespace(text='{"quote":"40%","question":"How did you measure that?"}')
+        if len(calls) == 1:
+            return SimpleNamespace(text='{"ask":true,"criterion_index":0,"gap":"result_evidence_missing","quote":"40%","missing_information":"Measurement method","question":"How did you measure that?"}')
+        return SimpleNamespace(text='{"relevant":true,"already_answered":false,"useful":true}')
     monkeypatch.setattr(interview_follow_up, "complete", complete)
-    assert interview_follow_up.generate("What did you do?", ANSWER)["quote"] == "40%"
+    assert interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, [])["quote"] == "40%"
     assert ANSWER in calls[0][1]["content"]
+    assert len(calls) == 2
+
 
 
 def test_result_arriving_after_skip_is_ignored(setup, monkeypatch):
@@ -125,3 +134,62 @@ def test_answer_with_stale_revision_preserves_saved_state(setup):
         service.finish_follow_up("owner", item["id"], FollowUpAnswer(revision=0, request_id=job, text="My draft"))
     assert error.value.code == "revision_conflict"
     assert service.get("owner", item["id"]) == before
+
+
+@pytest.mark.parametrize("review", [
+    {"relevant": True, "already_answered": True, "useful": True},
+    {"relevant": False, "already_answered": False, "useful": True},
+    {"relevant": True, "already_answered": False, "useful": False},
+    {"relevant": "true", "already_answered": False, "useful": True},
+    {},
+])
+def test_reviewer_can_veto_unnecessary_questions(monkeypatch, review):
+    replies = iter([{"ask": True, "criterion_index": 0, "gap": "result_evidence_missing", "quote": "40%", "missing_information": "How measured", "question": "How measured?"}, review])
+    monkeypatch.setattr(interview_follow_up, "_json_reply", lambda messages: next(replies))
+    assert interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, []) is None
+
+
+def test_no_question_decision_uses_only_one_call(monkeypatch):
+    calls = []
+    def reply(messages):
+        calls.append(messages)
+        return {"ask": False}
+    monkeypatch.setattr(interview_follow_up, "_json_reply", reply)
+    assert interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, []) is None
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("bad", [{"criterion_index": 10}, {"criterion_index": True}, {"gap": "low_score"}, {"quote": "invented"}])
+def test_proposal_must_match_criterion_and_quote(monkeypatch, bad):
+    proposal = {"ask": True, "criterion_index": 0, "gap": "result_evidence_missing", "quote": "40%", "missing_information": "How measured", "question": "How measured?", **bad}
+    monkeypatch.setattr(interview_follow_up, "_json_reply", lambda messages: proposal)
+    with pytest.raises(ValueError):
+        interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, [])
+
+
+def test_two_question_budget_and_required_answer(setup):
+    service, item = setup
+    for index in range(3):
+        current = service.get("owner", item["id"])
+        if index:
+            current, grading_id = service.submit_answer("owner", item["id"], index, SubmitAnswer(revision=current["revision"], text=ANSWER))
+            service.grade_answer("owner", item["id"], index, grading_id)
+        follow = current["follow_up"]
+        service.generate_follow_up("owner", item["id"], follow["request_id"])
+        current = service.get("owner", item["id"])
+        follow = current["follow_up"]
+        if index < 2:
+            assert follow["status"] == "ready"
+            with pytest.raises(InterviewError) as error:
+                service.finalize("owner", item["id"], FinalizeInterview(revision=current["revision"]))
+            assert error.value.code == "follow_up_required"
+            with pytest.raises(InterviewError):
+                service.submit_answer("owner", item["id"], index + 1, SubmitAnswer(revision=current["revision"], text=ANSWER))
+            with pytest.raises(InterviewError):
+                service.finish_follow_up("owner", item["id"], FollowUpAction(revision=current["revision"], request_id=follow["request_id"]), skip=True)
+            service.finish_follow_up("owner", item["id"], FollowUpAnswer(revision=current["revision"], request_id=follow["request_id"], text="Ten measurements before and after."))
+        else:
+            assert follow["status"] == "not_needed"
+    final = service.finalize("owner", item["id"], FinalizeInterview(revision=current["revision"]))
+    assert len(final["report"]["follow_ups"]) == 2
+    assert len(final["report"]["items"]) == 3

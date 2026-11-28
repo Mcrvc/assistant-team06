@@ -116,6 +116,7 @@ class FinalizeInterview(VersionedRequest):
 
 
 class StartFollowUp(VersionedRequest):
+    parent_index: int = Field(default=0, ge=0, le=14)
     parent_grading_id: str = Field(min_length=1, max_length=200)
 
 
@@ -134,11 +135,16 @@ class FollowUpAnswer(FollowUpAction):
 
 
 class FollowUp(Contract):
+    automatic: bool = False
+    selected: bool = False
+    criterion_index: int | None = None
+    gap: str | None = None
+    missing_information: str = ""
     parent_index: int = 0
     parent_grading_id: str
     request_id: str
     started_at: str
-    status: Literal["generating", "ready", "answered", "skipped", "unavailable"]
+    status: Literal["generating", "ready", "answered", "skipped", "unavailable", "not_needed", "invalidated"]
     quote: str = Field(default="", max_length=300)
     question: str = Field(default="", max_length=500)
     answer: AnswerText = ""
@@ -173,6 +179,7 @@ class ReportItem(Contract):
 
 
 class Report(Contract):
+    follow_ups: list[FollowUp] = Field(default_factory=list)
     follow_up: FollowUp | None = None
     overall_score: float | None = None
     label: Literal["Good", "Needs Improvement", "Incomplete"]
@@ -186,6 +193,7 @@ class Report(Contract):
 
 
 class InterviewView(Contract):
+    follow_ups: list[FollowUp] = Field(default_factory=list)
     follow_up: FollowUp | None = None
     id: str
     name: str

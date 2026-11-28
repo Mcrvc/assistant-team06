@@ -52,6 +52,33 @@ def public_view(interview: dict) -> dict:
             "progress": progress(interview)}
 
 
+def follow_ups(item: dict) -> list[dict]:
+    if "follow_ups" not in item:
+        legacy = item.get("follow_up")
+        item["follow_ups"] = [legacy] if legacy else []
+    return item["follow_ups"]
+
+
+def invalidate_follow_up(item: dict, index: int) -> None:
+    for follow in follow_ups(item):
+        if follow["parent_index"] == index and follow["status"] != "invalidated":
+            follow["status"] = "invalidated"
+    item["follow_up"] = next((f for f in reversed(follow_ups(item))
+                               if f["status"] != "invalidated"), None)
+
+
+def new_follow_up(item: dict, index: int, *, automatic: bool) -> dict:
+    selected = sum(bool(f.get("selected") or f["status"] in ("ready", "answered"))
+                   for f in follow_ups(item))
+    follow = {"parent_index": index, "parent_grading_id": item["answers"][index]["grading_id"],
+              "request_id": str(uuid4()), "started_at": _now(), "automatic": automatic,
+              "selected": False, "status": "generating" if selected < 2 else "not_needed",
+              "quote": "", "question": "", "answer": ""}
+    follow_ups(item).append(follow)
+    item["follow_up"] = follow
+    return follow
+
+
 class InterviewService:
     def __init__(self, repository: InterviewRepository, ai: InterviewAI | None = None) -> None:
         self.repository = repository
@@ -71,7 +98,7 @@ class InterviewService:
         interview = {
             "id": str(uuid4()), "owner_id": owner_id, "name": request.name,
             "job_profile": job_profile, "cv": request.cv,
-            "questions": generated["questions"],
+            "questions": generated["questions"], "follow_ups": [], "follow_up": None,
             "question_generation": {k: generated[k] for k in ("model", "used_fallback")},
             "answers": [_answer() for _ in generated["questions"]], "current_question": 0,
             "status": "in_progress", "report": None, "revision": 0, "version": 0,
@@ -114,16 +141,24 @@ class InterviewService:
         interview = self.repository.get(interview_id, owner_id)
         if interview is None:
             raise InterviewError(404, "not_found", "Interview not found")
-        follow = interview.get("follow_up")
-        if (interview["status"] != "finalized" and follow and follow["status"] == "generating"
-                and interview_follow_up.expired(follow)):
-            follow["status"] = "unavailable"
+        entries = follow_ups(interview)
+        changed = False
+        if interview["status"] != "finalized":
+            for follow in entries:
+                if follow["status"] == "generating" and interview_follow_up.expired(follow):
+                    follow["status"] = "unavailable"
+                    changed = True
+        interview["follow_up"] = next((f for f in reversed(entries) if f["status"] != "invalidated"), None)
+        if changed:
             version = interview["version"]
             interview.update(version=version + 1, updated_at=_now())
             try:
                 self.repository.save(interview, version)
             except StoreConflict:
-                return self.repository.get(interview_id, owner_id) or interview
+                fresh = self.repository.get(interview_id, owner_id)
+                if fresh is None:
+                    raise InterviewError(404, "not_found", "Interview not found")
+                return fresh
         return interview
 
     def list(self, owner_id: str) -> list[dict]:
@@ -138,23 +173,23 @@ class InterviewService:
         request_id = str(uuid4())
 
         def already_applied(item):
-            follow = item.get("follow_up")
+            follow = next((f for f in follow_ups(item) if f["parent_grading_id"] == request.parent_grading_id), None)
             return bool(follow and follow["parent_grading_id"] == request.parent_grading_id
                         and follow["status"] != "unavailable"
                         and not (follow["status"] == "generating" and interview_follow_up.expired(follow)))
 
         def change(item):
-            parent = item["answers"][0]
-            if (len(item["questions"]) < 2 or not parent["grading_id"]
-                    or parent["grading_id"] != request.parent_grading_id):
-                raise InterviewError(409, "parent_changed", "Submit the first answer before practising")
+            index = request.parent_index
+            if index >= len(item["answers"]):
+                raise InterviewError(400, "invalid_question", "Question index is outside this interview")
+            parent = item["answers"][index]
+            if not parent["grading_id"] or parent["grading_id"] != request.parent_grading_id:
+                raise InterviewError(409, "parent_changed", "Submit this answer before continuing")
             if already_applied(item):
-                raise InterviewError(409, "follow_up_exists", "This practice question already exists")
-            item["follow_up"] = {
-                "parent_index": 0, "parent_grading_id": parent["grading_id"],
-                "request_id": request_id, "started_at": _now(),
-                "status": "generating", "quote": "", "question": "", "answer": "",
-            }
+                raise InterviewError(409, "follow_up_exists", "This follow-up decision already exists")
+            invalidate_follow_up(item, index)
+            follow = new_follow_up(item, index, automatic=True)
+            follow["request_id"] = request_id
 
         # A current-revision replay also reuses the existing question.
         current = self.get(owner_id, interview_id)
@@ -166,22 +201,33 @@ class InterviewService:
     def generate_follow_up(self, owner_id: str, interview_id: str, request_id: str) -> None:
         try:
             item = self.get(owner_id, interview_id)
-            follow = item.get("follow_up")
+            follow = next((f for f in follow_ups(item) if f["request_id"] == request_id), None)
             if not follow or follow["request_id"] != request_id or follow["status"] != "generating":
                 return
             try:
-                result = interview_follow_up.generate(item["questions"][0]["text"], item["answers"][0]["text"])
+                index = follow["parent_index"]
+                previous = [{"question": f["question"], "answer": f["answer"]}
+                            for f in follow_ups(item) if f.get("selected")]
+                result = interview_follow_up.generate(item["questions"][index], item["answers"][index]["text"], previous)
+                outcome = "ready" if result else "not_needed"
             except Exception:
-                result = None
+                result, outcome = None, "unavailable"
             for _ in range(10):
                 current = self.get(owner_id, interview_id)
-                target = current.get("follow_up")
+                target = next((f for f in follow_ups(current) if f["request_id"] == request_id), None)
                 if (current["status"] == "finalized" or not target or target["request_id"] != request_id
                         or target["status"] != "generating"
-                        or current["answers"][0]["grading_id"] != target["parent_grading_id"]):
+                        or current["answers"][target["parent_index"]]["grading_id"] != target["parent_grading_id"]):
                     return
+                selected = sum(bool(f.get("selected")) for f in follow_ups(current))
+                if outcome == "ready" and selected >= 2:
+                    result, outcome = None, "not_needed"
                 target.update(result or {})
-                target["status"] = "ready" if result else "unavailable"
+                target["status"] = outcome
+                target["selected"] = outcome == "ready"
+                if outcome != "ready" and current["current_question"] == target["parent_index"]:
+                    current["current_question"] = min(target["parent_index"] + 1, len(current["questions"]) - 1)
+                current["follow_up"] = next((f for f in reversed(follow_ups(current)) if f["status"] != "invalidated"), None)
                 version = current["version"]
                 current.update(version=version + 1, updated_at=_now())
                 try:
@@ -196,19 +242,24 @@ class InterviewService:
         status = "skipped" if skip else "answered"
 
         def already_applied(item):
-            follow = item.get("follow_up")
+            follow = next((f for f in follow_ups(item) if f["request_id"] == request.request_id), None)
             return bool(follow and follow["request_id"] == request.request_id
                         and follow["status"] == status
                         and (skip or follow["answer"] == request.text))
 
         def change(item):
-            follow = item.get("follow_up")
+            follow = next((f for f in follow_ups(item) if f["request_id"] == request.request_id), None)
+            if skip and follow and follow.get("automatic") and follow["status"] == "ready":
+                raise InterviewError(409, "follow_up_required", "Answer the follow-up before continuing")
             allowed = ("generating", "ready", "unavailable") if skip else ("ready",)
             if not follow or follow["request_id"] != request.request_id or follow["status"] not in allowed:
                 raise InterviewError(409, "follow_up_changed", "Reload the practice question before saving")
             follow["status"] = status
+            if item["current_question"] == follow["parent_index"]:
+                item["current_question"] = min(follow["parent_index"] + 1, len(item["questions"]) - 1)
             if not skip:
                 follow["answer"] = request.text
+            item["follow_up"] = next((f for f in reversed(follow_ups(item)) if f["status"] != "invalidated"), None)
 
         current = self.get(owner_id, interview_id)
         if current["revision"] == request.revision and already_applied(current):
@@ -261,8 +312,7 @@ class InterviewService:
                                          "More answers than the interview has questions")
                 for i, text in enumerate(request.answers):
                     if text != interview["answers"][i]["text"]:
-                        if i == 0:
-                            interview["follow_up"] = None
+                        invalidate_follow_up(interview, i)
                         interview["answers"][i] = _answer(text)
             interview.update(current_question=request.current_question, status=request.status)
         return self._change(owner_id, interview_id, request.revision, change,
@@ -282,13 +332,16 @@ class InterviewService:
             if index >= len(interview["questions"]):
                 raise InterviewError(400, "invalid_question",
                                      "Question index is outside this interview")
+            if any(f["status"] == "ready" and f.get("automatic") and f["parent_index"] != index
+                   for f in follow_ups(interview)):
+                raise InterviewError(409, "follow_up_required", "Answer the follow-up before continuing")
             interview["answers"][index] = {
                 **_answer(request.text), "grading_status": "pending", "grading_id": grading_id,
             }
-            if index == 0:
-                interview["follow_up"] = None
-            interview.update(current_question=min(index + 1, len(interview["questions"]) - 1),
-                             status="in_progress")
+            invalidate_follow_up(interview, index)
+            new_follow_up(interview, index, automatic=True)
+            destination = index if interview["follow_up"]["status"] == "generating" else min(index + 1, len(interview["questions"]) - 1)
+            interview.update(current_question=destination, status="in_progress")
         result = self._change(owner_id, interview_id, request.revision, change,
                               already_applied=already_applied)
         # A replay must not schedule a second AI call for the same job. A fresh
@@ -353,6 +406,8 @@ class InterviewService:
 
         def change(interview: dict) -> None:
             counts = progress(interview)
+            if any(f["status"] == "ready" and f.get("automatic") for f in follow_ups(interview)):
+                raise InterviewError(409, "follow_up_required", "Answer the follow-up before finishing")
             if counts["pending"] > 0:
                 raise InterviewError(409, "grading_incomplete", "Wait for pending grading to finish")
             items = []
@@ -393,9 +448,10 @@ class InterviewService:
                 notices.append(f"{unanswered_count} question(s) were left unanswered.")
             report = {"overall_score": overall, "items": items,
                       "label": ("Good" if overall >= 6 else "Needs Improvement") if overall is not None else "Incomplete"}
-            follow = interview.get("follow_up")
-            if follow and follow["status"] == "answered":
-                report["follow_up"] = dict(follow)
+            answered_follow_ups = [dict(f) for f in follow_ups(interview) if f["status"] == "answered"]
+            report["follow_ups"] = answered_follow_ups
+            if answered_follow_ups:
+                report["follow_up"] = answered_follow_ups[-1]
             # One provider-written paragraph about the whole interview. Only
             # question, label, score and feedback leave this function - raw
             # answers and the CV are never forwarded - and a summary failure

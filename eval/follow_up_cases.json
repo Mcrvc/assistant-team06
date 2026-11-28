@@ -1,0 +1,290 @@
+[
+  {
+    "id": "personal_action_missing-1-missing",
+    "question": {
+      "text": "Describe a team problem and what you personally did to resolve it.",
+      "criteria": [
+        "Explain your own specific actions in resolving the team problem."
+      ]
+    },
+    "answer": "Our team resolved conflicting designs and delivered on time.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing"
+  },
+  {
+    "id": "personal_action_missing-2-complete",
+    "question": {
+      "text": "Describe a team problem and what you personally did to resolve it.",
+      "criteria": [
+        "Explain your own specific actions in resolving the team problem."
+      ]
+    },
+    "answer": "Our team resolved conflicting designs and delivered on time. I compared both designs using the same three queries, documented the results, and proposed the design with fewer failed queries.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "personal_action_missing-3-missing",
+    "question": {
+      "text": "Describe a team problem and what you personally did to resolve it.",
+      "criteria": [
+        "Explain your own specific actions in resolving the team problem."
+      ]
+    },
+    "answer": "We fixed a deployment failure together.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing"
+  },
+  {
+    "id": "personal_action_missing-4-complete",
+    "question": {
+      "text": "Describe a team problem and what you personally did to resolve it.",
+      "criteria": [
+        "Explain your own specific actions in resolving the team problem."
+      ]
+    },
+    "answer": "We fixed a deployment failure together. I inspected the logs, found a missing migration, rolled back the release, and added a migration check to CI.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "personal_action_missing-5-missing",
+    "question": {
+      "text": "Describe a team problem and what you personally did to resolve it.",
+      "criteria": [
+        "Explain your own specific actions in resolving the team problem."
+      ]
+    },
+    "answer": "Our group divided tasks and finished the library app.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing"
+  },
+  {
+    "id": "personal_action_missing-6-complete",
+    "question": {
+      "text": "Describe a team problem and what you personally did to resolve it.",
+      "criteria": [
+        "Explain your own specific actions in resolving the team problem."
+      ]
+    },
+    "answer": "Our group divided tasks and finished the library app. I implemented the reservation endpoint and wrote the six integration tests. My teammates handled the UI.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "personal_action_missing-7-missing",
+    "question": {
+      "text": "Describe a team problem and what you personally did to resolve it.",
+      "criteria": [
+        "Explain your own specific actions in resolving the team problem."
+      ]
+    },
+    "answer": "Everyone discussed the disagreement until we reached agreement.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing"
+  },
+  {
+    "id": "personal_action_missing-8-complete",
+    "question": {
+      "text": "Describe a team problem and what you personally did to resolve it.",
+      "criteria": [
+        "Explain your own specific actions in resolving the team problem."
+      ]
+    },
+    "answer": "Everyone discussed the disagreement until we reached agreement. Earlier that day, I had asked each person to list their constraints, then prepared a small prototype to compare the proposals. That comparison resolved the disagreement.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "decision_reason_missing-9-missing",
+    "question": {
+      "text": "What design choice did you make and why?",
+      "criteria": [
+        "Explain why you chose the approach and how it addressed the problem."
+      ]
+    },
+    "answer": "I chose Redis for the API.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing"
+  },
+  {
+    "id": "decision_reason_missing-10-complete",
+    "question": {
+      "text": "What design choice did you make and why?",
+      "criteria": [
+        "Explain why you chose the approach and how it addressed the problem."
+      ]
+    },
+    "answer": "I chose Redis for the API because repeated read-only searches were causing database load. A short cache TTL was acceptable for those results, while writes still went directly to PostgreSQL.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "decision_reason_missing-11-missing",
+    "question": {
+      "text": "What design choice did you make and why?",
+      "criteria": [
+        "Explain why you chose the approach and how it addressed the problem."
+      ]
+    },
+    "answer": "I used PostgreSQL rather than storing JSON files.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing"
+  },
+  {
+    "id": "decision_reason_missing-12-complete",
+    "question": {
+      "text": "What design choice did you make and why?",
+      "criteria": [
+        "Explain why you chose the approach and how it addressed the problem."
+      ]
+    },
+    "answer": "I used PostgreSQL rather than storing JSON files because reservations needed concurrent transactions and uniqueness constraints to prevent double booking.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "decision_reason_missing-13-missing",
+    "question": {
+      "text": "What design choice did you make and why?",
+      "criteria": [
+        "Explain why you chose the approach and how it addressed the problem."
+      ]
+    },
+    "answer": "I chose a queue for sending emails.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing"
+  },
+  {
+    "id": "decision_reason_missing-14-complete",
+    "question": {
+      "text": "What design choice did you make and why?",
+      "criteria": [
+        "Explain why you chose the approach and how it addressed the problem."
+      ]
+    },
+    "answer": "I chose a queue for sending emails because provider delays were blocking HTTP responses. A queue allowed retries without making the user wait, although it introduced worker monitoring.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "decision_reason_missing-15-missing",
+    "question": {
+      "text": "What design choice did you make and why?",
+      "criteria": [
+        "Explain why you chose the approach and how it addressed the problem."
+      ]
+    },
+    "answer": "The project uses a shared validation schema that I selected.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing"
+  },
+  {
+    "id": "decision_reason_missing-16-complete",
+    "question": {
+      "text": "What design choice did you make and why?",
+      "criteria": [
+        "Explain why you chose the approach and how it addressed the problem."
+      ]
+    },
+    "answer": "Clients were sending inconsistent field types, so sharing one schema let us enforce the same contract on every endpoint. That was the reason I selected the shared validation schema for the project.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "result_evidence_missing-17-missing",
+    "question": {
+      "text": "Tell me about an improvement you made and how you checked the result.",
+      "criteria": [
+        "Explain the outcome and how you verified the improvement."
+      ]
+    },
+    "answer": "I reduced API latency by 40%.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing"
+  },
+  {
+    "id": "result_evidence_missing-18-complete",
+    "question": {
+      "text": "Tell me about an improvement you made and how you checked the result.",
+      "criteria": [
+        "Explain the outcome and how you verified the improvement."
+      ]
+    },
+    "answer": "I reduced API latency by 40%. I replayed the same 100 requests before and after indexing on the same staging machine. Mean latency fell from 500 to 300 milliseconds.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "result_evidence_missing-19-missing",
+    "question": {
+      "text": "Tell me about an improvement you made and how you checked the result.",
+      "criteria": [
+        "Explain the outcome and how you verified the improvement."
+      ]
+    },
+    "answer": "The new validation reduced invalid registrations.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing"
+  },
+  {
+    "id": "result_evidence_missing-20-complete",
+    "question": {
+      "text": "Tell me about an improvement you made and how you checked the result.",
+      "criteria": [
+        "Explain the outcome and how you verified the improvement."
+      ]
+    },
+    "answer": "The new validation reduced invalid registrations. I counted validation failures in two staging runs using the same 50 input cases: failures fell from 18 to 2.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "result_evidence_missing-21-missing",
+    "question": {
+      "text": "Tell me about an improvement you made and how you checked the result.",
+      "criteria": [
+        "Explain the outcome and how you verified the improvement."
+      ]
+    },
+    "answer": "Our update improved user satisfaction.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing"
+  },
+  {
+    "id": "result_evidence_missing-22-complete",
+    "question": {
+      "text": "Tell me about an improvement you made and how you checked the result.",
+      "criteria": [
+        "Explain the outcome and how you verified the improvement."
+      ]
+    },
+    "answer": "Our update improved user satisfaction. We asked the same 20 pilot users to rate both versions on a five-point scale. The mean rating rose from 3.1 to 4.0.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "result_evidence_missing-23-missing",
+    "question": {
+      "text": "Tell me about an improvement you made and how you checked the result.",
+      "criteria": [
+        "Explain the outcome and how you verified the improvement."
+      ]
+    },
+    "answer": "Search latency fell from 600 to 180 milliseconds.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing"
+  },
+  {
+    "id": "result_evidence_missing-24-complete",
+    "question": {
+      "text": "Tell me about an improvement you made and how you checked the result.",
+      "criteria": [
+        "Explain the outcome and how you verified the improvement."
+      ]
+    },
+    "answer": "Before changing the code I recorded the median of 200 repeated searches on a fixed dataset. After the change I repeated the same procedure on the same machine. Search latency fell from 600 to 180 milliseconds.",
+    "expected_ask": false,
+    "expected_gap": null
+  }
+]
