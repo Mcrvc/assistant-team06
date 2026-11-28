@@ -1587,6 +1587,8 @@
       const grade = Array.isArray(interview.answerGrades) ? interview.answerGrades[currentStep] : null;
       if (awaitingFollowIndex === currentStep && activeFollowUp()?.status === "generating") {
         element.textContent = "Checking your answer...";
+      } else if (visibleFollowUp()?.status === "ready") {
+        element.textContent = "Answer this follow-up to continue.";
       } else if (status === "graded" && grade && typeof grade.score === "number") {
         element.textContent = `Graded: ${grade.score}/10`;
       } else if (status === "pending") {
@@ -2616,6 +2618,7 @@
       else badge.classList.add("is-pending");
       if (item && item.score !== null && item.score !== undefined && Number.isFinite(Number(item.score))) {
         badge.title = `Score: ${item.score}/10`;
+        badge.textContent += ` · ${item.score}/10`;
       }
       feedbackHeader.append(feedbackTitle, badge);
       const feedbackCopy = document.createElement("p");

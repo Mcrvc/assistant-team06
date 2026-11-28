@@ -149,6 +149,7 @@ def test_follow_up_browser_round_trip(browser_page, website, monkeypatch):
     page.locator("#answer").fill(ANSWERS[0])
     page.locator("#next-question-btn").click()
     expect(page.locator("#question-badge")).to_have_text("1 of 3 - Follow-up")
+    expect(page.locator("#answer-status")).to_have_text("Answer this follow-up to continue.")
     expect(page.locator("#question-text")).to_contain_text("How did you test your Python API?")
     expect(page.locator("#robot-stage")).to_be_visible()
     assert page.locator("#follow-up-practice").count() == 0
@@ -182,6 +183,7 @@ def test_follow_up_browser_round_trip(browser_page, website, monkeypatch):
     expect(cards).to_have_count(3)
     expect(cards.first.locator(".report-follow-up")).to_contain_text("I added six integration tests.")
     expect(cards.first).to_contain_text("This score includes your original answer and follow-up.")
+    expect(cards.first.locator(".feedback-eval-badge")).to_contain_text("/10")
     expect(cards.nth(1).locator(".report-follow-up")).to_have_count(0)
 
 
