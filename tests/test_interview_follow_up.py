@@ -255,6 +255,16 @@ def test_uncertain_prior_evidence_cannot_create_a_question():
     assert parsed[0, "result_evidence_missing"]["evidence"] == []
 
 
+def test_prior_answer_can_prove_coverage_but_cannot_anchor_a_new_question():
+    previous = [{"question": "How did you measure it?", "answer": "I compared 100 requests."}]
+    row = coverage(status="present", evidence=["I compared 100 requests."])
+    parsed = interview_follow_up._coverage({"coverage": [row]}, ["Verified outcome"], ANSWER, previous)
+    assert parsed[0, "result_evidence_missing"]["status"] == "present"
+    row["status"] = "missing"
+    with pytest.raises(ValueError):
+        interview_follow_up._coverage({"coverage": [row]}, ["Verified outcome"], ANSWER, previous)
+
+
 def test_two_question_budget_and_required_answer(setup):
     service, item = setup
     for index in range(3):

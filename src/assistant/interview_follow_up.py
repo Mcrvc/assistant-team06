@@ -116,7 +116,7 @@ _COVERAGE_RULES = (
 )
 
 
-def _coverage(payload: dict, criteria: list, answer: str) -> dict:
+def _coverage(payload: dict, criteria: list, answer: str, previous: list[dict] | None = None) -> dict:
     entries = payload.get("coverage")
     if not isinstance(entries, list) or not len(criteria) <= len(entries) <= len(criteria) * 4:
         raise ValueError("Incomplete criterion coverage")
@@ -147,7 +147,12 @@ def _coverage(payload: dict, criteria: list, answer: str) -> dict:
         if status != "uncertain" and not quote.strip():
             raise ValueError("Evidence required")
         if quote and quote not in answer:
-            raise ValueError("Ungrounded coverage evidence")
+            covered_before = status == "present" and any(
+                isinstance(item.get("answer"), str) and quote in item["answer"]
+                for item in (previous or [])
+            )
+            if not covered_before:
+                raise ValueError("Ungrounded coverage evidence")
         info = entry.get("missing_information", "")
         if status == "missing" and (not isinstance(info, str) or not info.strip() or len(info) > 500):
             raise ValueError("Missing information must be specific")
@@ -171,7 +176,7 @@ def generate(question: dict, answer: str, previous: list[dict]) -> dict | None:
         {"role": "system", "content": _COVERAGE_RULES + "Assess coverage only; return questions:[] in this first pass."},
         {"role": "user", "content": json.dumps(context, ensure_ascii=False)},
     ])
-    first = _coverage(assessment, criteria, answer)
+    first = _coverage(assessment, criteria, answer, previous)
     candidates = [{"criterion_index": index, "gap": gap}
                   for (index, gap), finding in first.items() if finding["status"] == "missing"]
     if not candidates:
@@ -187,7 +192,7 @@ def generate(question: dict, answer: str, previous: list[dict]) -> dict | None:
             "If a candidate is already covered, provide the supporting evidence and omit its question.")},
         {"role": "user", "content": json.dumps({**context, "candidate_keys": candidates}, ensure_ascii=False)},
     ])
-    second = _coverage(audit, criteria, answer)
+    second = _coverage(audit, criteria, answer, previous)
     questions = audit.get("questions")
     if not isinstance(questions, list) or len(questions) > len(candidates):
         raise ValueError("Invalid follow-up questions")
