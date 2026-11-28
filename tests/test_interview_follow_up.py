@@ -95,14 +95,15 @@ def test_api_owner_validation_and_old_data(setup):
 
 @pytest.mark.parametrize("payload", ['null', '{"quote":"invented","question":"How?"}', '{"quote":"40%","question":""}'])
 def test_provider_refuses_invalid_or_invented_quotes(monkeypatch, payload):
-    monkeypatch.setattr(interview_follow_up, "complete", lambda *args, **kwargs: SimpleNamespace(text=payload))
+    monkeypatch.setattr(interview_follow_up, "_request_json", lambda *args, **kwargs: payload)
     with pytest.raises(ValueError):
         interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, [])
 
 def coverage(status="missing", index=0, gap="result_evidence_missing", evidence=None):
-    return {"criterion_index": index, "checks": [{"gap": gap, "status": status,
-            "evidence": evidence if evidence is not None else ["40%"],
-            "missing_information": "How the result was measured"}]}
+    quotes = evidence if evidence is not None else ["40%"]
+    return {"criterion_index": index, "gap": gap, "status": status,
+            "quote": quotes[0] if quotes else "",
+            "missing_information": "How the result was measured"}
 
 
 def test_provider_uses_actual_answer_and_independent_coverage(monkeypatch):
@@ -110,11 +111,11 @@ def test_provider_uses_actual_answer_and_independent_coverage(monkeypatch):
     calls = []
     def complete(messages, **kwargs):
         calls.append(messages)
-        payload = {"coverage": [coverage()]}
+        payload = {"coverage": [coverage()], "questions": []}
         if len(calls) == 2:
             payload["questions"] = [{"criterion_index": 0, "gap": "result_evidence_missing", "question": "How did you measure that?"}]
-        return SimpleNamespace(text=json.dumps(payload))
-    monkeypatch.setattr(interview_follow_up, "complete", complete)
+        return json.dumps(payload)
+    monkeypatch.setattr(interview_follow_up, "_request_json", complete)
     result = interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, [])
     assert result["quote"] == "40%"
     assert len(calls) == 2
@@ -168,10 +169,8 @@ def test_covered_answer_uses_only_one_call(monkeypatch):
 
 
 @pytest.mark.parametrize("bad", [
-    {"criterion_index": 10}, {"criterion_index": True},
-    {"checks": [{"gap": "low_score", "status": "missing", "evidence": ["40%"]}]},
-    {"checks": [{"gap": "result_evidence_missing", "status": "missing", "evidence": ["invented"], "missing_information": "How measured"}]},
-    {"checks": [{"gap": "result_evidence_missing", "status": "present", "evidence": []}]},
+    {"criterion_index": 10}, {"criterion_index": True}, {"gap": "low_score"},
+    {"quote": "invented"}, {"status": "present", "quote": ""},
 ])
 def test_coverage_must_match_criterion_and_real_evidence(monkeypatch, bad):
     monkeypatch.setattr(interview_follow_up, "_json_reply", lambda messages: {"coverage": [{**coverage(), **bad}]})
@@ -205,7 +204,7 @@ def test_omitted_criterion_fails_closed(monkeypatch):
 
 
 def test_duplicate_empty_criterion_entries_do_not_discard_valid_coverage():
-    payload = {"coverage": [coverage(), {"criterion_index": 0, "checks": []}]}
+    payload = {"coverage": [coverage(), {"criterion_index": 0, "gap": None, "status": "not_applicable", "quote": ""}]}
     parsed = interview_follow_up._coverage(payload, ["Verified outcome"], ANSWER)
     assert parsed[0, "result_evidence_missing"]["status"] == "missing"
 
@@ -214,6 +213,31 @@ def test_conflicting_duplicate_findings_are_uncertain():
     payload = {"coverage": [coverage(), coverage(status="present")]}
     parsed = interview_follow_up._coverage(payload, ["Verified outcome"], ANSWER)
     assert parsed[0, "result_evidence_missing"]["status"] == "uncertain"
+
+
+@pytest.mark.parametrize("raw", ['{"coverage": []', '{"coverage": [}', '{"coverage": [], "questions": []}'])
+def test_structured_json_reader_rejects_invalid_responses(monkeypatch, raw):
+    monkeypatch.setattr(interview_follow_up, "_request_json", lambda *args, **kwargs: raw)
+    with pytest.raises(ValueError):
+        interview_follow_up._json_reply([])
+
+
+def test_json_transport_requests_a_constrained_schema(monkeypatch):
+    calls = []
+    monkeypatch.setattr(interview_follow_up, "get_config", lambda: SimpleNamespace(
+        llm_ready=True, model="test-model", base_url="https://unit.test", nvidia_api_key="fake_key"))
+
+    def http(url, **kwargs):
+        calls.append(kwargs)
+        return 200, {"choices": [{"message": {"content": '{"coverage":[],"questions":[]}'}}]}
+
+    monkeypatch.setattr(interview_follow_up, "_http_json", http)
+    assert interview_follow_up._request_json([]) == '{"coverage":[],"questions":[]}'
+    payload = calls[0]["payload"]
+    assert payload["response_format"]["type"] == "json_schema"
+    assert payload["response_format"]["json_schema"]["strict"] is True
+    assert payload["response_format"]["json_schema"]["schema"]["required"] == ["coverage", "questions"]
+    assert payload["reasoning_effort"] == "none"
 
 
 def test_two_question_budget_and_required_answer(setup):

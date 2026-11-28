@@ -1,0 +1,386 @@
+[
+  {
+    "id": "fresh-personal_action_missing-1-en-missing",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What did you personally do to address a team problem?",
+      "criteria": [
+        "Use clear language.",
+        "Name specific actions you personally performed."
+      ]
+    },
+    "answer": "Our archive team sorted the damaged documents and finished the catalogue.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing",
+    "expected_criterion_index": 1
+  },
+  {
+    "id": "fresh-personal_action_missing-1-en-complete",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What did you personally do to address a team problem?",
+      "criteria": [
+        "Use clear language.",
+        "Name specific actions you personally performed."
+      ]
+    },
+    "answer": "Our archive team sorted the damaged documents and finished the catalogue. I photographed the unreadable labels, matched them against the old ledger, and entered the recovered names.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-personal_action_missing-1-vi-missing",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Bạn trực tiếp làm gì để giải quyết khó khăn của nhóm?",
+      "criteria": [
+        "Diễn đạt rõ ràng.",
+        "Nêu hành động cụ thể do chính bạn thực hiện."
+      ]
+    },
+    "answer": "Nhóm lưu trữ phân loại tài liệu hỏng và hoàn tất danh mục.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing",
+    "expected_criterion_index": 1
+  },
+  {
+    "id": "fresh-personal_action_missing-1-vi-complete",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Bạn trực tiếp làm gì để giải quyết khó khăn của nhóm?",
+      "criteria": [
+        "Diễn đạt rõ ràng.",
+        "Nêu hành động cụ thể do chính bạn thực hiện."
+      ]
+    },
+    "answer": "Nhóm lưu trữ phân loại tài liệu hỏng và hoàn tất danh mục. Em chụp các nhãn không đọc được, đối chiếu sổ cũ rồi nhập lại những tên tìm được.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-personal_action_missing-2-en-missing",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What did you personally do to address a team problem?",
+      "criteria": [
+        "Name specific actions you personally performed.",
+        "Use clear language."
+      ]
+    },
+    "answer": "The student choir settled its rehearsal-room conflict.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing",
+    "expected_criterion_index": 0
+  },
+  {
+    "id": "fresh-personal_action_missing-2-en-complete",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What did you personally do to address a team problem?",
+      "criteria": [
+        "Name specific actions you personally performed.",
+        "Use clear language."
+      ]
+    },
+    "answer": "The student choir settled its rehearsal-room conflict. I asked both conductors for their available hours and booked two alternating time slots.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-personal_action_missing-2-vi-missing",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Bạn trực tiếp làm gì để giải quyết khó khăn của nhóm?",
+      "criteria": [
+        "Nêu hành động cụ thể do chính bạn thực hiện.",
+        "Diễn đạt rõ ràng."
+      ]
+    },
+    "answer": "Dàn hợp xướng sinh viên giải quyết được việc tranh lịch phòng tập.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing",
+    "expected_criterion_index": 0
+  },
+  {
+    "id": "fresh-personal_action_missing-2-vi-complete",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Bạn trực tiếp làm gì để giải quyết khó khăn của nhóm?",
+      "criteria": [
+        "Nêu hành động cụ thể do chính bạn thực hiện.",
+        "Diễn đạt rõ ràng."
+      ]
+    },
+    "answer": "Dàn hợp xướng sinh viên giải quyết được việc tranh lịch phòng tập. Tôi hỏi giờ rảnh của hai người chỉ huy rồi đặt hai khung giờ xen kẽ.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-decision_reason_missing-1-en-missing",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What approach did you choose and why did it suit the situation?",
+      "criteria": [
+        "Use clear language.",
+        "Explain why the chosen approach addressed the situation."
+      ]
+    },
+    "answer": "I chose a magnetic board for the workshop attendance list.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing",
+    "expected_criterion_index": 1
+  },
+  {
+    "id": "fresh-decision_reason_missing-1-en-complete",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What approach did you choose and why did it suit the situation?",
+      "criteria": [
+        "Use clear language.",
+        "Explain why the chosen approach addressed the situation."
+      ]
+    },
+    "answer": "I chose a magnetic board for the workshop attendance list because the workshop has no reliable internet and participants need to see available seats from the doorway.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-decision_reason_missing-1-vi-missing",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Bạn chọn cách làm gì và vì sao phù hợp tình huống?",
+      "criteria": [
+        "Diễn đạt rõ ràng.",
+        "Giải thích vì sao cách đã chọn giải quyết được tình huống."
+      ]
+    },
+    "answer": "Em chọn bảng nam châm cho danh sách dự buổi thực hành.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing",
+    "expected_criterion_index": 1
+  },
+  {
+    "id": "fresh-decision_reason_missing-1-vi-complete",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Bạn chọn cách làm gì và vì sao phù hợp tình huống?",
+      "criteria": [
+        "Diễn đạt rõ ràng.",
+        "Giải thích vì sao cách đã chọn giải quyết được tình huống."
+      ]
+    },
+    "answer": "Em chọn bảng nam châm cho danh sách dự buổi thực hành vì xưởng không có mạng ổn định và người tham gia cần thấy chỗ trống từ cửa.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-decision_reason_missing-2-en-missing",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What approach did you choose and why did it suit the situation?",
+      "criteria": [
+        "Explain why the chosen approach addressed the situation.",
+        "Use clear language."
+      ]
+    },
+    "answer": "I chose to rotate the gardening duties every week.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing",
+    "expected_criterion_index": 0
+  },
+  {
+    "id": "fresh-decision_reason_missing-2-en-complete",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What approach did you choose and why did it suit the situation?",
+      "criteria": [
+        "Explain why the chosen approach addressed the situation.",
+        "Use clear language."
+      ]
+    },
+    "answer": "I chose to rotate the gardening duties every week because the previous fixed assignments left all heavy watering tasks to the same two students.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-decision_reason_missing-2-vi-missing",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Bạn chọn cách làm gì và vì sao phù hợp tình huống?",
+      "criteria": [
+        "Giải thích vì sao cách đã chọn giải quyết được tình huống.",
+        "Diễn đạt rõ ràng."
+      ]
+    },
+    "answer": "Mình chọn luân phiên việc chăm vườn mỗi tuần.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing",
+    "expected_criterion_index": 0
+  },
+  {
+    "id": "fresh-decision_reason_missing-2-vi-complete",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Bạn chọn cách làm gì và vì sao phù hợp tình huống?",
+      "criteria": [
+        "Giải thích vì sao cách đã chọn giải quyết được tình huống.",
+        "Diễn đạt rõ ràng."
+      ]
+    },
+    "answer": "Mình chọn luân phiên việc chăm vườn mỗi tuần vì cách chia cố định trước đó khiến hai bạn luôn phải làm toàn bộ phần tưới nặng.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-result_evidence_missing-1-en-missing",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What improved and how did you check that it improved?",
+      "criteria": [
+        "Use clear language.",
+        "Explain how you checked the improvement you claimed."
+      ]
+    },
+    "answer": "The new cupboard layout made lab preparation faster.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing",
+    "expected_criterion_index": 1
+  },
+  {
+    "id": "fresh-result_evidence_missing-1-en-complete",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What improved and how did you check that it improved?",
+      "criteria": [
+        "Use clear language.",
+        "Explain how you checked the improvement you claimed."
+      ]
+    },
+    "answer": "The new cupboard layout made lab preparation faster. I timed the same three preparation tasks before and after moving the equipment, and each took fewer minutes afterwards.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-result_evidence_missing-1-vi-missing",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Điều gì tốt hơn và bạn kiểm tra việc đó thế nào?",
+      "criteria": [
+        "Diễn đạt rõ ràng.",
+        "Giải thích cách kiểm tra kết quả cải thiện đã nêu."
+      ]
+    },
+    "answer": "Cách xếp tủ mới giúp chuẩn bị phòng thực hành nhanh hơn.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing",
+    "expected_criterion_index": 1
+  },
+  {
+    "id": "fresh-result_evidence_missing-1-vi-complete",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Điều gì tốt hơn và bạn kiểm tra việc đó thế nào?",
+      "criteria": [
+        "Diễn đạt rõ ràng.",
+        "Giải thích cách kiểm tra kết quả cải thiện đã nêu."
+      ]
+    },
+    "answer": "Cách xếp tủ mới giúp chuẩn bị phòng thực hành nhanh hơn. Tôi bấm giờ cùng ba việc chuẩn bị trước và sau khi chuyển thiết bị, cả ba đều tốn ít phút hơn sau đó.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-result_evidence_missing-2-en-missing",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What improved and how did you check that it improved?",
+      "criteria": [
+        "Explain how you checked the improvement you claimed.",
+        "Use clear language."
+      ]
+    },
+    "answer": "The revised worksheet helped children solve the exercise more independently.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing",
+    "expected_criterion_index": 0
+  },
+  {
+    "id": "fresh-result_evidence_missing-2-en-complete",
+    "category": "fresh-domains",
+    "language": "en",
+    "question": {
+      "text": "What improved and how did you check that it improved?",
+      "criteria": [
+        "Explain how you checked the improvement you claimed.",
+        "Use clear language."
+      ]
+    },
+    "answer": "The revised worksheet helped children solve the exercise more independently. I observed the same four pupils using both versions, and counted fewer requests for help with the revised one.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  },
+  {
+    "id": "fresh-result_evidence_missing-2-vi-missing",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Điều gì tốt hơn và bạn kiểm tra việc đó thế nào?",
+      "criteria": [
+        "Giải thích cách kiểm tra kết quả cải thiện đã nêu.",
+        "Diễn đạt rõ ràng."
+      ]
+    },
+    "answer": "Phiếu bài tập sửa lại giúp các em tự giải bài tốt hơn.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing",
+    "expected_criterion_index": 0
+  },
+  {
+    "id": "fresh-result_evidence_missing-2-vi-complete",
+    "category": "fresh-domains",
+    "language": "vi",
+    "question": {
+      "text": "Điều gì tốt hơn và bạn kiểm tra việc đó thế nào?",
+      "criteria": [
+        "Giải thích cách kiểm tra kết quả cải thiện đã nêu.",
+        "Diễn đạt rõ ràng."
+      ]
+    },
+    "answer": "Phiếu bài tập sửa lại giúp các em tự giải bài tốt hơn. Em quan sát cùng bốn học sinh dùng hai bản và đếm được ít lần nhờ giúp ở bản sửa.",
+    "expected_ask": false,
+    "expected_gap": null,
+    "expected_criterion_index": null
+  }
+]

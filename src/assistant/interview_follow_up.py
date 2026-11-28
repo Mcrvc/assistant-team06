@@ -3,9 +3,35 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
-from assistant.ai import complete
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field
+from assistant.ai import AiConfigError, AiResponseError, _http_json, call_with_retry, get_config
 
 GAPS = {"personal_action_missing", "decision_reason_missing", "result_evidence_missing"}
+GAP_ALIASES = {gap.removesuffix("_missing"): gap for gap in GAPS}
+Gap = Literal["personal_action_missing", "decision_reason_missing", "result_evidence_missing"]
+
+
+class CoverageRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    criterion_index: int = Field(ge=0, le=5)
+    gap: Gap | None
+    status: Literal["present", "missing", "uncertain", "not_applicable"]
+    quote: str = Field(max_length=300)
+    missing_information: str = Field(max_length=500)
+
+
+class QuestionRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    criterion_index: int = Field(ge=0, le=5)
+    gap: Gap
+    question: str = Field(min_length=1, max_length=500)
+
+
+class CoverageReply(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    coverage: list[CoverageRow] = Field(min_length=1, max_length=24)
+    questions: list[QuestionRow] = Field(max_length=18)
 
 
 def expired(item: dict) -> bool:
@@ -13,15 +39,36 @@ def expired(item: dict) -> bool:
     return (datetime.now(timezone.utc) - started).total_seconds() > 900
 
 
+def _request_json(messages: list[dict]) -> str:
+    cfg = get_config()
+    if not cfg.llm_ready:
+        raise AiConfigError("NVIDIA is not configured")
+    payload = {
+        "model": cfg.model, "messages": messages, "max_tokens": 4096,
+        "temperature": 0, "stream": False, "reasoning_effort": "none",
+        "response_format": {"type": "json_schema", "json_schema": {
+            "name": "interview_follow_up_coverage", "strict": True,
+            "schema": CoverageReply.model_json_schema(),
+        }},
+    }
+
+    def request() -> str:
+        _, body = _http_json(cfg.base_url, method="POST",
+                             headers={"Authorization": f"Bearer {cfg.nvidia_api_key}"},
+                             payload=payload, timeout_s=30)
+        try:
+            content = body["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            raise AiResponseError("Invalid coverage response") from None
+        if not isinstance(content, str) or not content.strip():
+            raise AiResponseError("Empty coverage response")
+        return content
+
+    return call_with_retry(request, attempts=1, delay_s=1)
+
+
 def _json_reply(messages: list[dict]) -> dict:
-    reply = complete(messages, max_tokens=4096, temperature=0, timeout_s=30)
-    raw = reply.text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-    result = json.loads(raw)
-    if not isinstance(result, dict):
-        raise ValueError("Invalid follow-up decision")
-    return result
+    return CoverageReply.model_validate_json(_request_json(messages)).model_dump()
 
 
 _COVERAGE_RULES = (
@@ -48,16 +95,23 @@ _COVERAGE_RULES = (
     "reports no improvement, do not invent an improvement claim. Information supplied earlier "
     "or in other words counts. If a prior follow-up already asked this gap, mark it present. "
     "Use uncertain whenever the omission is debatable; prefer avoiding redundant questions. "
-    "Return JSON coverage: one entry per criterion with criterion_index and checks. "
-    "checks contains only applicable gap types, each with gap, status (present, missing, uncertain), "
-    "and evidence (up to two exact contiguous quotes, each 1-300 characters, from the current answer). "
-    "For present, cite the passage that supplies the information. If it was covered by a previous "
-    "follow-up, use status uncertain and evidence:[]. For missing, evidence must quote the "
-    "existing action/choice/outcome being clarified, and missing_information must specify "
-    "ONE basic fact absent from the whole answer, max 500 characters. "
-    "Use checks:[] when none of the three gap types apply to this criterion. "
-    "Emit each criterion_index exactly once; do not append a second empty entry for it. "
-    "Do not duplicate a gap type within a criterion. Escape quotes inside JSON strings. No markdown. "
+    "Return JSON with a flat coverage list. Each record has criterion_index (zero-based), "
+    "gap, status (present, missing, uncertain, not_applicable), quote and missing_information. "
+    "Only assess a gap when the criterion EXPLICITLY requests that kind of information. "
+    "For a criterion about reasons, do not add checks about actions or result verification. "
+    "For a criterion about personal actions, do not add checks about reasons or measurement. "
+    "Include at least one record for each criterion. For a criterion unrelated to all three "
+    "types use gap:null, status:not_applicable, quote:\"\". "
+    "quote must be ONE exact contiguous substring of 1-300 characters from the current answer "
+    "for present or missing. For present quote the information that satisfies the criterion. "
+    "For missing quote the claim being clarified and describe ONE basic absent fact in "
+    "missing_information, max 500 characters. For uncertain quote may be empty. "
+    "If the prior follow-ups cover the gap, mark uncertain and do not ask it again. "
+    "Use full gap enum names including _missing even for present records. Escape JSON strings. "
+    'Output shape example: {"coverage":[{"criterion_index":0,"gap":"personal_action_missing",'
+    '"status":"present","quote":"exact answer quote","missing_information":""}],"questions":[]}. '
+    "Choose actual types, statuses and quotes from the input. Close the outer JSON object. "
+    "No markdown. "
 )
 
 
@@ -70,39 +124,35 @@ def _coverage(payload: dict, criteria: list, answer: str) -> dict:
     for entry in entries:
         if not isinstance(entry, dict):
             raise ValueError("Invalid criterion coverage")
-        index, checks = entry.get("criterion_index"), entry.get("checks")
+        index = entry.get("criterion_index")
         if type(index) is not int or not 0 <= index < len(criteria):
             raise ValueError("Invalid criterion index")
-        if not isinstance(checks, list) or len(checks) > len(GAPS):
-            raise ValueError("Invalid criterion checks")
         seen.add(index)
-        for check in checks:
-            if not isinstance(check, dict):
-                raise ValueError("Invalid coverage finding")
-            gap, status, evidence = check.get("gap"), check.get("status"), check.get("evidence")
-            if not isinstance(gap, str) or gap not in GAPS:
-                raise ValueError("Invalid gap")
-            if status not in ("present", "missing", "uncertain"):
-                raise ValueError("Invalid coverage status")
-            if not isinstance(evidence, list) or len(evidence) > 2:
-                raise ValueError("Invalid evidence")
-            if status != "uncertain" and not evidence:
-                raise ValueError("Evidence required")
-            for quote in evidence:
-                if not isinstance(quote, str) or not quote.strip() or len(quote) > 300 or quote not in answer:
-                    raise ValueError("Ungrounded coverage evidence")
-            if status == "missing":
-                info = check.get("missing_information")
-                if not isinstance(info, str) or not info.strip() or len(info) > 500:
-                    raise ValueError("Missing information must be specific")
-            key = index, gap
-            if key in findings:
-                # Repeated identical findings add no information. Conflicting assessments
-                # are uncertain, so a duplicate can never turn a covered point into a question.
-                if findings[key]["status"] != status:
-                    findings[key] = {"status": "uncertain", "evidence": []}
-            else:
-                findings[key] = check
+        gap, status, quote = entry.get("gap"), entry.get("status"), entry.get("quote", "")
+        if status == "not_applicable" and gap is None:
+            continue
+        if isinstance(gap, str):
+            gap = GAP_ALIASES.get(gap, gap)
+        if not isinstance(gap, str) or gap not in GAPS:
+            raise ValueError("Invalid gap")
+        if status not in ("present", "missing", "uncertain"):
+            raise ValueError("Invalid coverage status")
+        if not isinstance(quote, str) or len(quote) > 300:
+            raise ValueError("Invalid coverage evidence")
+        if status != "uncertain" and not quote.strip():
+            raise ValueError("Evidence required")
+        if quote and quote not in answer:
+            raise ValueError("Ungrounded coverage evidence")
+        info = entry.get("missing_information", "")
+        if status == "missing" and (not isinstance(info, str) or not info.strip() or len(info) > 500):
+            raise ValueError("Missing information must be specific")
+        finding = {"status": status, "evidence": [quote] if quote else [], "missing_information": info}
+        key = index, gap
+        if key in findings:
+            if findings[key]["status"] != status:
+                findings[key] = {"status": "uncertain", "evidence": []}
+        else:
+            findings[key] = finding
     if len(seen) != len(criteria):
         raise ValueError("Incomplete criterion coverage")
     return findings
@@ -113,7 +163,7 @@ def generate(question: dict, answer: str, previous: list[dict]) -> dict | None:
     context = {"question": question["text"], "criteria": criteria, "answer": answer,
                "previous_follow_ups": previous}
     assessment = _json_reply([
-        {"role": "system", "content": _COVERAGE_RULES + "Assess coverage only; do not write questions."},
+        {"role": "system", "content": _COVERAGE_RULES + "Assess coverage only; return questions:[] in this first pass."},
         {"role": "user", "content": json.dumps(context, ensure_ascii=False)},
     ])
     first = _coverage(assessment, criteria, answer)
@@ -143,6 +193,7 @@ def generate(question: dict, answer: str, previous: list[dict]) -> dict | None:
         index, gap = item.get("criterion_index"), item.get("gap")
         if type(index) is not int or not isinstance(gap, str):
             raise ValueError("Invalid question key")
+        gap = GAP_ALIASES.get(gap, gap)
         key = index, gap
         if key in used:
             raise ValueError("Repeated question key")
