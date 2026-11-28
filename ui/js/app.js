@@ -2279,7 +2279,23 @@
         colDate.className = "col-date-text";
         colDate.textContent = interview.date;
 
-        // Col 3: Status
+        // Col 3: Progress (answered questions / total questions)
+        const rawTotal = Math.max(
+          Number.isInteger(interview.totalQuestions) ? interview.totalQuestions : 0,
+          Array.isArray(interview.questions) ? interview.questions.length : 0,
+          Array.isArray(interview.answers) ? interview.answers.length : 0
+        );
+        const totalQuestions = rawTotal > 0 ? rawTotal : 3;
+        const answeredQuestions = interview.finished
+          ? totalQuestions
+          : (Array.isArray(interview.answers)
+            ? interview.answers.filter(answer => typeof answer === "string" && answer.trim()).length
+            : 0);
+        const colProgress = document.createElement("div");
+        colProgress.className = "col-progress-text";
+        colProgress.textContent = `${Math.min(answeredQuestions, totalQuestions)} / ${totalQuestions} Questions`;
+
+        // Col 4: Status
         const colStatus = document.createElement("div");
         colStatus.className = "col-status-wrap";
 
@@ -2288,12 +2304,12 @@
         status.textContent = interview.finished ? "Finished" : "Unfinished";
         colStatus.append(status);
 
-        // Col 4: Actions (View report / Continue + Delete)
+        // Col 5: Actions (View report / Continue + Delete)
         const colActions = document.createElement("div");
         colActions.className = "col-actions-group";
 
         const actionLink = document.createElement("a");
-        actionLink.className = "btn btn-secondary btn-session-action";
+        actionLink.className = "btn btn-primary btn-session-action";
         actionLink.href = interview.finished
           ? "report.html"
           : (interview.server && interview.id ? `interview.html?id=${encodeURIComponent(interview.id)}` : "interview.html");
@@ -2306,9 +2322,11 @@
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "btn-session-delete";
         deleteBtn.type = "button";
-        deleteBtn.textContent = "Delete";
         deleteBtn.title = "Delete this interview";
+        deleteBtn.setAttribute("aria-label", `Delete ${interview.name}`);
+        deleteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg>`;
         deleteBtn.addEventListener("click", async () => {
+          if (!window.confirm(`Delete "${interview.name}"? This cannot be undone.`)) return;
           if (interview.server === true && interview.id) {
             const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}`, {
               method: "DELETE",
@@ -2327,7 +2345,7 @@
 
         colActions.append(actionLink, deleteBtn);
 
-        row.append(colName, colDate, colStatus, colActions);
+        row.append(colName, colDate, colProgress, colStatus, colActions);
         listContainer.append(row);
       });
     }
