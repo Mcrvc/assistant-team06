@@ -78,6 +78,44 @@
       }
     }
   </style>
+  <style id="yori-badge-motion">
+    /* Scoped micro-motion for the small YORI icon in the hero pill badge. */
+    .dashboard-hero-banner .hero-yori-badge {
+      --yori-badge-face-x: 0px;
+      --yori-badge-face-y: 0px;
+    }
+
+    /* Only the inner eyes and smile glide; helmet, ears and antenna stay frozen. */
+    .dashboard-hero-banner .hero-yori-badge #yori-badge-face {
+      transform: translate(var(--yori-badge-face-x), var(--yori-badge-face-y));
+    }
+
+    .dashboard-hero-banner .hero-yori-badge .yori-badge-eyes {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .dashboard-hero-banner .hero-yori-badge .hero-yori-svg {
+        animation: yoriBadgeFloat 3s ease-in-out infinite;
+      }
+
+      /* One quick blink on page load. */
+      .dashboard-hero-banner .hero-yori-badge .yori-badge-eyes.is-blinking {
+        animation: yoriBadgeBlink 0.32s ease-out 1 both;
+      }
+
+      @keyframes yoriBadgeFloat {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-2px); }
+      }
+
+      @keyframes yoriBadgeBlink {
+        0% { transform: scaleY(0.1); }
+        100% { transform: scaleY(1); }
+      }
+    }
+  </style>
   <script src="js/data.js?v=20261118" defer></script>
   <script src="js/ui.js?v=20261118" defer></script>
   <script src="js/errors.js?v=20261118" defer></script>
@@ -123,22 +161,30 @@
       <div class="hero-yori-badge">
         <span class="hero-yori-avatar" aria-hidden="true">
           <svg class="hero-yori-svg" viewBox="0 0 88 76" width="28" height="24">
+            <!-- Antenna (frozen) -->
             <line x1="44" y1="18" x2="44" y2="9" stroke="#4F8F9B" stroke-width="3" stroke-linecap="round"/>
             <circle cx="44" cy="7" r="5" fill="#92C7CF" stroke="#4F8F9B" stroke-width="1.5"/>
             <circle cx="42.5" cy="5.5" r="1.5" fill="#FBF9F1"/>
+            <!-- Side ears (frozen) -->
             <rect x="4" y="33" width="8" height="19" rx="4" fill="#4F8F9B"/>
             <circle cx="8" cy="42.5" r="2" fill="#92C7CF"/>
             <rect x="76" y="33" width="8" height="19" rx="4" fill="#4F8F9B"/>
             <circle cx="80" cy="42.5" r="2" fill="#92C7CF"/>
+            <!-- Outer helmet and dark visor (frozen) -->
             <rect x="10" y="18" width="68" height="48" rx="18" fill="#FBF9F1" stroke="#4F8F9B" stroke-width="2.6"/>
             <rect x="17" y="24" width="54" height="36" rx="13" fill="#203D43"/>
             <circle cx="23.5" cy="47.5" r="3" fill="#F4A5A5" opacity="0.78"/>
             <circle cx="64.5" cy="47.5" r="3" fill="#F4A5A5" opacity="0.78"/>
-            <ellipse cx="31" cy="38.5" rx="4.6" ry="5.5" fill="#92C7CF"/>
-            <circle cx="32.6" cy="36.4" r="1.8" fill="#FFFFFF"/>
-            <ellipse cx="57" cy="38.5" rx="4.6" ry="5.5" fill="#92C7CF"/>
-            <circle cx="58.6" cy="36.4" r="1.8" fill="#FFFFFF"/>
-            <path d="M 36.5 47.5 Q 44 54 51.5 47.5" stroke="#92C7CF" stroke-width="2.7" stroke-linecap="round" fill="none"/>
+            <!-- Only the inner eyes and smile glide inside the visor. -->
+            <g id="yori-badge-face">
+              <g class="yori-badge-eyes">
+                <ellipse cx="31" cy="38.5" rx="4.6" ry="5.5" fill="#92C7CF"/>
+                <circle cx="32.6" cy="36.4" r="1.8" fill="#FFFFFF"/>
+                <ellipse cx="57" cy="38.5" rx="4.6" ry="5.5" fill="#92C7CF"/>
+                <circle cx="58.6" cy="36.4" r="1.8" fill="#FFFFFF"/>
+              </g>
+              <path d="M 36.5 47.5 Q 44 54 51.5 47.5" stroke="#92C7CF" stroke-width="2.7" stroke-linecap="round" fill="none"/>
+            </g>
           </svg>
         </span>
         <span>YORI Assistant · Ready when you are</span>
@@ -461,6 +507,117 @@
         motionQuery.addEventListener("change", event => {
           if (!event.matches) return;
           stopWave();
+          resetFace();
+        });
+      }
+
+      if (reduceMotion()) return;
+      window.addEventListener("mousemove", onMouseMove, { passive: true });
+      document.addEventListener("mouseleave", resetFace);
+      window.addEventListener("blur", resetFace);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init, { once: true });
+    } else {
+      init();
+    }
+  })();
+</script>
+<script id="yori-badge-motion-script">
+  (() => {
+    const MAX_X = 1.5;
+    const MAX_Y = 1;
+    const LERP = 0.12;
+    const BLINK_MS = 320;
+
+    function init() {
+      const badge = document.querySelector(".dashboard-hero-banner .hero-yori-badge");
+      if (!badge) return;
+
+      const icon = badge.querySelector(".hero-yori-svg");
+      const face = badge.querySelector("#yori-badge-face");
+      const eyes = badge.querySelector(".yori-badge-eyes");
+      if (!icon || !face || !eyes) return;
+
+      const motionQuery = window.matchMedia
+        ? window.matchMedia("(prefers-reduced-motion: reduce)")
+        : null;
+      const reduceMotion = () => Boolean(motionQuery && motionQuery.matches);
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+      let frame = 0;
+      let targetX = 0;
+      let targetY = 0;
+      let currentX = 0;
+      let currentY = 0;
+      let blinkTimer = 0;
+
+      // The same rAF + lerp approach as the big mascot, but tiny and subtle.
+      function renderFace() {
+        currentX += (targetX - currentX) * LERP;
+        currentY += (targetY - currentY) * LERP;
+        if (Math.abs(targetX - currentX) < 0.01) currentX = targetX;
+        if (Math.abs(targetY - currentY) < 0.01) currentY = targetY;
+
+        badge.style.setProperty("--yori-badge-face-x", `${currentX.toFixed(2)}px`);
+        badge.style.setProperty("--yori-badge-face-y", `${currentY.toFixed(2)}px`);
+
+        frame = (currentX === targetX && currentY === targetY)
+          ? 0
+          : requestAnimationFrame(renderFace);
+      }
+
+      function scheduleFace() {
+        if (!frame) frame = requestAnimationFrame(renderFace);
+      }
+
+      function onMouseMove(event) {
+        if (reduceMotion()) return;
+        const rect = icon.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+
+        const halfWidth = rect.width / 2;
+        const halfHeight = rect.height / 2;
+        const centerX = rect.left + halfWidth;
+        const centerY = rect.top + halfHeight;
+        const normX = clamp((event.clientX - centerX) / halfWidth, -1, 1);
+        const normY = clamp((event.clientY - centerY) / halfHeight, -1, 1);
+
+        targetX = normX * MAX_X;
+        targetY = normY * MAX_Y;
+        scheduleFace();
+      }
+
+      function resetFace() {
+        targetX = 0;
+        targetY = 0;
+        scheduleFace();
+      }
+
+      function stopBlink() {
+        if (blinkTimer) {
+          window.clearTimeout(blinkTimer);
+          blinkTimer = 0;
+        }
+        eyes.classList.remove("is-blinking");
+      }
+
+      function startBlink() {
+        if (reduceMotion()) return;
+        stopBlink();
+        void eyes.getBoundingClientRect(); // clean restart if re-run
+        eyes.classList.add("is-blinking");
+        blinkTimer = window.setTimeout(stopBlink, BLINK_MS);
+      }
+
+      // Quick blink once on page load.
+      startBlink();
+
+      if (motionQuery && motionQuery.addEventListener) {
+        motionQuery.addEventListener("change", event => {
+          if (!event.matches) return;
+          stopBlink();
           resetFace();
         });
       }
