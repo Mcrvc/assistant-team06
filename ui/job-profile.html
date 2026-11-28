@@ -44,7 +44,7 @@
   </nav>
 </header>
 <main id="main" class="page form-page">
-  <form class="panel" id="job-form" novalidate>
+  <form class="panel" id="job-form" novalidate inert>
     <div class="panel-header">
       <h2>Job Profile</h2>
       <div class="panel-header-action">
@@ -59,7 +59,7 @@
       <div id="job-paste-mode">
         <div class="field job-primary-field">
           <label for="job-source">Paste job description, HTML, or job link</label>
-          <textarea id="job-source" rows="5" maxlength="12000" placeholder="Paste a job posting URL (https://...), raw job description text, or copied HTML here so we can scan the role details..." data-job></textarea>
+          <textarea id="job-source" rows="5" maxlength="12000" placeholder="Paste a job posting URL (https://...), raw job description text, or copied HTML here so we can scan the role details..." data-job readonly></textarea>
         </div>
       </div>
 
@@ -182,7 +182,7 @@
 
     <p class="form-error" id="job-error" role="alert" hidden></p>
     <div class="form-bottom align-end">
-      <button class="btn" type="submit">Continue <span aria-hidden="true">→</span></button>
+      <button class="btn" type="submit" disabled>Continue <span aria-hidden="true">→</span></button>
     </div>
   </form>
 </main>

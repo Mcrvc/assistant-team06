@@ -2104,6 +2104,10 @@ td:first-child { max-width: 320px; overflow-wrap: anywhere; }
 .report-columns > section { padding: 20px 24px; border-radius: 14px; display: flex; flex-direction: column; }
 .answer-block { background: #fbfcfb; border: 1px solid #e4ece9; }
 .feedback-block { background: var(--soft); border: 1px solid #d5e5e2; }
+.report-columns:has(.report-follow-up) { grid-template-columns: 1fr; }
+.report-follow-up p + p { margin-top: 16px; }
+.feedback-block details { margin-top: 16px; }
+.feedback-block blockquote { margin: 12px 0 0; overflow-wrap: anywhere; }
 .report-col-header {
   display: flex;
   align-items: center;

@@ -1,0 +1,175 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "corpus_sha256": "188e839f94da6266c5f96e744c1d36c4d8fc9aa9b2529adcfdfbc622bd38488a",
+  "completed": 12,
+  "total": 12,
+  "results": [
+    {
+      "id": "multi-en-personal_action_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Our group chose a queue instead of increasing HTTP timeouts because conversions took much longer than uploads and keeping connections open exhausted the web workers.",
+        "missing_information": "The answer describes a group decision but does not state what you personally did to implement or introduce the queue.",
+        "question": "What specific actions did you personally take to implement or introduce the queue?"
+      },
+      "category": "multiple-criteria",
+      "language": "en",
+      "seconds": 1.85
+    },
+    {
+      "id": "multi-en-decision_reason_missing",
+      "expected": true,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "en",
+      "seconds": 2.12
+    },
+    {
+      "id": "multi-en-result_evidence_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 2,
+        "gap": "result_evidence_missing",
+        "quote": "The change reduced timeouts.",
+        "missing_information": "The answer claims timeouts were reduced but does not explain how this was verified, such as metrics, monitoring, or test results.",
+        "question": "How did you verify that the change reduced timeouts?"
+      },
+      "category": "multiple-criteria",
+      "language": "en",
+      "seconds": 1.81
+    },
+    {
+      "id": "multi-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "en",
+      "seconds": 0.61
+    },
+    {
+      "id": "multi-en-irrelevant-result",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "criterion-relevance",
+      "language": "en",
+      "seconds": 1.7
+    },
+    {
+      "id": "multi-en-previous",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria-previous",
+      "language": "en",
+      "seconds": 0.66
+    },
+    {
+      "id": "multi-vi-personal_action_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Nhóm chọn hàng đợi thay vì tăng thời gian chờ HTTP vì chuyển đổi lâu hơn tải lên nhiều, giữ kết nối mở sẽ chiếm hết tiến trình web. Nhóm chạy lại cùng bốn mươi lượt tải lên trên máy thử trước và sau; số lượt hết thời gian giảm từ mười hai xuống một.",
+        "missing_information": "Câu trả lời chỉ dùng 'Nhóm' cho cả quyết định và kiểm tra, chưa nêu hành động cụ thể do bạn cá nhân thực hiện.",
+        "question": "Bạn trực tiếp làm gì trong việc chọn và triển khai hàng đợi, và bạn đã chạy thử hay kiểm tra kết quả như thế nào?"
+      },
+      "category": "multiple-criteria",
+      "language": "vi",
+      "seconds": 2.32
+    },
+    {
+      "id": "multi-vi-decision_reason_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": false,
+      "criterion_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Em chọn hàng đợi thay vì tăng thời gian chờ HTTP. Em viết tiến trình xử lý và thêm kiểm thử tích hợp.",
+        "missing_information": "Câu trả lời dùng 'Em' nhưng không tách biệt rõ hành động cá nhân của bạn với công việc chung của nhóm, ví dụ việc chọn hàng đợi có phải là quyết định cá nhân hay của toàn nhóm không.",
+        "question": "Bạn cá nhân đã làm gì cụ thể trong việc thay đổi này, khác với những gì thành viên khác trong nhóm đã làm?"
+      },
+      "category": "multiple-criteria",
+      "language": "vi",
+      "seconds": 8.46
+    },
+    {
+      "id": "multi-vi-result_evidence_missing",
+      "expected": true,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "vi",
+      "seconds": 0.67
+    },
+    {
+      "id": "multi-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "vi",
+      "seconds": 0.6
+    },
+    {
+      "id": "multi-vi-irrelevant-result",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "criterion-relevance",
+      "language": "vi",
+      "seconds": 0.6
+    },
+    {
+      "id": "multi-vi-previous",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria-previous",
+      "language": "vi",
+      "seconds": 0.61
+    }
+  ],
+  "summary": {
+    "cases": 12,
+    "provider_errors": 0,
+    "unnecessary_questions": 0,
+    "missed_questions": 2,
+    "wrong_gap": 1,
+    "wrong_criterion": 1,
+    "mean_seconds": 1.83,
+    "median_seconds": 1.19,
+    "max_seconds": 8.46
+  }
+}

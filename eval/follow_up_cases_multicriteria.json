@@ -1,0 +1,432 @@
+[
+  {
+    "id": "multi-en-personal_action_missing",
+    "category": "multiple-criteria",
+    "language": "en",
+    "question": {
+      "text": "Describe a team project change, your own contribution, why you chose it, and how you checked the result.",
+      "criteria": [
+        "Describe actions you personally took.",
+        "Explain why you chose this approach over the stated alternative.",
+        "Explain how you verified the claimed outcome."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Personal contribution",
+            "points": 4,
+            "good": "Describe actions you personally took."
+          },
+          {
+            "name": "Decision rationale",
+            "points": 3,
+            "good": "Explain why you chose this approach over the stated alternative."
+          },
+          {
+            "name": "Verified result",
+            "points": 3,
+            "good": "Explain how you verified the claimed outcome."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "Our group chose a queue instead of increasing HTTP timeouts because conversions took much longer than uploads and keeping connections open exhausted the web workers. We replayed the same forty uploads on staging before and after; twelve timed out before and one after.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing",
+    "expected_criterion_index": 0
+  },
+  {
+    "id": "multi-en-decision_reason_missing",
+    "category": "multiple-criteria",
+    "language": "en",
+    "question": {
+      "text": "Describe a team project change, your own contribution, why you chose it, and how you checked the result.",
+      "criteria": [
+        "Describe actions you personally took.",
+        "Explain why you chose this approach over the stated alternative.",
+        "Explain how you verified the claimed outcome."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Personal contribution",
+            "points": 4,
+            "good": "Describe actions you personally took."
+          },
+          {
+            "name": "Decision rationale",
+            "points": 3,
+            "good": "Explain why you chose this approach over the stated alternative."
+          },
+          {
+            "name": "Verified result",
+            "points": 3,
+            "good": "Explain how you verified the claimed outcome."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "I chose a queue rather than increasing HTTP timeouts. I implemented the worker and added integration tests. Replaying the same forty uploads on staging before and after showed twelve timeouts before and one after.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing",
+    "expected_criterion_index": 1
+  },
+  {
+    "id": "multi-en-result_evidence_missing",
+    "category": "multiple-criteria",
+    "language": "en",
+    "question": {
+      "text": "Describe a team project change, your own contribution, why you chose it, and how you checked the result.",
+      "criteria": [
+        "Describe actions you personally took.",
+        "Explain why you chose this approach over the stated alternative.",
+        "Explain how you verified the claimed outcome."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Personal contribution",
+            "points": 4,
+            "good": "Describe actions you personally took."
+          },
+          {
+            "name": "Decision rationale",
+            "points": 3,
+            "good": "Explain why you chose this approach over the stated alternative."
+          },
+          {
+            "name": "Verified result",
+            "points": 3,
+            "good": "Explain how you verified the claimed outcome."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "I implemented the queue worker and integration tests. I chose a queue rather than increasing HTTP timeouts because long conversions tied up web workers and kept upload connections open. The change reduced timeouts.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing",
+    "expected_criterion_index": 2
+  },
+  {
+    "id": "multi-en-complete",
+    "category": "multiple-criteria",
+    "language": "en",
+    "question": {
+      "text": "Describe a team project change, your own contribution, why you chose it, and how you checked the result.",
+      "criteria": [
+        "Describe actions you personally took.",
+        "Explain why you chose this approach over the stated alternative.",
+        "Explain how you verified the claimed outcome."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Personal contribution",
+            "points": 4,
+            "good": "Describe actions you personally took."
+          },
+          {
+            "name": "Decision rationale",
+            "points": 3,
+            "good": "Explain why you chose this approach over the stated alternative."
+          },
+          {
+            "name": "Verified result",
+            "points": 3,
+            "good": "Explain how you verified the claimed outcome."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "I implemented the queue worker and integration tests. I chose a queue instead of increasing HTTP timeouts because long conversions tied up web workers and kept upload connections open. I replayed the same forty uploads on staging before and after; twelve timed out before and one after.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "multi-en-irrelevant-result",
+    "category": "criterion-relevance",
+    "language": "en",
+    "question": {
+      "text": "Describe a team project change, your own contribution, why you chose it, and how you checked the result.",
+      "criteria": [
+        "Describe actions you personally took.",
+        "Explain why you chose this approach over the stated alternative.",
+        "Explain how you verified the claimed outcome."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Personal contribution",
+            "points": 4,
+            "good": "Describe actions you personally took."
+          }
+        ],
+        "max_score": 4
+      }
+    },
+    "answer": "I implemented the queue worker and integration tests. I chose a queue rather than increasing HTTP timeouts because long conversions tied up web workers and kept upload connections open. The change reduced timeouts.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "multi-en-previous",
+    "category": "multiple-criteria-previous",
+    "language": "en",
+    "question": {
+      "text": "Describe a team project change, your own contribution, why you chose it, and how you checked the result.",
+      "criteria": [
+        "Describe actions you personally took.",
+        "Explain why you chose this approach over the stated alternative.",
+        "Explain how you verified the claimed outcome."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Personal contribution",
+            "points": 4,
+            "good": "Describe actions you personally took."
+          },
+          {
+            "name": "Decision rationale",
+            "points": 3,
+            "good": "Explain why you chose this approach over the stated alternative."
+          },
+          {
+            "name": "Verified result",
+            "points": 3,
+            "good": "Explain how you verified the claimed outcome."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "I implemented the queue worker and integration tests. I chose a queue rather than increasing HTTP timeouts because long conversions tied up web workers and kept upload connections open. The change reduced timeouts.",
+    "previous": [
+      {
+        "question": "How did you verify the timeout reduction?",
+        "answer": "I replayed forty uploads before and after."
+      }
+    ],
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "multi-vi-personal_action_missing",
+    "category": "multiple-criteria",
+    "language": "vi",
+    "question": {
+      "text": "Kể về một thay đổi trong dự án nhóm, việc bạn trực tiếp làm, lý do lựa chọn và cách kiểm tra kết quả.",
+      "criteria": [
+        "Nêu hành động do chính bạn thực hiện.",
+        "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu.",
+        "Nêu cách xác nhận kết quả đã khẳng định."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Đóng góp cá nhân",
+            "points": 4,
+            "good": "Nêu hành động do chính bạn thực hiện."
+          },
+          {
+            "name": "Lý do lựa chọn",
+            "points": 3,
+            "good": "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu."
+          },
+          {
+            "name": "Kiểm tra kết quả",
+            "points": 3,
+            "good": "Nêu cách xác nhận kết quả đã khẳng định."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "Nhóm chọn hàng đợi thay vì tăng thời gian chờ HTTP vì chuyển đổi lâu hơn tải lên nhiều, giữ kết nối mở sẽ chiếm hết tiến trình web. Nhóm chạy lại cùng bốn mươi lượt tải lên trên máy thử trước và sau; số lượt hết thời gian giảm từ mười hai xuống một.",
+    "expected_ask": true,
+    "expected_gap": "personal_action_missing",
+    "expected_criterion_index": 0
+  },
+  {
+    "id": "multi-vi-decision_reason_missing",
+    "category": "multiple-criteria",
+    "language": "vi",
+    "question": {
+      "text": "Kể về một thay đổi trong dự án nhóm, việc bạn trực tiếp làm, lý do lựa chọn và cách kiểm tra kết quả.",
+      "criteria": [
+        "Nêu hành động do chính bạn thực hiện.",
+        "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu.",
+        "Nêu cách xác nhận kết quả đã khẳng định."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Đóng góp cá nhân",
+            "points": 4,
+            "good": "Nêu hành động do chính bạn thực hiện."
+          },
+          {
+            "name": "Lý do lựa chọn",
+            "points": 3,
+            "good": "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu."
+          },
+          {
+            "name": "Kiểm tra kết quả",
+            "points": 3,
+            "good": "Nêu cách xác nhận kết quả đã khẳng định."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "Em chọn hàng đợi thay vì tăng thời gian chờ HTTP. Em viết tiến trình xử lý và thêm kiểm thử tích hợp. Chạy lại cùng bốn mươi lượt tải lên trên máy thử trước và sau cho thấy số lượt hết thời gian giảm từ mười hai xuống một.",
+    "expected_ask": true,
+    "expected_gap": "decision_reason_missing",
+    "expected_criterion_index": 1
+  },
+  {
+    "id": "multi-vi-result_evidence_missing",
+    "category": "multiple-criteria",
+    "language": "vi",
+    "question": {
+      "text": "Kể về một thay đổi trong dự án nhóm, việc bạn trực tiếp làm, lý do lựa chọn và cách kiểm tra kết quả.",
+      "criteria": [
+        "Nêu hành động do chính bạn thực hiện.",
+        "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu.",
+        "Nêu cách xác nhận kết quả đã khẳng định."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Đóng góp cá nhân",
+            "points": 4,
+            "good": "Nêu hành động do chính bạn thực hiện."
+          },
+          {
+            "name": "Lý do lựa chọn",
+            "points": 3,
+            "good": "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu."
+          },
+          {
+            "name": "Kiểm tra kết quả",
+            "points": 3,
+            "good": "Nêu cách xác nhận kết quả đã khẳng định."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "Em viết tiến trình xử lý hàng đợi và kiểm thử tích hợp. Em chọn hàng đợi thay vì tăng thời gian chờ HTTP vì chuyển đổi lâu chiếm tiến trình web và giữ kết nối tải lên mở. Thay đổi giúp giảm số lượt hết thời gian.",
+    "expected_ask": true,
+    "expected_gap": "result_evidence_missing",
+    "expected_criterion_index": 2
+  },
+  {
+    "id": "multi-vi-complete",
+    "category": "multiple-criteria",
+    "language": "vi",
+    "question": {
+      "text": "Kể về một thay đổi trong dự án nhóm, việc bạn trực tiếp làm, lý do lựa chọn và cách kiểm tra kết quả.",
+      "criteria": [
+        "Nêu hành động do chính bạn thực hiện.",
+        "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu.",
+        "Nêu cách xác nhận kết quả đã khẳng định."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Đóng góp cá nhân",
+            "points": 4,
+            "good": "Nêu hành động do chính bạn thực hiện."
+          },
+          {
+            "name": "Lý do lựa chọn",
+            "points": 3,
+            "good": "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu."
+          },
+          {
+            "name": "Kiểm tra kết quả",
+            "points": 3,
+            "good": "Nêu cách xác nhận kết quả đã khẳng định."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "Em viết tiến trình xử lý hàng đợi và kiểm thử tích hợp. Em chọn hàng đợi thay vì tăng thời gian chờ HTTP vì chuyển đổi lâu chiếm tiến trình web và giữ kết nối mở. Em chạy lại cùng bốn mươi lượt tải lên trên máy thử trước và sau; số lượt hết thời gian giảm từ mười hai xuống một.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "multi-vi-irrelevant-result",
+    "category": "criterion-relevance",
+    "language": "vi",
+    "question": {
+      "text": "Kể về một thay đổi trong dự án nhóm, việc bạn trực tiếp làm, lý do lựa chọn và cách kiểm tra kết quả.",
+      "criteria": [
+        "Nêu hành động do chính bạn thực hiện.",
+        "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu.",
+        "Nêu cách xác nhận kết quả đã khẳng định."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Đóng góp cá nhân",
+            "points": 4,
+            "good": "Nêu hành động do chính bạn thực hiện."
+          }
+        ],
+        "max_score": 4
+      }
+    },
+    "answer": "Em viết tiến trình xử lý hàng đợi và kiểm thử tích hợp. Em chọn hàng đợi thay vì tăng thời gian chờ HTTP vì chuyển đổi lâu chiếm tiến trình web và giữ kết nối tải lên mở. Thay đổi giúp giảm số lượt hết thời gian.",
+    "expected_ask": false,
+    "expected_gap": null
+  },
+  {
+    "id": "multi-vi-previous",
+    "category": "multiple-criteria-previous",
+    "language": "vi",
+    "question": {
+      "text": "Kể về một thay đổi trong dự án nhóm, việc bạn trực tiếp làm, lý do lựa chọn và cách kiểm tra kết quả.",
+      "criteria": [
+        "Nêu hành động do chính bạn thực hiện.",
+        "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu.",
+        "Nêu cách xác nhận kết quả đã khẳng định."
+      ],
+      "rubric": {
+        "criteria": [
+          {
+            "name": "Đóng góp cá nhân",
+            "points": 4,
+            "good": "Nêu hành động do chính bạn thực hiện."
+          },
+          {
+            "name": "Lý do lựa chọn",
+            "points": 3,
+            "good": "Giải thích vì sao chọn cách này thay cho phương án còn lại đã nêu."
+          },
+          {
+            "name": "Kiểm tra kết quả",
+            "points": 3,
+            "good": "Nêu cách xác nhận kết quả đã khẳng định."
+          }
+        ],
+        "max_score": 10
+      }
+    },
+    "answer": "Em viết tiến trình xử lý hàng đợi và kiểm thử tích hợp. Em chọn hàng đợi thay vì tăng thời gian chờ HTTP vì chuyển đổi lâu chiếm tiến trình web và giữ kết nối tải lên mở. Thay đổi giúp giảm số lượt hết thời gian.",
+    "previous": [
+      {
+        "question": "Em xác nhận số lượt hết thời gian giảm như thế nào?",
+        "answer": "Em chạy lại bốn mươi lượt tải lên trước và sau."
+      }
+    ],
+    "expected_ask": false,
+    "expected_gap": null
+  }
+]

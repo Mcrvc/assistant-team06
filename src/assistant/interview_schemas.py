@@ -115,6 +115,42 @@ class FinalizeInterview(VersionedRequest):
     name: ShortText | None = None
 
 
+class StartFollowUp(VersionedRequest):
+    parent_index: int = Field(default=0, ge=0, le=14)
+    parent_grading_id: str = Field(min_length=1, max_length=200)
+
+
+class FollowUpAction(VersionedRequest):
+    request_id: str = Field(min_length=1, max_length=200)
+
+
+class FollowUpAnswer(FollowUpAction):
+    text: AnswerText
+
+    @model_validator(mode="after")
+    def nonempty(self) -> FollowUpAnswer:
+        if not self.text.strip():
+            raise ValueError("Answer must not be blank")
+        return self
+
+
+class FollowUp(Contract):
+    grading_retry_revision: int | None = None
+    automatic: bool = False
+    selected: bool = False
+    criterion_index: int | None = Field(default=None, ge=0, le=5)
+    gap: Literal["personal_action_missing", "decision_reason_missing", "result_evidence_missing"] | None = None
+    missing_information: str = Field(default="", max_length=500)
+    parent_index: int = Field(default=0, ge=0, le=14)
+    parent_grading_id: str
+    request_id: str
+    started_at: str
+    status: Literal["generating", "ready", "answered", "skipped", "unavailable", "not_needed", "invalidated"]
+    quote: str = Field(default="", max_length=300)
+    question: str = Field(default="", max_length=500)
+    answer: AnswerText = ""
+
+
 class AnswerState(Contract):
     text: AnswerText
     grading_status: Literal["unanswered", "draft", "pending", "graded", "rejected"]
@@ -132,6 +168,7 @@ class Progress(Contract):
 
 
 class ReportItem(Contract):
+    includes_follow_up: bool = False
     question_index: int
     question: Question
     answer: str
@@ -144,6 +181,8 @@ class ReportItem(Contract):
 
 
 class Report(Contract):
+    follow_ups: list[FollowUp] = Field(default_factory=list)
+    follow_up: FollowUp | None = None
     overall_score: float | None = None
     label: Literal["Good", "Needs Improvement", "Incomplete"]
     items: list[ReportItem]
@@ -156,6 +195,8 @@ class Report(Contract):
 
 
 class InterviewView(Contract):
+    follow_ups: list[FollowUp] = Field(default_factory=list)
+    follow_up: FollowUp | None = None
     id: str
     name: str
     job_profile: JobProfile

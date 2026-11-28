@@ -382,3 +382,33 @@ def test_rpc_grading_collision_keeps_user_draft_and_ai_grade(rpc_repository, mon
     with engine.connect() as conn:
         assert conn.execute(text('SELECT count(*) FROM grades')).scalar_one() >= 1
         assert conn.execute(text('SELECT count(*) FROM answers')).scalar_one() == 3
+
+
+@pytest.mark.slow
+def test_rpc_preserves_follow_up_and_report(rpc_repository, monkeypatch):
+    from assistant import interview_follow_up
+    from assistant.interview_schemas import StartFollowUp, FollowUpAnswer
+    repo, engine = rpc_repository
+    service, item = create(repo)
+    item, job = service.submit_answer(OWNER, item["id"], 0, SubmitAnswer(revision=0, text="I improved load times by 40%."))
+    service.grade_answer(OWNER, item["id"], 0, job)
+    item, request_id = service.start_follow_up(OWNER, item["id"], StartFollowUp(revision=item["revision"], parent_grading_id=job))
+    monkeypatch.setattr(interview_follow_up, "generate", lambda *args: {"quote": "40%", "question": "How did you measure it?"})
+    request_id = request_id or item["follow_up"]["request_id"]
+    service.generate_follow_up(OWNER, item["id"], request_id)
+    item = service.get(OWNER, item["id"])
+    item, combined_job = service.finish_follow_up(OWNER, item["id"], FollowUpAnswer(revision=item["revision"], request_id=request_id, text="Ten requests before and after."))
+    assert repo.get(item["id"], OWNER)["answers"][0]["grading_id"] == combined_job
+    monkeypatch.setattr(service.ai, "grade_answer", lambda *args: {
+        "score": 8.0, "feedback": "Verified result", "evidence": ["Ten requests before and after."],
+        "model": "test-combined", "used_fallback": False})
+    service.grade_answer(OWNER, item["id"], 0, combined_job)
+    final = service.finalize(OWNER, item["id"], FinalizeInterview(revision=item["revision"]))
+    assert repo.get(item["id"], OWNER) == final
+    assert repo.list_for_owner(OWNER)[0]["report"]["follow_up"]["answer"] == "Ten requests before and after."
+    assert final["report"]["items"][0]["includes_follow_up"]
+    assert final["report"]["overall_score"] == 8.0
+    with engine.connect() as conn:
+        assert conn.execute(text('SELECT answer_text FROM answers WHERE question_id = '
+                                 '(SELECT question_id FROM session_questions ORDER BY display_order LIMIT 1)')).scalar_one() == "I improved load times by 40%."
+        assert conn.execute(text('SELECT evidence_quoted FROM grades')).scalar_one() == "Ten requests before and after."
