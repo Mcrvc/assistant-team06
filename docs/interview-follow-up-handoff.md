@@ -24,7 +24,7 @@ Bản nháp câu phụ nằm trong sessionStorage theo buổi và mã yêu cầu
 - Bốn bài Chrome qua, gồm tự hỏi tại câu 1 và giữ bản nháp sau F5, tự đi tiếp khi lỗi AI, lưu trước khi đăng xuất, và chọn câu 2 để hỏi sâu rồi thử lưu lại sau lỗi mạng.
 - NVIDIA thật đã chạy 24 đáp án giả có kỳ vọng trước, gồm 12 bản thiếu thông tin và 12 bản đã giải thích đủ. Lượt này không hỏi thừa, không bỏ sót, không chọn sai loại thiếu thông tin và không gặp lỗi nhà cung cấp. Trung bình 1,29 giây cho bước chọn và kiểm tra. Bộ mẫu này cần được mở rộng bằng đáp án đa dạng hơn khi nhóm dùng thử.
 - Chạy lại đánh giá bằng `python eval/follow_up_eval.py`, dùng các mẫu trong `eval/follow_up_cases.json` và cấu hình NVIDIA trên máy.
-- CI bản trước đã qua chín bài RPC. Cần xác nhận CI của commit mới cho luồng tự chọn. Kiểm thử ghi lên Supabase chung và website triển khai cần nhóm chạy sau khi review.
+- CI của luồng tự chọn đã qua bộ mặc định và chín bài RPC trên PostgreSQL thử. Kiểm thử ghi lên Supabase chung và website triển khai cần nhóm chạy sau khi review. [Kết quả CI của commit 75730c2](https://github.com/Mcrvc/assistant-team06/actions/runs/46131469285)
 
 Chạy bộ mặc định bằng `python -m pytest`. Chạy Chrome bằng `python -m pytest -m slow tests/test_follow_up_browser.py`, với Playwright và Chrome đã cài. Chạy RPC bằng `python -m pytest -m slow tests/test_supabase_interview_storage.py` khi có `INTERVIEW_TEST_POSTGRES_URL` trỏ tới localhost, tên database bắt đầu bằng `yourin_interview_test`.
 

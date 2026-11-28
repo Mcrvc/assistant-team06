@@ -10,6 +10,7 @@ from assistant.interview_ai import (
 )
 from assistant.interview_schemas import (
     CreateInterview, FinalizeInterview, Question, SaveProgress, SubmitAnswer,
+    StartFollowUp, FollowUpAction, FollowUpAnswer,
 )
 from assistant.interview_store import StoreConflict
 from assistant import interview_follow_up
@@ -68,9 +69,13 @@ def invalidate_follow_up(item: dict, index: int) -> None:
                                if f["status"] != "invalidated"), None)
 
 
+def selected_follow_up_count(item: dict) -> int:
+    return sum(bool(f.get("selected") or f["status"] in ("ready", "answered"))
+               for f in follow_ups(item))
+
+
 def new_follow_up(item: dict, index: int, *, automatic: bool) -> dict:
-    selected = sum(bool(f.get("selected") or f["status"] in ("ready", "answered"))
-                   for f in follow_ups(item))
+    selected = selected_follow_up_count(item)
     follow = {"parent_index": index, "parent_grading_id": item["answers"][index]["grading_id"],
               "request_id": str(uuid4()), "started_at": _now(), "automatic": automatic,
               "selected": False, "status": "generating" if selected < 2 else "not_needed",
@@ -170,7 +175,8 @@ class InterviewService:
         self.get(owner_id, interview_id)
         self.repository.delete(interview_id, owner_id)
 
-    def start_follow_up(self, owner_id: str, interview_id: str, request) -> tuple[dict, str | None]:
+    def start_follow_up(self, owner_id: str, interview_id: str,
+                        request: StartFollowUp) -> tuple[dict, str | None]:
         request_id = str(uuid4())
 
         def already_applied(item):
@@ -223,8 +229,7 @@ class InterviewService:
                         or target["status"] != "generating"
                         or current["answers"][target["parent_index"]]["grading_id"] != target["parent_grading_id"]):
                     return
-                selected = sum(bool(f.get("selected") or f["status"] in ("ready", "answered"))
-                               for f in follow_ups(current))
+                selected = selected_follow_up_count(current)
                 if outcome == "ready" and selected >= 2:
                     result, outcome = None, "not_needed"
                 target.update(result or {})
@@ -243,7 +248,8 @@ class InterviewService:
         except Exception:
             logger.error("Follow-up generation did not finish; retry after the request expires")
 
-    def finish_follow_up(self, owner_id: str, interview_id: str, request, *, skip: bool = False) -> dict:
+    def finish_follow_up(self, owner_id: str, interview_id: str,
+                         request: FollowUpAction | FollowUpAnswer, *, skip: bool = False) -> dict:
         status = "skipped" if skip else "answered"
 
         def already_applied(item):
@@ -345,7 +351,9 @@ class InterviewService:
             }
             invalidate_follow_up(interview, index)
             new_follow_up(interview, index, automatic=True)
-            destination = index if interview["follow_up"]["status"] == "generating" else min(index + 1, len(interview["questions"]) - 1)
+            destination = index
+            if interview["follow_up"]["status"] != "generating":
+                destination = min(index + 1, len(interview["questions"]) - 1)
             interview.update(current_question=destination, status="in_progress")
         result = self._change(owner_id, interview_id, request.revision, change,
                               already_applied=already_applied)

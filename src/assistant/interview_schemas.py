@@ -137,10 +137,10 @@ class FollowUpAnswer(FollowUpAction):
 class FollowUp(Contract):
     automatic: bool = False
     selected: bool = False
-    criterion_index: int | None = None
-    gap: str | None = None
-    missing_information: str = ""
-    parent_index: int = 0
+    criterion_index: int | None = Field(default=None, ge=0, le=5)
+    gap: Literal["personal_action_missing", "decision_reason_missing", "result_evidence_missing"] | None = None
+    missing_information: str = Field(default="", max_length=500)
+    parent_index: int = Field(default=0, ge=0, le=14)
     parent_grading_id: str
     request_id: str
     started_at: str
