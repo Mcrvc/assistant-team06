@@ -219,6 +219,7 @@ def test_sign_out_saves_follow_up_before_leaving(browser_page, website, monkeypa
     page.wait_for_url("**/dashboard.html")
     page.goto(website + "/storage.html")
     page.get_by_role("link", name="Continue", exact=True).click()
+    expect(page.locator("#question-badge")).to_have_text("2 of 3")
     page.locator("#prev-question-btn").click()
     expect(page.locator("#question-badge")).to_have_text("1 of 3 - Follow-up")
     expect(page.locator("#answer")).to_have_value("I wrote integration tests before release.")

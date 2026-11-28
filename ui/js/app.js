@@ -1972,7 +1972,11 @@
       exitError.hidden = true;
       if (isRecording) stopRecording();
       storeComposer();
-      const saved = await saveFollowDraft() && await saveProgressToServer(currentStep, "interrupted", true);
+      const leavingFollow = visibleFollowUp();
+      const followSaved = await saveFollowDraft();
+      const resumeStep = leavingFollow?.status === "ready" && activeFollowUp()?.status === "answered"
+        ? Math.min(currentStep + 1, totalQuestions - 1) : currentStep;
+      const saved = followSaved && await saveProgressToServer(resumeStep, "interrupted", true);
       await writeQueue;
       if (!saved) {
         exitError.textContent = "Could not save your interview. Try again or keep answering.";
