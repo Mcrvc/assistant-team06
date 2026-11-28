@@ -211,12 +211,25 @@ def create_app(*, service: InterviewService | None = None,
                             content=public_view(item))
 
     @app.post("/api/interviews/{interview_id}/follow-up/answer", response_model=InterviewView, tags=["Interviews"])
-    def answer_follow_up(interview_id: UUID, payload: FollowUpAnswer, user: User, service: Service):
-        return public_view(service.finish_follow_up(user, str(interview_id), payload))
+    def answer_follow_up(interview_id: UUID, payload: FollowUpAnswer, tasks: BackgroundTasks, user: User, service: Service):
+        item, job = service.finish_follow_up(user, str(interview_id), payload)
+        if job:
+            follow = next(f for f in item["follow_ups"] if f["request_id"] == payload.request_id)
+            tasks.add_task(service.grade_answer, user, str(interview_id), follow["parent_index"], job)
+        return public_view(item)
+
+    @app.post("/api/interviews/{interview_id}/follow-up/retry-grade", response_model=InterviewView, tags=["Interviews"])
+    def retry_follow_up_grade(interview_id: UUID, payload: FollowUpAction, tasks: BackgroundTasks, user: User, service: Service):
+        item, job = service.retry_follow_up_grade(user, str(interview_id), payload)
+        if job:
+            follow = next(f for f in item["follow_ups"] if f["request_id"] == payload.request_id)
+            tasks.add_task(service.grade_answer, user, str(interview_id), follow["parent_index"], job)
+        return public_view(item)
 
     @app.post("/api/interviews/{interview_id}/follow-up/skip", response_model=InterviewView, tags=["Interviews"])
     def skip_follow_up(interview_id: UUID, payload: FollowUpAction, user: User, service: Service):
-        return public_view(service.finish_follow_up(user, str(interview_id), payload, skip=True))
+        item, _ = service.finish_follow_up(user, str(interview_id), payload, skip=True)
+        return public_view(item)
 
     @app.post("/api/interviews/{interview_id}/finalize", response_model=InterviewView, tags=["Interviews"])
     def finalize_interview(interview_id: UUID, payload: FinalizeInterview, user: User, service: Service):

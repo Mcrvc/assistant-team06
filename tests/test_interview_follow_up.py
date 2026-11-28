@@ -34,13 +34,18 @@ def test_lifecycle_restart_report_and_retry(setup):
     state = service.get("owner", item["id"])
     assert state["follow_up"]["status"] == "ready"
     request = FollowUpAnswer(revision=state["revision"], request_id=job, text="I compared ten requests before and after the change.")
-    state = service.finish_follow_up("owner", item["id"], request)
-    assert service.finish_follow_up("owner", item["id"], request) == state
+    state, grade_job = service.finish_follow_up("owner", item["id"], request)
+    assert grade_job and state["answers"][0]["grading_status"] == "pending"
+    assert service.finish_follow_up("owner", item["id"], request) == (state, None)
     reopened = InterviewService(service.repository, MockInterviewAI()).get("owner", item["id"])
     assert reopened == state
+    with pytest.raises(InterviewError, match="pending grading"):
+        service.finalize("owner", item["id"], FinalizeInterview(revision=state["revision"]))
+    service.grade_answer("owner", item["id"], 0, grade_job)
     final = service.finalize("owner", item["id"], FinalizeInterview(revision=state["revision"]))
     assert final["report"]["follow_up"]["answer"] == request.text
-    assert final["report"]["overall_score"] == 3.0
+    assert final["report"]["overall_score"] == 6.0
+    assert final["report"]["items"][0]["includes_follow_up"]
     assert len(final["report"]["items"]) == 3
 
 @pytest.mark.parametrize("action", ["skip", "edit", "resubmit", "finalize"])
@@ -285,7 +290,8 @@ def test_two_question_budget_and_required_answer(setup):
                 service.submit_answer("owner", item["id"], index + 1, SubmitAnswer(revision=current["revision"], text=ANSWER))
             with pytest.raises(InterviewError):
                 service.finish_follow_up("owner", item["id"], FollowUpAction(revision=current["revision"], request_id=follow["request_id"]), skip=True)
-            service.finish_follow_up("owner", item["id"], FollowUpAnswer(revision=current["revision"], request_id=follow["request_id"], text="Ten measurements before and after."))
+            current, grade_job = service.finish_follow_up("owner", item["id"], FollowUpAnswer(revision=current["revision"], request_id=follow["request_id"], text="Ten measurements before and after."))
+            service.grade_answer("owner", item["id"], index, grade_job)
         else:
             assert follow["status"] == "not_needed"
     final = service.finalize("owner", item["id"], FinalizeInterview(revision=current["revision"]))
@@ -302,3 +308,87 @@ def test_editing_an_already_selected_question_does_not_ask_it_again(setup):
                                       SubmitAnswer(revision=current["revision"], text="A different answer"))
     assert current["follow_up"]["status"] == "not_needed"
     assert current["follow_ups"][0]["status"] == "invalidated"
+
+
+def ready_follow(service, item):
+    follow = item["follow_up"]
+    service.generate_follow_up("owner", item["id"], follow["request_id"])
+    return service.get("owner", item["id"])
+
+
+def test_original_grade_returning_during_combined_submit_is_discarded(setup, monkeypatch):
+    service, item = setup
+    item, original_job = service.submit_answer("owner", item["id"], 0,
+        SubmitAnswer(revision=item["revision"], text=ANSWER + " More detail."))
+    item = ready_follow(service, item)
+    combined = []
+    def grade(profile, question, text):
+        if not combined:
+            result, job = service.finish_follow_up("owner", item["id"], FollowUpAnswer(
+                revision=item["revision"], request_id=item["follow_up"]["request_id"],
+                text="I measured ten requests before and after."))
+            combined.append(job)
+            return {"score": 2, "feedback": "Old result", "evidence": ["40%"],
+                    "model": "test", "used_fallback": False}
+        assert "I measured ten requests" in text
+        assert question["criteria"] == item["questions"][0]["criteria"]
+        assert "How did you measure 40%?" in question["text"]
+        return {"score": 8, "feedback": "Measured result", "evidence": ["ten requests before and after"],
+                "model": "test", "used_fallback": False}
+    monkeypatch.setattr(service.ai, "grade_answer", grade)
+    service.grade_answer("owner", item["id"], 0, original_job)
+    assert service.get("owner", item["id"])["answers"][0]["grade"] is None
+    service.grade_answer("owner", item["id"], 0, combined[0])
+    state = service.get("owner", item["id"])
+    final = service.finalize("owner", item["id"], FinalizeInterview(revision=state["revision"]))
+    assert final["report"]["overall_score"] == 8
+    assert len(final["report"]["items"]) == 3
+    assert final["report"]["items"][0]["answer"] == ANSWER + " More detail."
+
+
+@pytest.mark.parametrize("quote", ["How did you measure 40%?", "An invented measurement"])
+def test_combined_grade_rejects_question_or_invented_evidence(setup, monkeypatch, quote):
+    service, item = setup
+    item = ready_follow(service, item)
+    item, job = service.finish_follow_up("owner", item["id"], FollowUpAnswer(
+        revision=item["revision"], request_id=item["follow_up"]["request_id"], text="I ran ten requests."))
+    monkeypatch.setattr(service.ai, "grade_answer", lambda *args: {
+        "score": 9, "feedback": "Test", "evidence": [quote], "model": "test", "used_fallback": False})
+    service.grade_answer("owner", item["id"], 0, job)
+    state = service.get("owner", item["id"])
+    assert state["answers"][0]["grading_status"] == "rejected"
+    assert state["answers"][0]["grade"] is None
+
+
+def test_combined_retry_survives_reload_and_does_not_enqueue_twice(setup):
+    service, item = setup
+    item = ready_follow(service, item)
+    follow_id = item["follow_up"]["request_id"]
+    item, old_job = service.finish_follow_up("owner", item["id"], FollowUpAnswer(
+        revision=item["revision"], request_id=follow_id, text="I ran ten requests."))
+    reloaded = InterviewService(service.repository, MockInterviewAI())
+    request = FollowUpAction(revision=item["revision"], request_id=follow_id)
+    item, job = reloaded.retry_follow_up_grade("owner", item["id"], request)
+    assert job != old_job
+    assert reloaded.retry_follow_up_grade("owner", item["id"], request) == (item, None)
+    reloaded.grade_answer("owner", item["id"], 0, old_job)
+    assert reloaded.get("owner", item["id"])["answers"][0]["grading_status"] == "pending"
+    reloaded.grade_answer("owner", item["id"], 0, job)
+    assert reloaded.get("owner", item["id"])["answers"][0]["grading_status"] == "graded"
+
+
+def test_edit_during_combined_grading_discards_late_result(setup, monkeypatch):
+    service, item = setup
+    item = ready_follow(service, item)
+    item, job = service.finish_follow_up("owner", item["id"], FollowUpAnswer(
+        revision=item["revision"], request_id=item["follow_up"]["request_id"], text="Ten measurements."))
+    def grade(*args):
+        service.save_progress("owner", item["id"], SaveProgress(
+            revision=item["revision"], current_question=0, answers=["Edited main answer"]))
+        return {"score": 8, "feedback": "Old combined grade", "evidence": ["Ten measurements."],
+                "model": "test", "used_fallback": False}
+    monkeypatch.setattr(service.ai, "grade_answer", grade)
+    service.grade_answer("owner", item["id"], 0, job)
+    state = service.get("owner", item["id"])
+    assert state["answers"][0]["grading_status"] == "draft"
+    assert state["follow_ups"][0]["status"] == "invalidated"

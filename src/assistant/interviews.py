@@ -250,8 +250,9 @@ class InterviewService:
             logger.error("Follow-up generation did not finish; retry after the request expires")
 
     def finish_follow_up(self, owner_id: str, interview_id: str,
-                         request: FollowUpAction | FollowUpAnswer, *, skip: bool = False) -> dict:
+                         request: FollowUpAction | FollowUpAnswer, *, skip: bool = False) -> tuple[dict, str | None]:
         status = "skipped" if skip else "answered"
+        grading_id = str(uuid4())
 
         def already_applied(item):
             follow = next((f for f in follow_ups(item) if f["request_id"] == request.request_id), None)
@@ -271,12 +272,42 @@ class InterviewService:
                 item["current_question"] = min(follow["parent_index"] + 1, len(item["questions"]) - 1)
             if not skip:
                 follow["answer"] = request.text
+                # Supersede the original grading job atomically with saving the
+                # clarification. Keep the main text and rubric unchanged.
+                follow["parent_grading_id"] = grading_id
+                item["answers"][follow["parent_index"]].update(
+                    grading_id=grading_id, grading_status="pending", grade=None, error_code=None)
             item["follow_up"] = next((f for f in reversed(follow_ups(item)) if f["status"] != "invalidated"), None)
 
         current = self.get(owner_id, interview_id)
         if current["revision"] == request.revision and already_applied(current):
-            return current
-        return self._change(owner_id, interview_id, request.revision, change, already_applied=already_applied)
+            return current, None
+        result = self._change(owner_id, interview_id, request.revision, change, already_applied=already_applied)
+        follow = next(f for f in follow_ups(result) if f["request_id"] == request.request_id)
+        return result, grading_id if not skip and follow["parent_grading_id"] == grading_id else None
+
+    def retry_follow_up_grade(self, owner_id: str, interview_id: str,
+                              request: FollowUpAction) -> tuple[dict, str | None]:
+        grading_id = str(uuid4())
+
+        def find(item):
+            return next((f for f in follow_ups(item) if f["request_id"] == request.request_id
+                         and f["status"] == "answered"), None)
+
+        def already_applied(item):
+            follow = find(item)
+            return bool(follow and follow.get("grading_retry_revision") == request.revision)
+
+        def change(item):
+            follow = find(item)
+            if not follow or item["answers"][follow["parent_index"]]["grading_status"] not in ("pending", "rejected"):
+                raise InterviewError(409, "follow_up_changed", "Reload before retrying grading")
+            follow.update(parent_grading_id=grading_id, grading_retry_revision=request.revision)
+            item["answers"][follow["parent_index"]].update(
+                grading_id=grading_id, grading_status="pending", grade=None, error_code=None)
+
+        result = self._change(owner_id, interview_id, request.revision, change, already_applied=already_applied)
+        return result, grading_id if find(result)["parent_grading_id"] == grading_id else None
 
     def _change(self, owner_id: str, interview_id: str, revision: int,
                 change: Callable[[dict], None], *,
@@ -376,9 +407,18 @@ class InterviewService:
         answer = interview["answers"][index]
         if answer["grading_id"] != grading_id or answer["grading_status"] != "pending":
             return
+        clarification = next((f for f in follow_ups(interview) if f["parent_index"] == index
+                              and f["parent_grading_id"] == grading_id and f["status"] == "answered"), None)
+        text = answer["text"]
+        question = dict(interview["questions"][index])
+        if clarification:
+            text += "\n\n" + clarification["answer"]
+            question["text"] += ("\n\nFollow-up: " + clarification["question"]
+                                 + "\nAssess the original answer and clarification together using the original rubric. "
+                                 "Return one score. Quote evidence only from the supplied answer text.")
         try:
-            grade = self.ai.grade_answer(interview["job_profile"], interview["questions"][index], answer["text"])
-            grounded = all(quote.strip() and quote in answer["text"] for quote in grade["evidence"])
+            grade = self.ai.grade_answer(interview["job_profile"], question, text)
+            grounded = all(quote.strip() and quote in text for quote in grade["evidence"])
             rejection_code = "evidence_not_found"
         except GradeRejected as exc:
             grade, grounded, rejection_code = None, False, exc.code
@@ -433,6 +473,8 @@ class InterviewService:
                 if status == "graded" and isinstance(grade, dict):
                     items.append({"question_index": i, "question": interview["questions"][i],
                                   "answer": answer["text"], **grade,
+                                  "includes_follow_up": any(f["parent_index"] == i and f["status"] == "answered"
+                                                            for f in follow_ups(interview)),
                                   "label": "Good" if grade["score"] >= 6 else "Needs Improvement"})
                 elif status == "rejected":
                     rejected_count += 1

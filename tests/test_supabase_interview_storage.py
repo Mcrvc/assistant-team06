@@ -397,7 +397,10 @@ def test_rpc_preserves_follow_up_and_report(rpc_repository, monkeypatch):
     request_id = request_id or item["follow_up"]["request_id"]
     service.generate_follow_up(OWNER, item["id"], request_id)
     item = service.get(OWNER, item["id"])
-    item = service.finish_follow_up(OWNER, item["id"], FollowUpAnswer(revision=item["revision"], request_id=request_id, text="Ten requests before and after."))
+    item, combined_job = service.finish_follow_up(OWNER, item["id"], FollowUpAnswer(revision=item["revision"], request_id=request_id, text="Ten requests before and after."))
+    assert repo.get(item["id"], OWNER)["answers"][0]["grading_id"] == combined_job
+    service.grade_answer(OWNER, item["id"], 0, combined_job)
     final = service.finalize(OWNER, item["id"], FinalizeInterview(revision=item["revision"]))
     assert repo.get(item["id"], OWNER) == final
     assert repo.list_for_owner(OWNER)[0]["report"]["follow_up"]["answer"] == "Ten requests before and after."
+    assert final["report"]["items"][0]["includes_follow_up"]

@@ -135,6 +135,7 @@ class FollowUpAnswer(FollowUpAction):
 
 
 class FollowUp(Contract):
+    grading_retry_revision: int | None = None
     automatic: bool = False
     selected: bool = False
     criterion_index: int | None = Field(default=None, ge=0, le=5)
@@ -167,6 +168,7 @@ class Progress(Contract):
 
 
 class ReportItem(Contract):
+    includes_follow_up: bool = False
     question_index: int
     question: Question
     answer: str
