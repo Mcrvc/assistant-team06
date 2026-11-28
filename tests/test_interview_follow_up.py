@@ -102,3 +102,26 @@ def test_provider_uses_actual_answer(monkeypatch):
     monkeypatch.setattr(interview_follow_up, "complete", complete)
     assert interview_follow_up.generate("What did you do?", ANSWER)["quote"] == "40%"
     assert ANSWER in calls[0][1]["content"]
+
+
+def test_result_arriving_after_skip_is_ignored(setup, monkeypatch):
+    service, item = setup
+    state, job = start(service, item)
+    def generate(*args):
+        service.finish_follow_up("owner", item["id"], FollowUpAction(revision=state["revision"], request_id=job), skip=True)
+        return {"quote": "40%", "question": "How did you measure it?"}
+    monkeypatch.setattr(interview_follow_up, "generate", generate)
+    service.generate_follow_up("owner", item["id"], job)
+    saved = service.get("owner", item["id"])["follow_up"]
+    assert saved["status"] == "skipped" and saved["question"] == ""
+
+
+def test_answer_with_stale_revision_preserves_saved_state(setup):
+    service, item = setup
+    state, job = start(service, item)
+    service.generate_follow_up("owner", item["id"], job)
+    before = service.get("owner", item["id"])
+    with pytest.raises(InterviewError) as error:
+        service.finish_follow_up("owner", item["id"], FollowUpAnswer(revision=0, request_id=job, text="My draft"))
+    assert error.value.code == "revision_conflict"
+    assert service.get("owner", item["id"]) == before
