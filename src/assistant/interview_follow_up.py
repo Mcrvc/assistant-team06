@@ -33,6 +33,8 @@ _COVERAGE_RULES = (
     "A specific first-person action anywhere in the answer satisfies personal action: "
     "'I wrote the worker and added integration tests' is enough. Do not demand a full "
     "implementation walkthrough, division of teammates' work, or proof of authorship. "
+    "Personally measuring, comparing or documenting results is also a personal action "
+    "unless the criterion explicitly restricts actions to implementation or coordination. "
     "For rationale, accept an explicit connection between the approach and a problem anywhere "
     "in the answer. Explaining that shared storage avoids conflicting copies is enough; do "
     "not additionally demand why PostgreSQL rather than another database unless comparison "
@@ -54,13 +56,14 @@ _COVERAGE_RULES = (
     "existing action/choice/outcome being clarified, and missing_information must specify "
     "ONE basic fact absent from the whole answer, max 500 characters. "
     "Use checks:[] when none of the three gap types apply to this criterion. "
-    "Do not duplicate a gap type within a criterion. No markdown. "
+    "Emit each criterion_index exactly once; do not append a second empty entry for it. "
+    "Do not duplicate a gap type within a criterion. Escape quotes inside JSON strings. No markdown. "
 )
 
 
 def _coverage(payload: dict, criteria: list, answer: str) -> dict:
     entries = payload.get("coverage")
-    if not isinstance(entries, list) or len(entries) != len(criteria):
+    if not isinstance(entries, list) or not len(criteria) <= len(entries) <= len(criteria) * 4:
         raise ValueError("Incomplete criterion coverage")
     findings = {}
     seen = set()
@@ -68,7 +71,7 @@ def _coverage(payload: dict, criteria: list, answer: str) -> dict:
         if not isinstance(entry, dict):
             raise ValueError("Invalid criterion coverage")
         index, checks = entry.get("criterion_index"), entry.get("checks")
-        if type(index) is not int or not 0 <= index < len(criteria) or index in seen:
+        if type(index) is not int or not 0 <= index < len(criteria):
             raise ValueError("Invalid criterion index")
         if not isinstance(checks, list) or len(checks) > len(GAPS):
             raise ValueError("Invalid criterion checks")
@@ -77,8 +80,8 @@ def _coverage(payload: dict, criteria: list, answer: str) -> dict:
             if not isinstance(check, dict):
                 raise ValueError("Invalid coverage finding")
             gap, status, evidence = check.get("gap"), check.get("status"), check.get("evidence")
-            if not isinstance(gap, str) or gap not in GAPS or (index, gap) in findings:
-                raise ValueError("Invalid or repeated gap")
+            if not isinstance(gap, str) or gap not in GAPS:
+                raise ValueError("Invalid gap")
             if status not in ("present", "missing", "uncertain"):
                 raise ValueError("Invalid coverage status")
             if not isinstance(evidence, list) or len(evidence) > 2:
@@ -92,7 +95,16 @@ def _coverage(payload: dict, criteria: list, answer: str) -> dict:
                 info = check.get("missing_information")
                 if not isinstance(info, str) or not info.strip() or len(info) > 500:
                     raise ValueError("Missing information must be specific")
-            findings[index, gap] = check
+            key = index, gap
+            if key in findings:
+                # Repeated identical findings add no information. Conflicting assessments
+                # are uncertain, so a duplicate can never turn a covered point into a question.
+                if findings[key]["status"] != status:
+                    findings[key] = {"status": "uncertain", "evidence": []}
+            else:
+                findings[key] = check
+    if len(seen) != len(criteria):
+        raise ValueError("Incomplete criterion coverage")
     return findings
 
 

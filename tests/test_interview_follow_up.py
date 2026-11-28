@@ -204,6 +204,18 @@ def test_omitted_criterion_fails_closed(monkeypatch):
         interview_follow_up.generate({"text": "What did you do?", "criteria": ["Personal actions", "Verified outcome"]}, ANSWER, [])
 
 
+def test_duplicate_empty_criterion_entries_do_not_discard_valid_coverage():
+    payload = {"coverage": [coverage(), {"criterion_index": 0, "checks": []}]}
+    parsed = interview_follow_up._coverage(payload, ["Verified outcome"], ANSWER)
+    assert parsed[0, "result_evidence_missing"]["status"] == "missing"
+
+
+def test_conflicting_duplicate_findings_are_uncertain():
+    payload = {"coverage": [coverage(), coverage(status="present")]}
+    parsed = interview_follow_up._coverage(payload, ["Verified outcome"], ANSWER)
+    assert parsed[0, "result_evidence_missing"]["status"] == "uncertain"
+
+
 def test_two_question_budget_and_required_answer(setup):
     service, item = setup
     for index in range(3):
