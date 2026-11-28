@@ -6,9 +6,9 @@ Sau khi nộp câu chính, ứng dụng tự kiểm tra có cần hỏi sâu kh�
 
 ## Cách chọn câu
 
-NVIDIA đọc toàn bộ đáp án, tiêu chí chấm và câu phụ đã hỏi. Đề xuất phải có chỉ số tiêu chí hợp lệ, một trong ba mã thiếu thông tin, đoạn trích nguyên văn, nội dung còn thiếu và câu hỏi. Ba loại thiếu thông tin là hành động cá nhân, lý do lựa chọn và cách xác nhận kết quả.
+Lượt NVIDIA đầu tiên đánh dấu từng tiêu chí là đã có thông tin, còn thiếu, chưa chắc hoặc không áp dụng, kèm trích dẫn làm căn cứ. Backend chỉ cho xét những khoảng thiếu rõ ràng. Ba loại thông tin được hỗ trợ là hành động cá nhân, lý do lựa chọn và cách xác nhận kết quả.
 
-Backend kiểm tra kiểu dữ liệu, độ dài và đoạn trích. Chỉ với đề xuất hợp lệ, lượt gọi AI thứ hai kiểm tra riêng xem khoảng thiếu có liên quan tiêu chí không, đáp án đã giải thích ở đoạn khác chưa và câu hỏi có bổ sung thông tin hữu ích không. Kết quả không đạt hoặc sai định dạng sẽ bỏ qua câu hỏi phụ.
+Lượt thứ hai đọc lại độc lập toàn bộ đáp án và tiêu chí rồi viết câu hỏi nếu cũng xác nhận còn thiếu. Hai lượt dùng JSON Schema có ràng buộc và backend kiểm tra lại dữ liệu. Trích dẫn từ câu phụ trước có thể chứng minh thông tin đã đủ, còn đoạn làm căn cứ hỏi mới phải nằm trong đáp án hiện tại.
 
 ## Lưu trữ và các trường hợp được xử lý
 
@@ -19,6 +19,8 @@ Câu phụ được dành chỗ trong cùng thao tác nộp đáp án chính. G�
 Bản nháp câu phụ nằm trong sessionStorage theo buổi và mã yêu cầu, nên mỗi tab giữ bản nháp riêng. Khi người dùng chọn lưu rồi thoát hoặc đăng xuất, ứng dụng chờ lưu cả lời đáp phụ và tiến độ chính. Chỉ hiện nội dung AI bằng text.
 
 ## Kết quả kiểm tra cục bộ
+
+Bản sửa cách chọn và phép đo trước/sau trên 204 mẫu nằm tại [báo cáo sửa lỗi và stress test](follow-up-coverage-fix-stress-test.md). Báo cáo ghi cả các lỗi còn lại và phép kiểm tra sáu mẫu sau bản vá nguồn trích dẫn.
 
 Lượt thử lớn hơn đã phát hiện hỏi thừa và chọn nhầm tiêu chí. Xem [báo cáo 132 trường hợp cùng sáu lượt chẩn đoán](follow-up-large-test-2026-11-28.md) trước khi dùng kết quả bộ 24 mẫu bên dưới để đánh giá chất lượng.
 

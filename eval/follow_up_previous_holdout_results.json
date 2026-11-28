@@ -1,0 +1,71 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "corpus_sha256": "2122da90d8ceaeda463e1eb531ce1c41bb9d1ffa17854e2832bb7829bf118c73",
+  "completed": 2,
+  "total": 2,
+  "results": [
+    {
+      "id": "holdout-edge-previous-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "previous",
+      "language": "en",
+      "repetition": 1,
+      "checks": [
+        {
+          "coverage": [
+            {
+              "criterion_index": 0,
+              "gap": "decision_reason_missing",
+              "status": "present",
+              "quote": "I used inspection tags because volunteers could not tell which bicycles had already had their brakes checked.",
+              "missing_information": ""
+            }
+          ],
+          "questions": []
+        }
+      ],
+      "seconds": 1.12
+    },
+    {
+      "id": "holdout-edge-previous-vi",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "previous",
+      "language": "vi",
+      "repetition": 1,
+      "checks": [
+        {
+          "coverage": [
+            {
+              "criterion_index": 0,
+              "gap": "decision_reason_missing",
+              "status": "present",
+              "quote": "Mình dùng thẻ kiểm tra vì tình nguyện viên không biết xe nào đã được kiểm tra phanh.",
+              "missing_information": ""
+            }
+          ],
+          "questions": []
+        }
+      ],
+      "seconds": 1.05
+    }
+  ],
+  "summary": {
+    "cases": 2,
+    "provider_errors": 0,
+    "unnecessary_questions": 0,
+    "missed_questions": 0,
+    "wrong_gap": 0,
+    "wrong_criterion": 0,
+    "mean_seconds": 1.08,
+    "median_seconds": 1.08,
+    "max_seconds": 1.12
+  }
+}

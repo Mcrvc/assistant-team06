@@ -1,0 +1,379 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "corpus_sha256": "3f78447ec2a15a3ba182553e4d0ad5763248d3cb4838238dca5598ae37742a25",
+  "completed": 24,
+  "total": 24,
+  "results": [
+    {
+      "id": "fresh-personal_action_missing-1-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 1,
+        "gap": "personal_action_missing",
+        "quote": "Our archive team sorted the damaged documents and finished the catalogue.",
+        "missing_information": "The answer does not state any specific action performed by the candidate personally; it only describes what the team did.",
+        "question": "What specific action did you personally perform to address the team problem?"
+      },
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 4.61
+    },
+    {
+      "id": "fresh-personal_action_missing-1-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 1.1
+    },
+    {
+      "id": "fresh-personal_action_missing-1-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 1,
+        "gap": "personal_action_missing",
+        "quote": "Nhóm lưu trữ phân loại tài liệu hỏng và hoàn tất danh mục.",
+        "missing_information": "Cần nêu một hành động cụ thể do chính bạn thực hiện, chứ không chỉ là nhóm.",
+        "question": "Bạn đã làm gì cụ thể để giúp nhóm lưu trữ và phân loại tài liệu?"
+      },
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 3.14
+    },
+    {
+      "id": "fresh-personal_action_missing-1-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 2.37
+    },
+    {
+      "id": "fresh-personal_action_missing-2-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "The student choir settled its rehearsal-room conflict.",
+        "missing_information": "The answer does not state any specific action the candidate personally performed to address the problem.",
+        "question": "What specific action did you personally perform to address the team problem?"
+      },
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 2.74
+    },
+    {
+      "id": "fresh-personal_action_missing-2-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 1.08
+    },
+    {
+      "id": "fresh-personal_action_missing-2-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Dàn hợp xướng sinh viên giải quyết được việc tranh lịch phòng tập.",
+        "missing_information": "Cần nêu một hành động cụ thể do chính bạn thực hiện (ví dụ: bạn đã làm gì để giải quyết tranh lịch).",
+        "question": "Bạn đã làm gì cụ thể để giải quyết tranh lịch phòng tập?"
+      },
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 3.04
+    },
+    {
+      "id": "fresh-personal_action_missing-2-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 1.2
+    },
+    {
+      "id": "fresh-decision_reason_missing-1-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 1,
+        "gap": "decision_reason_missing",
+        "quote": "I chose a magnetic board for the workshop attendance list.",
+        "missing_information": "Why the magnetic board suited the workshop attendance situation.",
+        "question": "Why did the magnetic board suit the workshop attendance situation?"
+      },
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 3.07
+    },
+    {
+      "id": "fresh-decision_reason_missing-1-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 1.07
+    },
+    {
+      "id": "fresh-decision_reason_missing-1-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 1,
+        "gap": "decision_reason_missing",
+        "quote": "Em chọn bảng nam châm cho danh sách dự buổi thực hành.",
+        "missing_information": "The answer does not explain why the magnetic board is suitable for the situation.",
+        "question": "Vì sao bảng nam châm phù hợp với tình huống này?"
+      },
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 3.18
+    },
+    {
+      "id": "fresh-decision_reason_missing-1-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 1.3
+    },
+    {
+      "id": "fresh-decision_reason_missing-2-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I chose to rotate the gardening duties every week.",
+        "missing_information": "The answer does not explain why rotating gardening duties every week addressed the situation.",
+        "question": "Why did rotating gardening duties every week suit the situation?"
+      },
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 2.89
+    },
+    {
+      "id": "fresh-decision_reason_missing-2-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 1.14
+    },
+    {
+      "id": "fresh-decision_reason_missing-2-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "Mình chọn luân phiên việc chăm vườn mỗi tuần.",
+        "missing_information": "Cần lý do tại sao cách luân phiên việc chăm vườn mỗi tuần giải quyết được tình huống.",
+        "question": "Vì sao cách luân phiên việc chăm vườn mỗi tuần phù hợp với tình huống này?"
+      },
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 3.2
+    },
+    {
+      "id": "fresh-decision_reason_missing-2-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 1.27
+    },
+    {
+      "id": "fresh-result_evidence_missing-1-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 1,
+        "gap": "result_evidence_missing",
+        "quote": "The new cupboard layout made lab preparation faster.",
+        "missing_information": "No method for checking the improvement is described.",
+        "question": "How did you check that lab preparation became faster?"
+      },
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 2.75
+    },
+    {
+      "id": "fresh-result_evidence_missing-1-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 1.31
+    },
+    {
+      "id": "fresh-result_evidence_missing-1-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 1,
+        "gap": "result_evidence_missing",
+        "quote": "Cách xếp tủ mới giúp chuẩn bị phòng thực hành nhanh hơn.",
+        "missing_information": "Cách kiểm tra kết quả cải thiện đã nêu.",
+        "question": "Bạn đã kiểm tra cách xếp tủ mới giúp chuẩn bị phòng thực hành nhanh hơn thế nào?"
+      },
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 3.18
+    },
+    {
+      "id": "fresh-result_evidence_missing-1-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 1.96
+    },
+    {
+      "id": "fresh-result_evidence_missing-2-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "The revised worksheet helped children solve the exercise more independently.",
+        "missing_information": "No method is described for checking that the improvement occurred.",
+        "question": "How did you check that the revised worksheet helped children solve the exercise more independently?"
+      },
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 3.28
+    },
+    {
+      "id": "fresh-result_evidence_missing-2-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 1.19
+    },
+    {
+      "id": "fresh-result_evidence_missing-2-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Phiếu bài tập sửa lại giúp các em tự giải bài tốt hơn.",
+        "missing_information": "Cần mô tả cách kiểm tra kết quả cải thiện đã nêu.",
+        "question": "Bạn kiểm tra kết quả cải thiện đã nêu như thế nào?"
+      },
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 3.28
+    },
+    {
+      "id": "fresh-result_evidence_missing-2-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "fresh-domains",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 1.2
+    }
+  ],
+  "summary": {
+    "cases": 24,
+    "provider_errors": 0,
+    "unnecessary_questions": 0,
+    "missed_questions": 0,
+    "wrong_gap": 0,
+    "wrong_criterion": 0,
+    "mean_seconds": 2.27,
+    "median_seconds": 2.56,
+    "max_seconds": 4.61
+  }
+}

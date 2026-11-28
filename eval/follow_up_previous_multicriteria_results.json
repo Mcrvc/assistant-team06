@@ -1,0 +1,99 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "corpus_sha256": "188e839f94da6266c5f96e744c1d36c4d8fc9aa9b2529adcfdfbc622bd38488a",
+  "completed": 2,
+  "total": 2,
+  "results": [
+    {
+      "id": "multi-en-previous",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria-previous",
+      "language": "en",
+      "repetition": 1,
+      "checks": [
+        {
+          "coverage": [
+            {
+              "criterion_index": 0,
+              "gap": "personal_action_missing",
+              "status": "present",
+              "quote": "I implemented the queue worker and integration tests.",
+              "missing_information": ""
+            },
+            {
+              "criterion_index": 1,
+              "gap": "decision_reason_missing",
+              "status": "present",
+              "quote": "I chose a queue rather than increasing HTTP timeouts because long conversions tied up web workers and kept upload connections open.",
+              "missing_information": ""
+            },
+            {
+              "criterion_index": 2,
+              "gap": "result_evidence_missing",
+              "status": "present",
+              "quote": "I replayed forty uploads before and after.",
+              "missing_information": ""
+            }
+          ],
+          "questions": []
+        }
+      ],
+      "seconds": 1.67
+    },
+    {
+      "id": "multi-vi-previous",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria-previous",
+      "language": "vi",
+      "repetition": 1,
+      "checks": [
+        {
+          "coverage": [
+            {
+              "criterion_index": 0,
+              "gap": "personal_action_missing",
+              "status": "present",
+              "quote": "Em viết tiến trình xử lý hàng đợi và kiểm thử tích hợp.",
+              "missing_information": ""
+            },
+            {
+              "criterion_index": 1,
+              "gap": "decision_reason_missing",
+              "status": "present",
+              "quote": "Em chọn hàng đợi thay vì tăng thời gian chờ HTTP vì chuyển đổi lâu chiếm tiến trình web và giữ kết nối tải lên mở.",
+              "missing_information": ""
+            },
+            {
+              "criterion_index": 2,
+              "gap": "result_evidence_missing",
+              "status": "present",
+              "quote": "Em chạy lại bốn mươi lượt tải lên trước và sau.",
+              "missing_information": ""
+            }
+          ],
+          "questions": []
+        }
+      ],
+      "seconds": 3.76
+    }
+  ],
+  "summary": {
+    "cases": 2,
+    "provider_errors": 0,
+    "unnecessary_questions": 0,
+    "missed_questions": 0,
+    "wrong_gap": 0,
+    "wrong_criterion": 0,
+    "mean_seconds": 2.71,
+    "median_seconds": 2.71,
+    "max_seconds": 3.76
+  }
+}

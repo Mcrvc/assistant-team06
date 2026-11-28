@@ -1,0 +1,183 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "corpus_sha256": "188e839f94da6266c5f96e744c1d36c4d8fc9aa9b2529adcfdfbc622bd38488a",
+  "completed": 12,
+  "total": 12,
+  "results": [
+    {
+      "id": "multi-en-personal_action_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Our group chose a queue instead of increasing HTTP timeouts because conversions took much longer than uploads and keeping connections open exhausted the web workers.",
+        "missing_information": "No specific first-person action by the candidate is described; only group-level actions are mentioned.",
+        "question": "What specific action did you personally take in implementing or coordinating the queue change?"
+      },
+      "category": "multiple-criteria",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 3.81
+    },
+    {
+      "id": "multi-en-decision_reason_missing",
+      "expected": true,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 1.4
+    },
+    {
+      "id": "multi-en-result_evidence_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 2,
+        "gap": "result_evidence_missing",
+        "quote": "The change reduced timeouts.",
+        "missing_information": "No specific method for checking the reduction in timeouts is described.",
+        "question": "How did you verify that timeouts were reduced?"
+      },
+      "category": "multiple-criteria",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 4.15
+    },
+    {
+      "id": "multi-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 1.4
+    },
+    {
+      "id": "multi-en-irrelevant-result",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "criterion-relevance",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 0.9
+    },
+    {
+      "id": "multi-en-previous",
+      "expected": false,
+      "asked": null,
+      "error": "ValueError",
+      "category": "multiple-criteria-previous",
+      "language": "en",
+      "repetition": 1,
+      "seconds": 1.46
+    },
+    {
+      "id": "multi-vi-personal_action_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Nhóm chọn hàng đợi thay vì tăng thời gian chờ HTTP vì chuyển đổi lâu hơn tải lên nhiều, giữ kết nối mở sẽ chiếm hết tiến trình web.",
+        "missing_information": "Cần nêu một hành động cụ thể do chính bạn thực hiện trong thay đổi này.",
+        "question": "Bạn đã trực tiếp làm gì trong việc chuyển sang hàng đợi?"
+      },
+      "category": "multiple-criteria",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 4.93
+    },
+    {
+      "id": "multi-vi-decision_reason_missing",
+      "expected": true,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 1.55
+    },
+    {
+      "id": "multi-vi-result_evidence_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": {
+        "criterion_index": 2,
+        "gap": "result_evidence_missing",
+        "quote": "Thay đổi giúp giảm số lượt hết thời gian.",
+        "missing_information": "Cách xác nhận kết quả đã khẳng định, ví dụ so sánh số lượt hết thời gian trước và sau thay đổi.",
+        "question": "Bạn đã xác nhận giảm số lượt hết thời gian như thế nào?"
+      },
+      "category": "multiple-criteria",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 3.83
+    },
+    {
+      "id": "multi-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 1.8
+    },
+    {
+      "id": "multi-vi-irrelevant-result",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "criterion-relevance",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 0.99
+    },
+    {
+      "id": "multi-vi-previous",
+      "expected": false,
+      "asked": null,
+      "error": "ValueError",
+      "category": "multiple-criteria-previous",
+      "language": "vi",
+      "repetition": 1,
+      "seconds": 1.67
+    }
+  ],
+  "summary": {
+    "cases": 12,
+    "provider_errors": 2,
+    "unnecessary_questions": 0,
+    "missed_questions": 2,
+    "wrong_gap": 0,
+    "wrong_criterion": 0,
+    "mean_seconds": 2.32,
+    "median_seconds": 1.61,
+    "max_seconds": 4.93
+  }
+}

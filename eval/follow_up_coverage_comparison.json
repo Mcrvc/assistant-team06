@@ -1,0 +1,466 @@
+{
+  "label_review": "eval\\follow_up_label_review.json",
+  "before": {
+    "summary": {
+      "cases": 204,
+      "correct": 180,
+      "unnecessary": 14,
+      "missed": 8,
+      "wrong_target": 2,
+      "errors": 0,
+      "mean_seconds": 1.43
+    },
+    "failures": [
+      {
+        "id": "edge-scattered-action-en",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "edge-scattered-action-vi",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "edge-scattered-reason-en",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "edge-scattered-reason-vi",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "edge-no-claimed-improvement-vi",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "edge-long-context-en",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "edge-long-context-vi",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "multi-en-decision_reason_missing",
+        "kind": "missed"
+      },
+      {
+        "id": "multi-vi-decision_reason_missing",
+        "kind": "wrong_target"
+      },
+      {
+        "id": "multi-vi-result_evidence_missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-1-en-missing",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "holdout-1-vi-missing",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "holdout-2-en-missing",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "holdout-3-en-missing",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "holdout-3-vi-missing",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "holdout-4-en-missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-4-vi-missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-6-en-missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-6-vi-missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-7-vi-missing",
+        "kind": "wrong_target"
+      },
+      {
+        "id": "holdout-8-vi-missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-9-vi-missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-edge-mixed-vi",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "fresh-result_evidence_missing-2-vi-complete",
+        "kind": "unnecessary"
+      }
+    ]
+  },
+  "after": {
+    "summary": {
+      "cases": 204,
+      "correct": 189,
+      "unnecessary": 2,
+      "missed": 5,
+      "wrong_target": 2,
+      "errors": 6,
+      "mean_seconds": 1.99
+    },
+    "failures": [
+      {
+        "id": "edge-scattered-result-vi",
+        "kind": "errors"
+      },
+      {
+        "id": "edge-previous-question-en",
+        "kind": "errors"
+      },
+      {
+        "id": "edge-previous-question-vi",
+        "kind": "errors"
+      },
+      {
+        "id": "multi-en-decision_reason_missing",
+        "kind": "missed"
+      },
+      {
+        "id": "multi-en-previous",
+        "kind": "errors"
+      },
+      {
+        "id": "multi-vi-decision_reason_missing",
+        "kind": "missed"
+      },
+      {
+        "id": "multi-vi-previous",
+        "kind": "errors"
+      },
+      {
+        "id": "holdout-6-en-missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-7-vi-missing",
+        "kind": "wrong_target"
+      },
+      {
+        "id": "holdout-7-vi-complete",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "holdout-8-vi-missing",
+        "kind": "wrong_target"
+      },
+      {
+        "id": "holdout-8-vi-complete",
+        "kind": "unnecessary"
+      },
+      {
+        "id": "holdout-9-en-missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-9-vi-missing",
+        "kind": "missed"
+      },
+      {
+        "id": "holdout-edge-previous-vi",
+        "kind": "errors"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "before_file": "eval\\follow_up_expanded_results.json",
+      "after_file": "eval\\follow_up_expanded_final_results.json",
+      "corpus_sha256": "f950cd7ae695797da22fd2f047ddbc35ac7a4bdf0aa399e25f849cee9fab2e7c",
+      "before": {
+        "summary": {
+          "cases": 120,
+          "correct": 113,
+          "unnecessary": 7,
+          "missed": 0,
+          "wrong_target": 0,
+          "errors": 0,
+          "mean_seconds": 1.54
+        },
+        "failures": [
+          {
+            "id": "edge-scattered-action-en",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "edge-scattered-action-vi",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "edge-scattered-reason-en",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "edge-scattered-reason-vi",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "edge-no-claimed-improvement-vi",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "edge-long-context-en",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "edge-long-context-vi",
+            "kind": "unnecessary"
+          }
+        ]
+      },
+      "after": {
+        "summary": {
+          "cases": 120,
+          "correct": 117,
+          "unnecessary": 0,
+          "missed": 0,
+          "wrong_target": 0,
+          "errors": 3,
+          "mean_seconds": 1.83
+        },
+        "failures": [
+          {
+            "id": "edge-scattered-result-vi",
+            "kind": "errors"
+          },
+          {
+            "id": "edge-previous-question-en",
+            "kind": "errors"
+          },
+          {
+            "id": "edge-previous-question-vi",
+            "kind": "errors"
+          }
+        ]
+      }
+    },
+    {
+      "before_file": "eval\\follow_up_multicriteria_results.json",
+      "after_file": "eval\\follow_up_multicriteria_final_results.json",
+      "corpus_sha256": "188e839f94da6266c5f96e744c1d36c4d8fc9aa9b2529adcfdfbc622bd38488a",
+      "before": {
+        "summary": {
+          "cases": 12,
+          "correct": 9,
+          "unnecessary": 0,
+          "missed": 2,
+          "wrong_target": 1,
+          "errors": 0,
+          "mean_seconds": 1.83
+        },
+        "failures": [
+          {
+            "id": "multi-en-decision_reason_missing",
+            "kind": "missed"
+          },
+          {
+            "id": "multi-vi-decision_reason_missing",
+            "kind": "wrong_target"
+          },
+          {
+            "id": "multi-vi-result_evidence_missing",
+            "kind": "missed"
+          }
+        ]
+      },
+      "after": {
+        "summary": {
+          "cases": 12,
+          "correct": 8,
+          "unnecessary": 0,
+          "missed": 2,
+          "wrong_target": 0,
+          "errors": 2,
+          "mean_seconds": 2.32
+        },
+        "failures": [
+          {
+            "id": "multi-en-decision_reason_missing",
+            "kind": "missed"
+          },
+          {
+            "id": "multi-en-previous",
+            "kind": "errors"
+          },
+          {
+            "id": "multi-vi-decision_reason_missing",
+            "kind": "missed"
+          },
+          {
+            "id": "multi-vi-previous",
+            "kind": "errors"
+          }
+        ]
+      }
+    },
+    {
+      "before_file": "eval\\follow_up_holdout_before_results.json",
+      "after_file": "eval\\follow_up_holdout_final_results.json",
+      "corpus_sha256": "2122da90d8ceaeda463e1eb531ce1c41bb9d1ffa17854e2832bb7829bf118c73",
+      "before": {
+        "summary": {
+          "cases": 48,
+          "correct": 35,
+          "unnecessary": 6,
+          "missed": 6,
+          "wrong_target": 1,
+          "errors": 0,
+          "mean_seconds": 1.09
+        },
+        "failures": [
+          {
+            "id": "holdout-1-en-missing",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "holdout-1-vi-missing",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "holdout-2-en-missing",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "holdout-3-en-missing",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "holdout-3-vi-missing",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "holdout-4-en-missing",
+            "kind": "missed"
+          },
+          {
+            "id": "holdout-4-vi-missing",
+            "kind": "missed"
+          },
+          {
+            "id": "holdout-6-en-missing",
+            "kind": "missed"
+          },
+          {
+            "id": "holdout-6-vi-missing",
+            "kind": "missed"
+          },
+          {
+            "id": "holdout-7-vi-missing",
+            "kind": "wrong_target"
+          },
+          {
+            "id": "holdout-8-vi-missing",
+            "kind": "missed"
+          },
+          {
+            "id": "holdout-9-vi-missing",
+            "kind": "missed"
+          },
+          {
+            "id": "holdout-edge-mixed-vi",
+            "kind": "unnecessary"
+          }
+        ]
+      },
+      "after": {
+        "summary": {
+          "cases": 48,
+          "correct": 40,
+          "unnecessary": 2,
+          "missed": 3,
+          "wrong_target": 2,
+          "errors": 1,
+          "mean_seconds": 2.15
+        },
+        "failures": [
+          {
+            "id": "holdout-6-en-missing",
+            "kind": "missed"
+          },
+          {
+            "id": "holdout-7-vi-missing",
+            "kind": "wrong_target"
+          },
+          {
+            "id": "holdout-7-vi-complete",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "holdout-8-vi-missing",
+            "kind": "wrong_target"
+          },
+          {
+            "id": "holdout-8-vi-complete",
+            "kind": "unnecessary"
+          },
+          {
+            "id": "holdout-9-en-missing",
+            "kind": "missed"
+          },
+          {
+            "id": "holdout-9-vi-missing",
+            "kind": "missed"
+          },
+          {
+            "id": "holdout-edge-previous-vi",
+            "kind": "errors"
+          }
+        ]
+      }
+    },
+    {
+      "before_file": "eval\\follow_up_fresh_before_results.json",
+      "after_file": "eval\\follow_up_fresh_final_results.json",
+      "corpus_sha256": "3f78447ec2a15a3ba182553e4d0ad5763248d3cb4838238dca5598ae37742a25",
+      "before": {
+        "summary": {
+          "cases": 24,
+          "correct": 23,
+          "unnecessary": 1,
+          "missed": 0,
+          "wrong_target": 0,
+          "errors": 0,
+          "mean_seconds": 1.43
+        },
+        "failures": [
+          {
+            "id": "fresh-result_evidence_missing-2-vi-complete",
+            "kind": "unnecessary"
+          }
+        ]
+      },
+      "after": {
+        "summary": {
+          "cases": 24,
+          "correct": 24,
+          "unnecessary": 0,
+          "missed": 0,
+          "wrong_target": 0,
+          "errors": 0,
+          "mean_seconds": 2.27
+        },
+        "failures": []
+      }
+    }
+  ]
+}
