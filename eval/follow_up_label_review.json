@@ -1,0 +1,11 @@
+{
+  "reason": "The criterion asks for any specific personal action. Counting, comparing or overlaying measurements is explicitly a personal action, even when implementation was described as team work. Apply these six corrections equally to both versions. Original corpora and raw runs remain unchanged.",
+  "overrides": [
+    {"id": "holdout-1-en-missing", "expected_ask": false, "expected_gap": null},
+    {"id": "holdout-1-vi-missing", "expected_ask": false, "expected_gap": null},
+    {"id": "holdout-2-en-missing", "expected_ask": false, "expected_gap": null},
+    {"id": "holdout-2-vi-missing", "expected_ask": false, "expected_gap": null},
+    {"id": "holdout-3-en-missing", "expected_ask": false, "expected_gap": null},
+    {"id": "holdout-3-vi-missing", "expected_ask": false, "expected_gap": null}
+  ]
+}

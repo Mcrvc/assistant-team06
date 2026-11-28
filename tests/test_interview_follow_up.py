@@ -240,6 +240,21 @@ def test_json_transport_requests_a_constrained_schema(monkeypatch):
     assert payload["reasoning_effort"] == "none"
 
 
+def test_covered_unrelated_criterion_does_not_discard_a_real_gap():
+    parsed = interview_follow_up._coverage({"coverage": [
+        {"criterion_index": 0, "gap": None, "status": "present", "quote": ANSWER},
+        coverage(index=1),
+    ]}, ["Clarity", "Verified outcome"], ANSWER)
+    assert list(parsed) == [(1, "result_evidence_missing")]
+
+
+def test_uncertain_prior_evidence_cannot_create_a_question():
+    row = coverage(status="uncertain", evidence=["A quote from an earlier follow-up"])
+    parsed = interview_follow_up._coverage({"coverage": [row]}, ["Verified outcome"], ANSWER)
+    assert parsed[0, "result_evidence_missing"]["status"] == "uncertain"
+    assert parsed[0, "result_evidence_missing"]["evidence"] == []
+
+
 def test_two_question_budget_and_required_answer(setup):
     service, item = setup
     for index in range(3):

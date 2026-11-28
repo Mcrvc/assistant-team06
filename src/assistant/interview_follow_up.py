@@ -93,7 +93,8 @@ _COVERAGE_RULES = (
     "method; do not demand tool names, raw logs, formulas or more repetitions. "
     "Qualitative observations can verify qualitative improvements. If the candidate explicitly "
     "reports no improvement, do not invent an improvement claim. Information supplied earlier "
-    "or in other words counts. If a prior follow-up already asked this gap, mark it present. "
+    "or in other words counts. If a prior follow-up already asked this gap, mark uncertain "
+    "with quote empty, and do not repeat it. "
     "Use uncertain whenever the omission is debatable; prefer avoiding redundant questions. "
     "Return JSON with a flat coverage list. Each record has criterion_index (zero-based), "
     "gap, status (present, missing, uncertain, not_applicable), quote and missing_information. "
@@ -129,14 +130,18 @@ def _coverage(payload: dict, criteria: list, answer: str) -> dict:
             raise ValueError("Invalid criterion index")
         seen.add(index)
         gap, status, quote = entry.get("gap"), entry.get("status"), entry.get("quote", "")
-        if status == "not_applicable" and gap is None:
+        if status not in ("present", "missing", "uncertain", "not_applicable"):
+            raise ValueError("Invalid coverage status")
+        # Covered or inapplicable criteria without a supported gap cannot become
+        # question candidates. They must not discard valid findings for other criteria.
+        if status == "not_applicable" or (gap is None and status in ("present", "uncertain")):
             continue
         if isinstance(gap, str):
             gap = GAP_ALIASES.get(gap, gap)
         if not isinstance(gap, str) or gap not in GAPS:
             raise ValueError("Invalid gap")
-        if status not in ("present", "missing", "uncertain"):
-            raise ValueError("Invalid coverage status")
+        if status == "uncertain":
+            quote = ""
         if not isinstance(quote, str) or len(quote) > 300:
             raise ValueError("Invalid coverage evidence")
         if status != "uncertain" and not quote.strip():

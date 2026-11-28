@@ -35,3 +35,16 @@ def test_eval_keeps_provider_errors_separate_from_missed_questions(tmp_path, mon
     assert report["summary"]["missed_questions"] == 1
     assert report["results"][2]["asked"] is None
     assert len(report["corpus_sha256"]) == 64
+
+
+def test_label_review_is_applied_equally_without_changing_raw_rows():
+    path = Path(__file__).resolve().parents[1] / "eval" / "compare_follow_up_eval.py"
+    spec = importlib.util.spec_from_file_location("compare_follow_up_eval", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    rows = [{"id": "reviewed", "expected": True, "asked": False,
+             "gap_matches": True, "seconds": 1}]
+    report = module.summarize(rows, {"reviewed": {"expected_ask": False}})
+    assert report["summary"]["correct"] == 1
+    assert report["summary"]["missed"] == 0
+    assert rows[0]["expected"] is True
