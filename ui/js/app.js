@@ -192,9 +192,13 @@
     accounts: [newAccount(authenticatedUsername)]
   };
   const candidates = [];
+  let tabState = null;
   try { candidates.push(JSON.parse(localStorage.getItem(KEY))); } catch (_) { /* Storage may be disabled. */ }
   try {
-    if (window.name.startsWith(PREFIX)) candidates.push(JSON.parse(window.name.slice(PREFIX.length)));
+    if (window.name.startsWith(PREFIX)) {
+      const savedTab = JSON.parse(window.name.slice(PREFIX.length));
+      if (validState(savedTab)) { tabState = savedTab; candidates.push(savedTab); }
+    }
   } catch (_) { /* Ignore unrelated window names. */ }
   for (const candidate of candidates) {
     if (validState(candidate) && candidate.updatedAt >= state.updatedAt) state = candidate;
@@ -1291,46 +1295,50 @@
       interview = startInterview();
     }
 
-    let skipPageHideSave = false;
     let signOutAfterSave = false;
 
     function isServerInterview() {
       return Boolean(interview && interview.server === true && interview.id);
     }
 
-    let followPanel = null;
-    let followStamp = "";
     let followBusy = false;
     let awaitingFollowIndex = null;
-    function activeFollowUp() {
-      return (interview.followUps || []).find(f => f.parent_index === currentStep && f.status !== "invalidated")
-        || interview.followUp;
+    let currentFollowId = null;
+    let decisionTimer = null;
+    let changingQuestion = false;
+    let exitTarget = null;
+    const cursorKey = `yourin:cursor:${interview.id}`;
+    function activeFollowUp(index = currentStep) {
+      return [...(interview.followUps || [])].reverse().find(f => f.parent_index === index && f.status !== "invalidated");
     }
-    function advanceAfterDecision() {
-      if (awaitingFollowIndex === null) return;
-      const follow = (interview.followUps || []).find(f => f.parent_index === awaitingFollowIndex && f.status !== "invalidated");
-      if (!follow || ["generating", "ready"].includes(follow.status)) return;
-      const from = awaitingFollowIndex;
-      awaitingFollowIndex = null;
-      if (from < totalQuestions - 1) {
-        renderStep(from + 1);
-        saveProgressToServer(from + 1);
-      } else {
-        skipPageHideSave = true;
-        save();
-        go("done-interview.html");
-      }
+    function visibleFollowUp() {
+      return (interview.followUps || []).find(f => f.request_id === currentFollowId && ["ready", "answered"].includes(f.status));
     }
-    function followDraftKey() {
-      return `yourin:follow-up:${interview.id}:${activeFollowUp()?.request_id || "none"}`;
+    function followDraftKey(follow = visibleFollowUp() || activeFollowUp()) {
+      return `yourin:follow-up:${interview.id}:${follow?.request_id || "none"}`;
     }
-    function followDraft() {
-      try { return sessionStorage.getItem(followDraftKey()) || ""; } catch (_) { return ""; }
+    function followDraft(follow = visibleFollowUp() || activeFollowUp()) {
+      try { return sessionStorage.getItem(followDraftKey(follow)) ?? follow?.answer ?? ""; }
+      catch (_) { return follow?.answer || ""; }
+    }
+    function storeComposer() {
+      if (!answerInput) return;
+      const follow = visibleFollowUp();
+      if (follow) {
+        if (follow.status === "ready") {
+          try { sessionStorage.setItem(followDraftKey(follow), answerInput.value); } catch (_) {}
+        }
+      } else { interview.answers[currentStep] = answerInput.value; }
+      save();
+    }
+    function spokenQuestion() {
+      const follow = visibleFollowUp();
+      return follow ? `Regarding your previous answer: ${follow.question}` : (questions[currentStep] || "");
     }
     async function followWrite(action, extra = {}) {
       if (followBusy) return false;
       followBusy = true;
-      renderFollowUp();
+      const draftKey = followDraftKey();
       try {
         return await enqueueServerWrite(async () => {
           const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/follow-up${action}`, {
@@ -1343,87 +1351,57 @@
           }
           applyServerView(interview, result.data, { preserveDrafts: true });
           if (action === "/answer" || action === "/skip") {
-            try { sessionStorage.removeItem(followDraftKey()); } catch (_) {}
+            try { sessionStorage.removeItem(draftKey); } catch (_) {}
           }
           startGradingPoll();
-          advanceAfterDecision();
           return true;
         });
-      } finally {
-        followBusy = false;
-        followStamp = "";
-        renderFollowUp();
-      }
+      } finally { followBusy = false; }
     }
     async function saveFollowDraft() {
-      const follow = activeFollowUp();
-      const text = followDraft();
-      if (follow?.status !== "ready" || !text.trim()) return !followBusy;
+      const follow = visibleFollowUp();
+      const text = followDraft(follow);
+      if (follow?.status !== "ready" || !text.trim()) return true;
       return followWrite("/answer", { request_id: follow.request_id, text });
     }
-    function renderFollowUp() {
-      if (!followPanel) return;
-      const follow = activeFollowUp();
-      const eligible = follow && ["generating", "ready", "answered", "unavailable"].includes(follow.status);
-      const stamp = JSON.stringify([follow?.request_id, follow?.status, currentStep, followBusy]);
-      if (stamp === followStamp) return;
-      followStamp = stamp;
-      followPanel.replaceChildren();
-      followPanel.hidden = !isServerInterview() || interview.status === "finalized" || !eligible;
-      if (followPanel.hidden) return;
-      const title = document.createElement("h2");
-      title.textContent = `Follow-up on Question ${(follow?.parent_index || 0) + 1}`;
-      followPanel.append(title);
-      function button(label, action) {
-        const element = document.createElement("button");
-        element.type = "button";
-        element.className = "btn";
-        element.textContent = label;
-        element.disabled = followBusy;
-        element.addEventListener("click", action);
-        followPanel.append(element);
-      }
-      const message = document.createElement("p");
-      message.setAttribute("role", "status");
-      followPanel.append(message);
-      if (follow.status === "unavailable") {
-        message.textContent = "We could not check whether a follow-up is needed. You can continue to the next question.";
-      } else if (follow.status === "generating") {
-        message.textContent = "Checking whether your answer needs clarification. You can continue if this takes too long.";
-        button("Continue without waiting", () => followWrite("/skip", { request_id: follow.request_id }));
-      } else if (follow.status === "ready" || follow.status === "answered") {
-        message.textContent = "Please clarify this point before continuing. Your main question score is shown in the report.";
-        const quote = document.createElement("blockquote");
-        quote.textContent = follow.quote;
-        const question = document.createElement("p");
-        question.textContent = follow.question;
-        followPanel.append(quote, question);
-        if (follow.status === "answered") {
-          const saved = document.createElement("p");
-          saved.textContent = follow.answer;
-          followPanel.append(saved);
-        } else {
-          const label = document.createElement("label");
-          label.htmlFor = "follow-up-answer";
-          label.textContent = "Your follow-up answer";
-          const input = document.createElement("textarea");
-          input.id = "follow-up-answer";
-          input.maxLength = 10000;
-          input.rows = 4;
-          input.value = followDraft();
-          input.addEventListener("input", () => {
-            try { sessionStorage.setItem(followDraftKey(), input.value); } catch (_) {}
-          });
-          followPanel.append(label, input);
-          button("Submit follow-up answer", async () => {
-            if (!input.value.trim()) { input.focus(); return; }
-            await saveFollowDraft();
-          });
+    function clearDecisionTimer() {
+      if (decisionTimer) clearTimeout(decisionTimer);
+      decisionTimer = null;
+    }
+    async function advanceAfterDecision() {
+      if (awaitingFollowIndex === null || changingQuestion || exitTarget) return;
+      const from = awaitingFollowIndex;
+      const follow = activeFollowUp(from);
+      if (follow?.status === "generating") {
+        updateAnswerStatusUI();
+        if (nextBtn) nextBtn.disabled = true;
+        if (answerInput) answerInput.readOnly = true;
+        if (!decisionTimer) {
+          decisionTimer = setTimeout(async () => {
+            decisionTimer = null;
+            if (awaitingFollowIndex !== from || activeFollowUp(from)?.request_id !== follow.request_id) return;
+            await followWrite("/skip", { request_id: follow.request_id });
+            await advanceAfterDecision();
+          }, 15000);
         }
-      } else {
-        message.textContent = "Extra practice skipped.";
+        return;
       }
-
+      clearDecisionTimer();
+      awaitingFollowIndex = null;
+      if (follow?.status === "ready") renderStep(from, follow.request_id);
+      else await moveToNextMain(from);
+    }
+    async function moveToNextMain(from) {
+      if (from < totalQuestions - 1) {
+        if (isServerInterview() && !await saveProgressToServer(from + 1)) {
+          showAnswerError("Could not save your position. Try Next again.");
+          return;
+        }
+        renderStep(from + 1);
+      } else {
+        save();
+        go("done-interview.html");
+      }
     }
 
     let writeQueue = Promise.resolve();
@@ -1446,7 +1424,9 @@
 
     function applyServerView(target, view, options = {}) {
       if (!target || !view) return;
+      if (Number.isInteger(view.revision) && view.revision < target.revision) return;
       const preserveDrafts = options.preserveDrafts === true;
+      const draftSource = options.draftSource || target;
       if (typeof view.name === "string" && view.name.trim()) target.name = view.name.trim();
       if (typeof view.status === "string") target.status = view.status;
       if (Number.isInteger(view.revision)) target.revision = view.revision;
@@ -1463,8 +1443,8 @@
       target.followUps = view.follow_ups?.length ? view.follow_ups : (view.follow_up ? [view.follow_up] : []);
       target.gradingIds = (view.answers || []).map(answer => answer.grading_id);
       const answers = Array.isArray(view.answers) ? view.answers : [];
-      const prevAnswers = Array.isArray(target.answers) ? target.answers : [];
-      const prevSubmitted = Array.isArray(target.submittedTexts) ? target.submittedTexts : [];
+      const prevAnswers = Array.isArray(draftSource.answers) ? draftSource.answers : [];
+      const prevSubmitted = Array.isArray(draftSource.submittedTexts) ? draftSource.submittedTexts : [];
       const answerCount = (Array.isArray(view.questions) && view.questions.length)
         || (Number.isInteger(target.totalQuestions) && target.totalQuestions > 0 ? target.totalQuestions : 3);
       const texts = [];
@@ -1477,7 +1457,7 @@
         const serverText = typeof answer.text === "string" ? answer.text : "";
         const localText = typeof prevAnswers[i] === "string" ? prevAnswers[i] : "";
         const submittedText = typeof prevSubmitted[i] === "string" ? prevSubmitted[i] : "";
-        const hasUnsentDraft = preserveDrafts && localText !== submittedText;
+        const hasUnsentDraft = preserveDrafts && view.status !== "finalized" && localText !== submittedText;
         texts.push(hasUnsentDraft ? localText : serverText);
         serverTexts.push(serverText);
         statuses.push(typeof answer.grading_status === "string" ? answer.grading_status : "unanswered");
@@ -1490,7 +1470,6 @@
       target.answerErrors = errors;
       target.submittedTexts = serverTexts;
       save();
-      renderFollowUp();
     }
 
     async function refreshServerInterview() {
@@ -1499,8 +1478,13 @@
         loading: false,
         notify: false
       });
-      if (result.ok && result.data) applyServerView(interview, result.data, { preserveDrafts: true });
-      else if (result.status === 409) {
+      if (result.ok && result.data) {
+        applyServerView(interview, result.data, { preserveDrafts: true });
+        if (currentFollowId && !visibleFollowUp()) {
+          renderStep(currentStep);
+          showAnswerError("This follow-up changed in another tab. Your draft is kept in this tab; review the current main answer before continuing.");
+        }
+      } else if (result.status === 409) {
         // keep local state; backend may have moved
       }
       return result;
@@ -1517,9 +1501,12 @@
           return true;
         }
         try {
-          const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/answers/${index}`, {
+          const combined = activeFollowUp(index);
+          const retryCombined = status === "rejected" && text === submitted && combined?.status === "answered";
+          const path = retryCombined ? "follow-up/retry-grade" : `answers/${index}`;
+          const result = await api.request(`/api/interviews/${encodeURIComponent(interview.id)}/${path}`, {
             method: "POST",
-            body: JSON.stringify({ revision: interview.revision, text }),
+            body: JSON.stringify({ revision: interview.revision, ...(retryCombined ? { request_id: combined.request_id } : { text }) }),
             loading: false
           });
           if (!result.ok || !result.data) {
@@ -1540,7 +1527,7 @@
       });
     }
 
-    function saveProgressToServer(targetStep, status) {
+    function saveProgressToServer(targetStep, status = "in_progress", includeAnswers = false) {
       return enqueueServerWrite(async () => {
         if (!isServerInterview()) return true;
         const nextStatus = status === "interrupted" ? "interrupted" : "in_progress";
@@ -1553,7 +1540,7 @@
                 (Array.isArray(interview.questions) && interview.questions.length
                   ? interview.questions.length - 1 : 2), targetStep)),
               status: nextStatus,
-              answers: interview.answers
+              ...(includeAnswers ? { answers: interview.answers } : {})
             }),
             loading: false,
             notify: true
@@ -1582,7 +1569,7 @@
         }
         await refreshServerInterview();
         updateAnswerStatusUI();
-        advanceAfterDecision();
+        await advanceAfterDecision();
       }, 1500);
     }
 
@@ -1598,7 +1585,9 @@
         if (badge && badge.parentNode) badge.parentNode.insertBefore(element, badge.nextSibling);
       }
       const grade = Array.isArray(interview.answerGrades) ? interview.answerGrades[currentStep] : null;
-      if (status === "graded" && grade && typeof grade.score === "number") {
+      if (awaitingFollowIndex === currentStep && activeFollowUp()?.status === "generating") {
+        element.textContent = "Checking your answer...";
+      } else if (status === "graded" && grade && typeof grade.score === "number") {
         element.textContent = `Graded: ${grade.score}/10`;
       } else if (status === "pending") {
         element.textContent = "Grading...";
@@ -1610,6 +1599,24 @@
       } else {
         element.textContent = "";
       }
+      let retry = document.getElementById("retry-follow-up-grade");
+      if (!retry) {
+        retry = document.createElement("button");
+        retry.type = "button";
+        retry.id = "retry-follow-up-grade";
+        retry.className = "btn btn-secondary";
+        retry.textContent = "Retry grading";
+        retry.addEventListener("click", async () => {
+          const follow = activeFollowUp();
+          if (follow?.status !== "answered") return;
+          retry.disabled = true;
+          await followWrite("/retry-grade", { request_id: follow.request_id });
+          retry.disabled = false;
+          updateAnswerStatusUI();
+        });
+        element.after(retry);
+      }
+      retry.hidden = activeFollowUp()?.status !== "answered" || !["pending", "rejected"].includes(status);
     }
 
     if (isServerInterview()) {
@@ -1628,7 +1635,11 @@
           },
           notify: true
         });
-        if (initial.ok && initial.data) applyServerView(interview, initial.data);
+        if (initial.ok && initial.data) {
+          const tabInterview = tabState?.accounts.find(item => identity(item.username) === identity(tabState.currentAccount))
+            ?.interviews.find(item => item.id === interview.id);
+          applyServerView(interview, initial.data, { preserveDrafts: true, draftSource: tabInterview || interview });
+        }
       } catch (_) {}
       if (Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
         startGradingPoll();
@@ -1700,6 +1711,9 @@
     const exitModal = $("#interview-exit-modal");
     const exitModalName = $("#saved-name");
     const exitModalConfirmBtn = $("#exit-modal-confirm-btn");
+    const exitModalCancelBtn = $("#exit-modal-cancel-btn");
+    const exitError = $("#interview-exit-error");
+    const answerError = $("#interview-answer-error");
 
     const robotStage = $("#robot-stage");
     const robotReplayBtn = $("#robot-replay-btn");
@@ -1725,7 +1739,6 @@
     }
 
     let isRecording = false;
-    let recordingTimer = null;
 
     function setRobotGaze(x, y) {
       if (!robotStage) return;
@@ -1768,7 +1781,7 @@
       if (typingGazeTimer) clearTimeout(typingGazeTimer);
       resetRobotGaze();
 
-      const qText = questions[currentStep] || "";
+      const qText = spokenQuestion();
       if (window.Voice && typeof window.Voice.speak === "function" && window.Voice.ttsSupported()) {
         robotStage.classList.remove("is-miming", "is-listening", "is-watching", "is-typing");
         robotStage.classList.add("is-idle", "is-loading-tts");
@@ -1821,62 +1834,58 @@
       charCountEl.textContent = `${count} character${count === 1 ? "" : "s"}`;
     }
 
-    function renderStep(index) {
+    function renderStep(index, followId = null) {
+      if (isRecording) stopRecording();
+      stopRobotMime();
       currentStep = Math.max(0, Math.min(index, totalQuestions - 1));
-
+      currentFollowId = followId;
+      const follow = visibleFollowUp();
+      if (!follow) currentFollowId = null;
+      interview.currentQuestion = currentStep;
+      try { sessionStorage.setItem(cursorKey, JSON.stringify({ index: currentStep, followId: currentFollowId })); } catch (_) {}
       updateGenerationNotice();
-      if (questionTitle) questionTitle.textContent = `Question ${currentStep + 1}`;
-      if (questionBadge) questionBadge.textContent = `${currentStep + 1} of ${totalQuestions}`;
+      clearAnswerError();
+      if (questionTitle) questionTitle.textContent = `Question ${currentStep + 1}${follow ? " - Follow-up" : ""}`;
+      if (questionBadge) questionBadge.textContent = `${currentStep + 1} of ${totalQuestions}${follow ? " - Follow-up" : ""}`;
       updateAnswerStatusUI();
-      if (questionText) {
-        const text = questions[currentStep];
-        questionText.textContent = typeof text === "string" && text.trim()
-          ? text
-          : "This question is not available yet. Please reopen the interview from Your Interview.";
-      }
-      // Reveal the answer composer and navigation only once real content has
-      // been rendered, so the loading placeholder cannot leak into a session.
+      if (questionText) questionText.textContent = spokenQuestion() || "This question is not available yet. Reopen the interview from Your Interview.";
       if (answerSection) answerSection.classList.remove("is-hidden");
       if (interviewNavigation) interviewNavigation.classList.remove("is-hidden");
-      if (robotStage) robotStage.removeAttribute("aria-busy");
+      robotStage?.removeAttribute("aria-busy");
       if (answerInput) {
         answerInput.dataset.answer = currentStep;
-        answerInput.value = interview.answers[currentStep] || "";
+        answerInput.value = follow ? followDraft(follow) : (interview.answers[currentStep] || "");
+        answerInput.readOnly = follow?.status === "answered";
+        answerInput.maxLength = 10000;
         updateCharCount();
       }
-
+      if (micToggleBtn) micToggleBtn.disabled = follow?.status === "answered";
       if (prevBtn) {
-        if (currentStep === 0) {
-          prevBtn.classList.add("is-hidden");
-        } else {
-          prevBtn.classList.remove("is-hidden");
-        }
+        prevBtn.classList.toggle("is-hidden", currentStep === 0 && !follow);
+        prevBtn.disabled = false;
       }
-
       if (nextBtn) {
-        const hasCurrent = typeof questions[currentStep] === "string" && questions[currentStep].trim();
-        const hasNext = typeof questions[currentStep + 1] === "string" && questions[currentStep + 1].trim();
-        nextBtn.disabled = !hasCurrent || (currentStep < totalQuestions - 1 && !hasNext);
-        if (currentStep === totalQuestions - 1) {
-          nextBtn.textContent = "Finalize Interview";
-        } else {
-          nextBtn.textContent = "Next Question →";
-        }
+        nextBtn.disabled = !questions[currentStep]?.trim();
+        nextBtn.textContent = currentStep === totalQuestions - 1 ? "Finalize Interview" : "Next Question \u2192";
       }
-
-      if (isRecording) {
-        stopRecording();
-      }
-
-      renderFollowUp();
+      save();
       startRobotMime();
+    }
+    function clearAnswerError() {
+      if (answerError) answerError.hidden = true;
+      answerInput?.removeAttribute("aria-invalid");
+      answerInput?.setCustomValidity("");
+    }
+    function showAnswerError(message) {
+      if (answerError) { answerError.textContent = message; answerError.hidden = false; }
+      answerInput?.setAttribute("aria-invalid", "true");
+      answerInput?.focus();
     }
 
     if (answerInput) {
       answerInput.addEventListener("input", () => {
-        answerInput.setCustomValidity("");
-        interview.answers[currentStep] = answerInput.value;
-        save();
+        clearAnswerError();
+        storeComposer();
         updateCharCount();
         updateGazeOnTyping();
       });
@@ -1901,118 +1910,139 @@
       answerInput.addEventListener("click", updateGazeOnTyping);
     }
 
-    if (prevBtn) {
-      prevBtn.addEventListener("click", () => {
-        if (currentStep > 0) {
-          const fromStep = currentStep;
-          const toStep = currentStep - 1;
-          if (answerInput) interview.answers[fromStep] = answerInput.value;
-          save();
-          renderStep(toStep);
-          updateAnswerStatusUI();
-          if (isServerInterview()) {
-            submitCurrentAnswer(fromStep);
-            saveProgressToServer(toStep);
+    async function changeQuestion(direction, button) {
+      if (changingQuestion || exitTarget || !button || button.disabled) return;
+      const from = currentStep;
+      const follow = visibleFollowUp();
+      storeComposer();
+      if (direction > 0 && !answerInput.value.trim()) {
+        showAnswerError("Please answer this question before continuing.");
+        return;
+      }
+      changingQuestion = true;
+      clearDecisionTimer();
+      awaitingFollowIndex = null;
+      if (isRecording) stopRecording();
+      button.disabled = true;
+      answerInput.readOnly = true;
+      try {
+        if (direction < 0) {
+          // Previous keeps a local draft; it never silently submits an answer.
+          const previous = follow ? from : Math.max(0, from - 1);
+          if (isServerInterview() && !await saveProgressToServer(previous)) {
+            showAnswerError("Could not save your position. Try again."); return;
           }
-        }
-      });
-    }
-
-    if (nextBtn) {
-      nextBtn.addEventListener("click", async () => {
-        const fromStep = currentStep;
-        if (answerInput) interview.answers[fromStep] = answerInput.value;
-        save();
-        if (!String(interview.answers[fromStep] || "").trim()) {
-          answerInput.setCustomValidity("Please answer this question before continuing.");
-          answerInput.reportValidity();
-          return;
-        }
-        if (isServerInterview()) {
-          nextBtn.disabled = true;
-          try {
-            const follow = activeFollowUp();
-            if (follow?.parent_index === fromStep && follow.status === "ready" && !followDraft().trim()) {
-              document.getElementById("follow-up-answer")?.focus();
-              return;
-            }
-            if (!await saveFollowDraft() || !await submitCurrentAnswer(fromStep)) return;
-            if (!(interview.followUps || []).some(f => f.parent_index === fromStep && f.status !== "invalidated")) {
-              if (!await followWrite("", { parent_index: fromStep, parent_grading_id: interview.gradingIds[fromStep] })) return;
-            }
-            awaitingFollowIndex = fromStep;
-            advanceAfterDecision();
-            startGradingPoll();
-          } finally { nextBtn.disabled = false; }
-          return;
-        }
-        if (fromStep < totalQuestions - 1) renderStep(fromStep + 1);
-        else { save(); go("done-interview.html"); }
-      });
-    }
-
-    // Confirmed exit waits for both practice and main drafts.
-    if (exitModalConfirmBtn) {
-      exitModalConfirmBtn.addEventListener("click", async event => {
-        event.preventDefault();
-        exitModalConfirmBtn.textContent = "Saving...";
-        if (!await saveFollowDraft() || !await saveProgressToServer(currentStep, "interrupted")) {
-          exitModalConfirmBtn.textContent = "Save failed ? retry";
-          return;
-        }
-        if (signOutAfterSave) {
-          try { await api.signOut(); }
-          catch (_) { exitModalConfirmBtn.textContent = "Sign out failed ? retry"; return; }
-        }
-        skipPageHideSave = true;
-        go(exitModalConfirmBtn.getAttribute("href") || "dashboard.html");
-      });
-    }
-
-    function triggerSaveAndExit(targetHref) {
-      skipPageHideSave = true;
-      if (answerInput) interview.answers[currentStep] = answerInput.value;
-      save();
-      if (exitModal) {
-        if (exitModalName) exitModalName.textContent = interview.name;
-        if (exitModalConfirmBtn) {
-          const destination = targetHref || "dashboard.html";
-          exitModalConfirmBtn.href = destination;
-          exitModalConfirmBtn.textContent = "Save and leave";
-        }
-        exitModal.classList.remove("is-hidden");
-        $(".site-header").inert = true;
-        const mainPanel = $(".interview-panel");
-        if (mainPanel) mainPanel.inert = true;
-        const footer = $(".site-footer");
-        if (footer) footer.inert = true;
-        if (exitModalConfirmBtn) exitModalConfirmBtn.focus();
-      } else {
-        go("interview-interrupt.html");
+          const previousFollow = !follow ? activeFollowUp(previous) : null;
+          renderStep(previous, ["ready", "answered"].includes(previousFollow?.status) ? previousFollow.request_id : null);
+        } else if (follow) {
+          if (!await saveFollowDraft()) { showAnswerError("Could not save your follow-up. Try again."); return; }
+          await moveToNextMain(from);
+        } else if (isServerInterview()) {
+          if (!await submitCurrentAnswer(from)) { showAnswerError("Could not submit your answer. Try again."); return; }
+          if (!(interview.followUps || []).some(f => f.parent_index === from && f.status !== "invalidated")) {
+            if (!await followWrite("", { parent_index: from, parent_grading_id: interview.gradingIds[from] })) return;
+          }
+          awaitingFollowIndex = from;
+        } else { await moveToNextMain(from); }
+      } finally {
+        changingQuestion = false;
+        button.disabled = false;
+        answerInput.readOnly = visibleFollowUp()?.status === "answered";
+      }
+      if (awaitingFollowIndex !== null) {
+        await advanceAfterDecision();
+        startGradingPoll();
       }
     }
+    prevBtn?.addEventListener("click", () => changeQuestion(-1, prevBtn));
+    nextBtn?.addEventListener("click", () => changeQuestion(1, nextBtn));
 
+    const exitBackground = $$(".site-header, .interview-panel, .site-footer");
+    function setExitDialogOpen(open) {
+      exitModal.classList.toggle("is-hidden", !open);
+      exitBackground.forEach(element => { element.inert = open; });
+    }
+    exitModalConfirmBtn?.addEventListener("click", async event => {
+      event.preventDefault();
+      exitModalConfirmBtn.disabled = true;
+      exitModalCancelBtn.disabled = true;
+      exitModalConfirmBtn.textContent = "Saving...";
+      exitError.hidden = true;
+      if (isRecording) stopRecording();
+      storeComposer();
+      const saved = await saveFollowDraft() && await saveProgressToServer(currentStep, "interrupted", true);
+      await writeQueue;
+      if (!saved) {
+        exitError.textContent = "Could not save your interview. Try again or keep answering.";
+        exitError.hidden = false;
+        exitModalConfirmBtn.disabled = false;
+        exitModalCancelBtn.disabled = false;
+        exitModalConfirmBtn.textContent = "Save and leave";
+        return;
+      }
+      if (signOutAfterSave) {
+        try { await api.signOut(); }
+        catch (_) {
+          exitError.textContent = "Could not sign out. Try again.";
+          exitError.hidden = false;
+          exitModalConfirmBtn.disabled = false;
+          exitModalCancelBtn.disabled = false;
+          return;
+        }
+        try { sessionStorage.removeItem("yourin:redirectAfterLogin"); } catch (_) {}
+        cacheUsername("");
+      }
+      go(exitTarget || "dashboard.html");
+    });
+    exitModalCancelBtn?.addEventListener("click", () => {
+      exitTarget = null;
+      signOutAfterSave = false;
+      setExitDialogOpen(false);
+      answerInput?.focus();
+      advanceAfterDecision();
+    });
+    function triggerSaveAndExit(targetHref) {
+      if (changingQuestion || !exitModal || !exitModal.classList.contains("is-hidden")) return;
+      storeComposer();
+      exitTarget = targetHref || "dashboard.html";
+      if (exitModalName) exitModalName.textContent = interview.name;
+      exitError.hidden = true;
+      exitModalConfirmBtn.textContent = "Save and leave";
+      exitModalConfirmBtn.disabled = false;
+      exitModalCancelBtn.disabled = false;
+      setExitDialogOpen(true);
+      exitModalConfirmBtn.focus();
+    }
     interviewSignOut = () => {
       signOutAfterSave = true;
       triggerSaveAndExit("sign-in.html");
     };
-    $$(".site-header a").forEach(link => {
-      link.addEventListener("click", e => {
-        if (link.hasAttribute("data-sign-out")) return;
-        e.preventDefault();
+    $$(".site-header a:not([data-sign-out])").forEach(link => {
+      link.addEventListener("click", event => {
+        event.preventDefault();
         signOutAfterSave = false;
         triggerSaveAndExit(link.getAttribute("href") || "dashboard.html");
       });
     });
-
+    exitModal?.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !exitModalConfirmBtn.disabled) exitModalCancelBtn.click();
+      if (event.key === "Tab") {
+        event.preventDefault();
+        (document.activeElement === exitModalConfirmBtn ? exitModalCancelBtn : exitModalConfirmBtn).focus();
+      }
+    });
     try {
       history.pushState({ interview: true }, "");
-      window.addEventListener("popstate", () => {
-        triggerSaveAndExit("dashboard.html");
-      });
+      window.addEventListener("popstate", () => triggerSaveAndExit("dashboard.html"));
     } catch (_) {}
 
     function startRecording() {
+      if (!window.Voice?.sttSupported()) {
+        showAnswerError("Speech recognition is unavailable in this browser. Please type your answer.");
+        return;
+      }
+      const recordingStep = currentStep;
+      const recordingFollowId = currentFollowId;
       isRecording = true;
       if (window.Voice && typeof window.Voice.stopSpeaking === "function") {
         window.Voice.stopSpeaking();
@@ -2033,10 +2063,9 @@
         const started = window.Voice.startListening({
           getText: () => (answerInput ? answerInput.value : ""),
           onText: (text) => {
-            if (!answerInput) return;
+            if (!answerInput || !isRecording || currentStep !== recordingStep || currentFollowId !== recordingFollowId) return;
             answerInput.value = text;
-            interview.answers[currentStep] = text;
-            save();
+            storeComposer();
             updateCharCount();
           },
           onError: (err) => {
@@ -2052,25 +2081,12 @@
         if (started) return;
       }
 
-      recordingTimer = setTimeout(() => {
-        if (isRecording && answerInput) {
-          const sampleSpoken = [
-            " In my perspective, this role requires strong adaptability and rapid problem-solving.",
-            " Furthermore, I prioritize clear communication and delivering reliable results under pressure.",
-            " My previous background gives me a distinct advantage in tackling complex technical challenges."
-          ];
-          const addition = sampleSpoken[currentStep] || " I believe this approach creates the strongest foundation for success.";
-          answerInput.value = (answerInput.value.trim() ? answerInput.value.trim() + " " : "") + addition.trim();
-          interview.answers[currentStep] = answerInput.value;
-          save();
-          updateCharCount();
-        }
-      }, 2400);
+      stopRecording();
+      showAnswerError("Could not start speech recognition. Please try again or type your answer.");
     }
 
     function stopRecording() {
       isRecording = false;
-      if (recordingTimer) clearTimeout(recordingTimer);
       if (window.Voice && typeof window.Voice.stopListening === "function") {
         window.Voice.stopListening();
       }
@@ -2096,24 +2112,24 @@
     }
 
     $$("[data-save-answer]").forEach(link => link.addEventListener("click", () => {
-      if (answerInput) interview.answers[currentStep] = answerInput.value;
-      save();
-      if (isServerInterview()) saveProgressToServer(currentStep).catch(() => {});
+      storeComposer();
+      if (isServerInterview()) saveProgressToServer(currentStep, "in_progress", true).catch(() => {});
     }));
-
     window.addEventListener("pagehide", () => {
       if (gradingPoll) window.clearInterval(gradingPoll);
-      if (isServerInterview() && !skipPageHideSave) {
-        saveProgressToServer(currentStep, "interrupted").catch(() => {});
-      }
+      clearDecisionTimer();
+      // Drafts are persisted in the current tab on each input. A browser close
+      // cannot reliably complete HTTP writes or stand in for Save and leave.
     }, { once: true });
 
-    followPanel = document.createElement("section");
-    followPanel.id = "follow-up-practice";
-    followPanel.className = "answer-section";
-    followPanel.setAttribute("aria-label", "Follow-up question");
-    document.getElementById("answer-section")?.before(followPanel);
-    renderStep(currentStep);
+    let initialFollowId = null;
+    try {
+      const cursor = JSON.parse(sessionStorage.getItem(cursorKey));
+      if (cursor?.index === currentStep && (interview.followUps || []).some(f => f.request_id === cursor.followId && ["ready", "answered"].includes(f.status))) initialFollowId = cursor.followId;
+    } catch (_) {}
+    if (pendingFollow?.status === "ready") initialFollowId = pendingFollow.request_id;
+    renderStep(currentStep, initialFollowId);
+    if (pendingFollow) advanceAfterDecision();
     updateAnswerStatusUI();
     if ((interview.followUps || []).some(f => f.status === "generating")) startGradingPoll();
     if (isServerInterview() && Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
@@ -2610,7 +2626,43 @@
           : "This answer has not been graded yet.");
       feedbackBlock.append(feedbackHeader, feedbackCopy);
 
-      columns.append(answerBlock, feedbackBlock);
+      columns.append(answerBlock);
+      const practices = report?.follow_ups?.length ? report.follow_ups : (report?.follow_up ? [report.follow_up] : []);
+      for (const follow of practices.filter(f => f.status === "answered" && f.parent_index === index)) {
+        const block = document.createElement("section");
+        block.className = "answer-block report-follow-up";
+        const header = document.createElement("div");
+        header.className = "report-col-header";
+        const title = document.createElement("h3");
+        title.textContent = "Follow-up";
+        header.append(title);
+        const question = document.createElement("p");
+        question.textContent = follow.question;
+        const answer = document.createElement("p");
+        answer.className = "preserve-lines";
+        answer.textContent = follow.answer;
+        block.append(header, question, answer);
+        columns.append(block);
+      }
+      if (item?.includes_follow_up) {
+        const note = document.createElement("p");
+        note.textContent = "This score includes your original answer and follow-up.";
+        feedbackBlock.append(note);
+      }
+      if (item?.evidence?.length) {
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.textContent = "Evidence used for this score";
+        details.append(summary);
+        for (const text of item.evidence) {
+          const quote = document.createElement("blockquote");
+          quote.className = "preserve-lines";
+          quote.textContent = text;
+          details.append(quote);
+        }
+        feedbackBlock.append(details);
+      }
+      columns.append(feedbackBlock);
       card.append(question, columns);
       return card;
     }
@@ -2687,23 +2739,6 @@
       cardsContainer.replaceChildren();
       for (let index = 0; index < questionCount; index += 1) {
         cardsContainer.append(createReportCard(interview, report, index));
-      }
-
-      const practices = report?.follow_ups?.length ? report.follow_ups : (report?.follow_up ? [report.follow_up] : []);
-      const mainCards = Array.from(cardsContainer.children);
-      for (const practice of practices.filter(item => item.status === "answered")) {
-        const section = document.createElement("section");
-        section.className = "report-card";
-        for (const [tag, text] of [
-          ["h2", `Follow-up on Question ${practice.parent_index + 1}`],
-          ["p", "Follow-up answer. The main question score is shown separately."],
-          ["blockquote", practice.quote], ["p", practice.question], ["p", practice.answer]
-        ]) {
-          const element = document.createElement(tag);
-          element.textContent = text;
-          section.append(element);
-        }
-        mainCards[practice.parent_index]?.after(section);
       }
 
       const nameElement = $("#report-name");

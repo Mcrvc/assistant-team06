@@ -377,6 +377,29 @@ def test_combined_retry_survives_reload_and_does_not_enqueue_twice(setup):
     assert reloaded.get("owner", item["id"])["answers"][0]["grading_status"] == "graded"
 
 
+def test_http_retry_is_owned_and_replayed_without_another_ai_call(setup, monkeypatch):
+    service, item = setup
+    item = ready_follow(service, item)
+    item, _ = service.finish_follow_up("owner", item["id"], FollowUpAnswer(
+        revision=item["revision"], request_id=item["follow_up"]["request_id"], text="I ran ten requests."))
+    original = service.ai.grade_answer
+    calls = []
+    def grade(*args):
+        calls.append(args[-1])
+        return original(*args)
+    monkeypatch.setattr(service.ai, "grade_answer", grade)
+    path = "/api/interviews/" + item["id"]
+    body = {"revision": item["revision"], "request_id": item["follow_up"]["request_id"]}
+    with TestClient(create_app(service=service, auth_resolver=lambda request: request.headers.get("x-owner", "owner"))) as client:
+        assert client.post(path + "/follow-up/retry-grade", json=body, headers={"x-owner": "other"}).status_code == 404
+        assert client.post(path + "/follow-up/retry-grade", json=body).status_code == 200
+        assert client.post(path + "/follow-up/retry-grade", json=body).status_code == 200
+        saved = client.get(path).json()
+        assert saved["answers"][0]["grading_status"] == "graded"
+        assert saved["follow_up"]["answer"] == "I ran ten requests."
+        assert len(calls) == 1
+
+
 def test_edit_during_combined_grading_discards_late_result(setup, monkeypatch):
     service, item = setup
     item = ready_follow(service, item)
