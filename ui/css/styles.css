@@ -1025,7 +1025,7 @@ body[data-page="dashboard"] {
 
 .hero-mascot-arm-right {
   transform-origin: 131px 111px;
-  animation: dashboard-yori-wave 2.8s ease-in-out infinite;
+  animation: none;
 }
 
 .hero-mascot-head {
@@ -1058,10 +1058,6 @@ body[data-page="dashboard"] {
   filter: blur(3px);
   transform-origin: center center;
   animation: dashboard-yori-shadow 4.4s ease-in-out infinite;
-}
-
-.dashboard-hero-banner:hover .hero-mascot-arm-right {
-  animation-duration: 1.1s;
 }
 
 @keyframes dashboard-yori-float {

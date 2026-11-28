@@ -54,8 +54,8 @@
         animation: yori-sparkle-drift 3s ease-in-out 0.55s infinite;
       }
 
-      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-arm-right {
-        animation: yori-greeting-wave 2.5s ease-in-out both;
+      .dashboard-hero-banner .hero-mascot .hero-mascot-arm-right.is-waving {
+        animation: yori-arm-wave 2.5s ease-in-out both;
       }
 
       .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-eyes {
@@ -91,13 +91,15 @@
       50% { transform: translateY(-4px); opacity: 1; }
     }
 
-    @keyframes yori-greeting-wave {
-      0% { transform: rotate(-15deg); }
-      16% { transform: rotate(25deg); }
-      33% { transform: rotate(-15deg); }
-      50% { transform: rotate(25deg); }
-      66% { transform: rotate(-15deg); }
-      83% { transform: rotate(25deg); }
+    @keyframes yori-arm-wave {
+      0% { transform: rotate(0deg); }
+      10% { transform: rotate(-135deg); }
+      22% { transform: rotate(-120deg); }
+      34% { transform: rotate(-145deg); }
+      46% { transform: rotate(-120deg); }
+      58% { transform: rotate(-145deg); }
+      70% { transform: rotate(-120deg); }
+      82% { transform: rotate(-145deg); }
       100% { transform: rotate(0deg); }
     }
 
@@ -403,80 +405,97 @@
 <noscript><p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p></noscript>
 <script id="yori-mascot-motion-script">
   (() => {
-    const mascot = document.querySelector(".dashboard-hero-banner .hero-mascot");
-    if (!mascot) return;
+    function init() {
+      const mascot = document.querySelector(".dashboard-hero-banner .hero-mascot");
+      if (!mascot) return;
+      const waveArm = mascot.querySelector(".hero-mascot-arm-right");
+      if (!waveArm) return;
 
-    const motionQuery = window.matchMedia
-      ? window.matchMedia("(prefers-reduced-motion: reduce)")
-      : null;
-    const reduceMotion = () => Boolean(motionQuery && motionQuery.matches);
-    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+      const motionQuery = window.matchMedia
+        ? window.matchMedia("(prefers-reduced-motion: reduce)")
+        : null;
+      const reduceMotion = () => Boolean(motionQuery && motionQuery.matches);
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-    let frame = 0;
-    let pending = null;
-    let greetingTimer = 0;
+      let frame = 0;
+      let pending = null;
+      let greetingTimer = 0;
 
-    function resetTracking() {
-      pending = null;
-      if (frame) {
-        cancelAnimationFrame(frame);
-        frame = 0;
+      function resetTracking() {
+        pending = null;
+        if (frame) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
+        mascot.style.setProperty("--yori-face-x", "0px");
+        mascot.style.setProperty("--yori-face-y", "0px");
       }
-      mascot.style.setProperty("--yori-face-x", "0px");
-      mascot.style.setProperty("--yori-face-y", "0px");
-    }
 
-    function applyTracking() {
-      frame = 0;
-      if (!pending || reduceMotion()) return;
-      const rect = mascot.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
+      function applyTracking() {
+        frame = 0;
+        if (!pending || reduceMotion()) return;
+        const rect = mascot.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
 
-      const halfWidth = Math.max(rect.width / 2, 1);
-      const halfHeight = Math.max(rect.height / 2, 1);
-      const centerX = rect.left + halfWidth;
-      const centerY = rect.top + halfHeight;
-      const normX = clamp((pending.clientX - centerX) / halfWidth, -1, 1);
-      const normY = clamp((pending.clientY - centerY) / halfHeight, -1, 1);
+        const halfWidth = Math.max(rect.width / 2, 1);
+        const halfHeight = Math.max(rect.height / 2, 1);
+        const centerX = rect.left + halfWidth;
+        const centerY = rect.top + halfHeight;
+        const normX = clamp((pending.clientX - centerX) / halfWidth, -1, 1);
+        const normY = clamp((pending.clientY - centerY) / halfHeight, -1, 1);
 
-      mascot.style.setProperty("--yori-face-x", `${(normX * 6).toFixed(2)}px`);
-      mascot.style.setProperty("--yori-face-y", `${(normY * 4).toFixed(2)}px`);
-      pending = null;
-    }
+        mascot.style.setProperty("--yori-face-x", `${(normX * 6).toFixed(2)}px`);
+        mascot.style.setProperty("--yori-face-y", `${(normY * 4).toFixed(2)}px`);
+        pending = null;
+      }
 
-    function scheduleTracking(event) {
-      if (reduceMotion()) return;
-      pending = event;
-      if (!frame) frame = requestAnimationFrame(applyTracking);
-    }
+      function scheduleTracking(event) {
+        if (reduceMotion()) return;
+        pending = event;
+        if (!frame) frame = requestAnimationFrame(applyTracking);
+      }
 
-    function startGreeting() {
-      if (reduceMotion()) return;
-      mascot.classList.add("is-greeting");
-      greetingTimer = window.setTimeout(() => {
-        mascot.classList.remove("is-greeting");
-        greetingTimer = 0;
-      }, 2500);
-    }
-
-    startGreeting();
-
-    if (motionQuery && motionQuery.addEventListener) {
-      motionQuery.addEventListener("change", event => {
-        if (!event.matches) return;
+      function stopGreeting() {
         if (greetingTimer) {
           window.clearTimeout(greetingTimer);
           greetingTimer = 0;
         }
+        waveArm.classList.remove("is-waving");
         mascot.classList.remove("is-greeting");
-        resetTracking();
-      });
+      }
+
+      function startGreeting() {
+        if (reduceMotion()) return;
+        mascot.classList.add("is-greeting");
+        waveArm.classList.add("is-waving");
+        greetingTimer = window.setTimeout(() => {
+          waveArm.classList.remove("is-waving");
+          mascot.classList.remove("is-greeting");
+          greetingTimer = 0;
+        }, 2500);
+      }
+
+      startGreeting();
+
+      if (motionQuery && motionQuery.addEventListener) {
+        motionQuery.addEventListener("change", event => {
+          if (!event.matches) return;
+          stopGreeting();
+          resetTracking();
+        });
+      }
+
+      if (reduceMotion()) return;
+      window.addEventListener("mousemove", scheduleTracking, { passive: true });
+      document.addEventListener("mouseleave", resetTracking);
+      window.addEventListener("blur", resetTracking);
     }
 
-    if (reduceMotion()) return;
-    window.addEventListener("mousemove", scheduleTracking, { passive: true });
-    document.addEventListener("mouseleave", resetTracking);
-    window.addEventListener("blur", resetTracking);
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init, { once: true });
+    } else {
+      init();
+    }
   })();
 </script>
 </body>
