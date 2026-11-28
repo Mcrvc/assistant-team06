@@ -99,18 +99,29 @@ def test_provider_refuses_invalid_or_invented_quotes(monkeypatch, payload):
     with pytest.raises(ValueError):
         interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, [])
 
-def test_provider_uses_actual_answer_and_verifies_proposal(monkeypatch):
+def coverage(status="missing", index=0, gap="result_evidence_missing", evidence=None):
+    return {"criterion_index": index, "checks": [{"gap": gap, "status": status,
+            "evidence": evidence if evidence is not None else ["40%"],
+            "missing_information": "How the result was measured"}]}
+
+
+def test_provider_uses_actual_answer_and_independent_coverage(monkeypatch):
+    import json
     calls = []
     def complete(messages, **kwargs):
         calls.append(messages)
-        if len(calls) == 1:
-            return SimpleNamespace(text='{"ask":true,"criterion_index":0,"gap":"result_evidence_missing","quote":"40%","missing_information":"Measurement method","question":"How did you measure that?"}')
-        return SimpleNamespace(text='{"relevant":true,"already_answered":false,"useful":true}')
+        payload = {"coverage": [coverage()]}
+        if len(calls) == 2:
+            payload["questions"] = [{"criterion_index": 0, "gap": "result_evidence_missing", "question": "How did you measure that?"}]
+        return SimpleNamespace(text=json.dumps(payload))
     monkeypatch.setattr(interview_follow_up, "complete", complete)
-    assert interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, [])["quote"] == "40%"
-    assert ANSWER in calls[0][1]["content"]
+    result = interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, [])
+    assert result["quote"] == "40%"
     assert len(calls) == 2
-
+    second_input = json.loads(calls[1][1]["content"])
+    assert second_input["answer"] == ANSWER
+    assert second_input["candidate_keys"] == [{"criterion_index": 0, "gap": "result_evidence_missing"}]
+    assert "proposal" not in second_input and "missing_information" not in second_input
 
 
 def test_result_arriving_after_skip_is_ignored(setup, monkeypatch):
@@ -136,35 +147,61 @@ def test_answer_with_stale_revision_preserves_saved_state(setup):
     assert service.get("owner", item["id"]) == before
 
 
-@pytest.mark.parametrize("review", [
-    {"relevant": True, "already_answered": True, "useful": True},
-    {"relevant": False, "already_answered": False, "useful": True},
-    {"relevant": True, "already_answered": False, "useful": False},
-    {"relevant": "true", "already_answered": False, "useful": True},
-    {},
-])
-def test_reviewer_can_veto_unnecessary_questions(monkeypatch, review):
-    replies = iter([{"ask": True, "criterion_index": 0, "gap": "result_evidence_missing", "quote": "40%", "missing_information": "How measured", "question": "How measured?"}, review])
+@pytest.mark.parametrize("status", ["present", "uncertain"])
+def test_second_reader_can_find_information_elsewhere(monkeypatch, status):
+    replies = iter([
+        {"coverage": [coverage()]},
+        {"coverage": [coverage(status=status)], "questions": []},
+    ])
     monkeypatch.setattr(interview_follow_up, "_json_reply", lambda messages: next(replies))
     assert interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, []) is None
 
 
-def test_no_question_decision_uses_only_one_call(monkeypatch):
+def test_covered_answer_uses_only_one_call(monkeypatch):
     calls = []
     def reply(messages):
         calls.append(messages)
-        return {"ask": False}
+        return {"coverage": [coverage(status="present")]}
     monkeypatch.setattr(interview_follow_up, "_json_reply", reply)
     assert interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, []) is None
     assert len(calls) == 1
 
 
-@pytest.mark.parametrize("bad", [{"criterion_index": 10}, {"criterion_index": True}, {"gap": "low_score"}, {"quote": "invented"}])
-def test_proposal_must_match_criterion_and_quote(monkeypatch, bad):
-    proposal = {"ask": True, "criterion_index": 0, "gap": "result_evidence_missing", "quote": "40%", "missing_information": "How measured", "question": "How measured?", **bad}
-    monkeypatch.setattr(interview_follow_up, "_json_reply", lambda messages: proposal)
+@pytest.mark.parametrize("bad", [
+    {"criterion_index": 10}, {"criterion_index": True},
+    {"checks": [{"gap": "low_score", "status": "missing", "evidence": ["40%"]}]},
+    {"checks": [{"gap": "result_evidence_missing", "status": "missing", "evidence": ["invented"], "missing_information": "How measured"}]},
+    {"checks": [{"gap": "result_evidence_missing", "status": "present", "evidence": []}]},
+])
+def test_coverage_must_match_criterion_and_real_evidence(monkeypatch, bad):
+    monkeypatch.setattr(interview_follow_up, "_json_reply", lambda messages: {"coverage": [{**coverage(), **bad}]})
     with pytest.raises(ValueError):
         interview_follow_up.generate({"text": "What did you do?", "criteria": ["Verified outcome"]}, ANSWER, [])
+
+
+def test_all_criteria_are_considered_before_selecting(monkeypatch):
+    first = [coverage(status="present", gap="personal_action_missing"), coverage(index=1)]
+    second = {"coverage": first, "questions": [{"criterion_index": 1, "gap": "result_evidence_missing", "question": "How did you measure it?"}]}
+    replies = iter([{"coverage": first}, second])
+    monkeypatch.setattr(interview_follow_up, "_json_reply", lambda messages: next(replies))
+    result = interview_follow_up.generate({"text": "What did you do?", "criteria": ["Personal actions", "Verified outcome"]}, ANSWER, [])
+    assert result["criterion_index"] == 1
+
+
+def test_second_reader_cannot_reopen_a_covered_criterion(monkeypatch):
+    first = [coverage(status="present", gap="personal_action_missing"), coverage(index=1)]
+    second = {"coverage": [coverage(gap="personal_action_missing"), coverage(index=1)],
+              "questions": [{"criterion_index": 0, "gap": "personal_action_missing", "question": "What did you do?"}]}
+    replies = iter([{"coverage": first}, second])
+    monkeypatch.setattr(interview_follow_up, "_json_reply", lambda messages: next(replies))
+    with pytest.raises(ValueError):
+        interview_follow_up.generate({"text": "What did you do?", "criteria": ["Personal actions", "Verified outcome"]}, ANSWER, [])
+
+
+def test_omitted_criterion_fails_closed(monkeypatch):
+    monkeypatch.setattr(interview_follow_up, "_json_reply", lambda messages: {"coverage": [coverage()]})
+    with pytest.raises(ValueError):
+        interview_follow_up.generate({"text": "What did you do?", "criteria": ["Personal actions", "Verified outcome"]}, ANSWER, [])
 
 
 def test_two_question_budget_and_required_answer(setup):
