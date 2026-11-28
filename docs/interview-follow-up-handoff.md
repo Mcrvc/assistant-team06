@@ -17,7 +17,7 @@ Bản nháp câu phụ nằm trong sessionStorage theo buổi và mã yêu cầu
 - 280 bài kiểm thử mặc định qua. Có một cảnh báo TestClient đang dùng API cũ.
 - Ba bài Chrome qua, gồm tạo câu phụ → F5 giữ bản nháp → lưu → hoàn thành → xem lại trong báo cáo, lỗi AI giữ bản nháp chính, và đăng xuất sau khi lưu đáp án phụ.
 - NVIDIA thật với đáp án giả về cải thiện tốc độ 40% đã hỏi cách đo mức cải thiện. Với đáp án về bất đồng nhóm, AI hỏi tiêu chí dùng để so sánh hai đề xuất. Mỗi lượt mất khoảng một giây, cả hai đoạn trích khớp nguyên văn.
-- Máy kiểm tra chưa có dịch vụ PostgreSQL localhost, nên bài RPC bổ sung cần xác nhận qua CI. Kiểm thử ghi lên Supabase chung và website triển khai cần nhóm chạy sau khi review.
+- CI đã qua cả bộ mặc định và chín bài RPC trên PostgreSQL thử, gồm lưu và đọc lại câu phụ trong báo cáo. Kiểm thử ghi lên Supabase chung và website triển khai cần nhóm chạy sau khi review. [Kết quả CI của commit 301c45d](https://github.com/Mcrvc/assistant-team06/actions/runs/46116133957)
 
 Chạy bộ mặc định bằng `python -m pytest`. Chạy Chrome bằng `python -m pytest -m slow tests/test_follow_up_browser.py`, với Playwright và Chrome đã cài. Chạy RPC bằng `python -m pytest -m slow tests/test_supabase_interview_storage.py` khi có `INTERVIEW_TEST_POSTGRES_URL` trỏ tới localhost, tên database bắt đầu bằng `yourin_interview_test`.
 
