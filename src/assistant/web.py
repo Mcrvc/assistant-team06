@@ -23,7 +23,7 @@ from assistant.db import get_env_config, get_public_config, load_env_file
 from assistant.auth import SupabaseUserAuth
 from assistant.interview_schemas import (
     CreatedInterview, CreateInterview, FinalizeInterview, InterviewView,
-    Progress, SaveProgress, SubmitAnswer,
+    Progress, SaveProgress, SubmitAnswer, StartFollowUp, FollowUpAction, FollowUpAnswer,
 )
 from assistant.interview_runtime import configured_repository
 from assistant.interviews import InterviewError, InterviewService, progress, public_view
@@ -197,6 +197,23 @@ def create_app(*, service: InterviewService | None = None,
     @app.get("/api/interviews/{interview_id}/progress", response_model=Progress, tags=["Interviews"])
     def read_progress(interview_id: UUID, user: User, service: Service):
         return progress(service.get(user, str(interview_id)))
+
+    @app.post("/api/interviews/{interview_id}/follow-up", tags=["Interviews"])
+    def start_follow_up(interview_id: UUID, payload: StartFollowUp, tasks: BackgroundTasks,
+                        user: User, service: Service):
+        item, request_id = service.start_follow_up(user, str(interview_id), payload)
+        if request_id:
+            tasks.add_task(service.generate_follow_up, user, str(interview_id), request_id)
+        return JSONResponse(status_code=202 if item["follow_up"]["status"] == "generating" else 200,
+                            content=public_view(item))
+
+    @app.post("/api/interviews/{interview_id}/follow-up/answer", response_model=InterviewView, tags=["Interviews"])
+    def answer_follow_up(interview_id: UUID, payload: FollowUpAnswer, user: User, service: Service):
+        return public_view(service.finish_follow_up(user, str(interview_id), payload))
+
+    @app.post("/api/interviews/{interview_id}/follow-up/skip", response_model=InterviewView, tags=["Interviews"])
+    def skip_follow_up(interview_id: UUID, payload: FollowUpAction, user: User, service: Service):
+        return public_view(service.finish_follow_up(user, str(interview_id), payload, skip=True))
 
     @app.post("/api/interviews/{interview_id}/finalize", response_model=InterviewView, tags=["Interviews"])
     def finalize_interview(interview_id: UUID, payload: FinalizeInterview, user: User, service: Service):
