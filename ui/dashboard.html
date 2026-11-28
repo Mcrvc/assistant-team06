@@ -6,6 +6,105 @@
   <title>Dashboard · Yourin</title>
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css?v=20261128a">
+  <style id="yori-mascot-motion">
+    /* Scoped only to the dashboard YORI mascot. */
+    .dashboard-hero-banner .hero-mascot {
+      --yori-eye-x: 0px;
+      --yori-eye-y: 0px;
+      --yori-head-tilt: 0deg;
+    }
+
+    /* Resting arm replaces the old perpetual wave. */
+    .dashboard-hero-banner .hero-mascot .hero-mascot-arm-right {
+      transform-origin: 131px 111px;
+      transform: rotate(-118deg);
+      animation: none;
+      transition: transform 0.45s ease;
+    }
+
+    .dashboard-hero-banner .hero-mascot .hero-mascot-head {
+      transform-origin: 80px 94px;
+      transform: rotate(var(--yori-head-tilt));
+      animation: none;
+      transition: transform 0.2s ease-out;
+    }
+
+    .dashboard-hero-banner .hero-mascot .hero-mascot-eye,
+    .dashboard-hero-banner .hero-mascot .hero-mascot-pupil {
+      transform: translate(var(--yori-eye-x), var(--yori-eye-y));
+      transition: transform 0.2s ease-out;
+    }
+
+    .dashboard-hero-banner .hero-mascot .hero-mascot-happy-eyes {
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .dashboard-hero-banner .hero-mascot .hero-mascot-svg {
+        animation: yori-idle-float 3.5s ease-in-out infinite;
+      }
+
+      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-arm-right {
+        animation: yori-greeting-wave 2.5s ease-in-out both;
+      }
+
+      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-eyes {
+        opacity: 0;
+        animation: none;
+      }
+
+      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-happy-eyes {
+        opacity: 1;
+        animation: yori-happy-eyes 0.6s ease-out both;
+      }
+
+      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-antenna-tip {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: yori-antenna-pulse 1.25s ease-in-out infinite;
+      }
+
+      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-antenna-glow {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: yori-antenna-glow 1.25s ease-in-out infinite;
+      }
+    }
+
+    @keyframes yori-idle-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    @keyframes yori-greeting-wave {
+      0% { transform: rotate(-118deg); }
+      16% { transform: rotate(-150deg); }
+      32% { transform: rotate(-122deg); }
+      48% { transform: rotate(-150deg); }
+      64% { transform: rotate(-122deg); }
+      80% { transform: rotate(-145deg); }
+      100% { transform: rotate(-118deg); }
+    }
+
+    @keyframes yori-happy-eyes {
+      0% { opacity: 0; transform: scale(0.82); }
+      45% { opacity: 1; transform: scale(1.08); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes yori-antenna-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.16); }
+    }
+
+    @keyframes yori-antenna-glow {
+      0%, 100% { opacity: 0.55; transform: scale(0.82); }
+      50% { opacity: 1; transform: scale(1.14); }
+    }
+  </style>
   <script src="js/data.js?v=20261118" defer></script>
   <script src="js/ui.js?v=20261118" defer></script>
   <script src="js/errors.js?v=20261118" defer></script>
@@ -100,8 +199,8 @@
           <!-- Antenna -->
           <g class="hero-mascot-antenna">
             <line x1="80" y1="36" x2="80" y2="18" stroke="#4F8F9B" stroke-width="4" stroke-linecap="round"/>
-            <circle cx="80" cy="15" r="9" fill="#92C7CF"/>
-            <circle cx="80" cy="15" r="4.5" fill="#FBF9F1"/>
+            <circle class="hero-mascot-antenna-tip" cx="80" cy="15" r="9" fill="#92C7CF"/>
+            <circle class="hero-mascot-antenna-glow" cx="80" cy="15" r="4.5" fill="#FBF9F1"/>
           </g>
 
           <!-- Left arm (resting) -->
@@ -140,10 +239,14 @@
             <circle cx="48" cy="74" r="4.5" fill="#F4A5A5" opacity="0.88"/>
             <circle cx="112" cy="74" r="4.5" fill="#F4A5A5" opacity="0.88"/>
             <g class="hero-mascot-eyes">
-              <ellipse cx="58" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
-              <circle cx="60" cy="57.5" r="2" fill="#FFFFFF"/>
-              <ellipse cx="102" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
-              <circle cx="104" cy="57.5" r="2" fill="#FFFFFF"/>
+              <ellipse class="hero-mascot-eye" cx="58" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
+              <circle class="hero-mascot-pupil" cx="60" cy="57.5" r="2" fill="#FFFFFF"/>
+              <ellipse class="hero-mascot-eye" cx="102" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
+              <circle class="hero-mascot-pupil" cx="104" cy="57.5" r="2" fill="#FFFFFF"/>
+            </g>
+            <g class="hero-mascot-happy-eyes" aria-hidden="true">
+              <path d="M 52.5 62 Q 58 55 63.5 62" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
+              <path d="M 96.5 62 Q 102 55 107.5 62" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
             </g>
             <path class="hero-mascot-mouth" d="M 70 71 Q 80 80.5 90 71" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
           </g>
@@ -284,5 +387,85 @@
 </main>
 <footer class="site-footer"><span>Yourin · Interview AI Assistant</span></footer>
 <noscript><p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p></noscript>
+<script id="yori-mascot-motion-script">
+  (() => {
+    const mascot = document.querySelector(".dashboard-hero-banner .hero-mascot");
+    if (!mascot) return;
+
+    const motionQuery = window.matchMedia
+      ? window.matchMedia("(prefers-reduced-motion: reduce)")
+      : null;
+    const reduceMotion = () => Boolean(motionQuery && motionQuery.matches);
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+    let frame = 0;
+    let pending = null;
+    let greetingTimer = 0;
+
+    function resetTracking() {
+      pending = null;
+      if (frame) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      }
+      mascot.style.setProperty("--yori-eye-x", "0px");
+      mascot.style.setProperty("--yori-eye-y", "0px");
+      mascot.style.setProperty("--yori-head-tilt", "0deg");
+    }
+
+    function applyTracking() {
+      frame = 0;
+      if (!pending || reduceMotion()) return;
+      const rect = mascot.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const halfWidth = Math.max(rect.width / 2, 1);
+      const halfHeight = Math.max(rect.height / 2, 1);
+      const centerX = rect.left + halfWidth;
+      const centerY = rect.top + halfHeight;
+      const normX = clamp((pending.clientX - centerX) / halfWidth, -1, 1);
+      const normY = clamp((pending.clientY - centerY) / halfHeight, -1, 1);
+
+      mascot.style.setProperty("--yori-eye-x", `${(normX * 5).toFixed(2)}px`);
+      mascot.style.setProperty("--yori-eye-y", `${(normY * 5).toFixed(2)}px`);
+      mascot.style.setProperty("--yori-head-tilt", `${(normX * 3).toFixed(2)}deg`);
+      pending = null;
+    }
+
+    function scheduleTracking(event) {
+      if (reduceMotion()) return;
+      pending = event;
+      if (!frame) frame = requestAnimationFrame(applyTracking);
+    }
+
+    function startGreeting() {
+      if (reduceMotion()) return;
+      mascot.classList.add("is-greeting");
+      greetingTimer = window.setTimeout(() => {
+        mascot.classList.remove("is-greeting");
+        greetingTimer = 0;
+      }, 2500);
+    }
+
+    startGreeting();
+
+    if (motionQuery && motionQuery.addEventListener) {
+      motionQuery.addEventListener("change", event => {
+        if (!event.matches) return;
+        if (greetingTimer) {
+          window.clearTimeout(greetingTimer);
+          greetingTimer = 0;
+        }
+        mascot.classList.remove("is-greeting");
+        resetTracking();
+      });
+    }
+
+    if (reduceMotion()) return;
+    window.addEventListener("mousemove", scheduleTracking, { passive: true });
+    document.addEventListener("mouseleave", resetTracking);
+    window.addEventListener("blur", resetTracking);
+  })();
+</script>
 </body>
 </html>
