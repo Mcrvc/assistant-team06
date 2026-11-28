@@ -1256,6 +1256,11 @@
       }
     });
     $$("[data-save-job]").forEach(link => link.addEventListener("click", saveJob));
+    // Enable this form only after its submit handler and cached inputs are
+    // ready. An early native submit otherwise reloads the page and loses input.
+    $("#job-source").readOnly = false;
+    $("#job-form button[type='submit']").disabled = false;
+    $("#job-form").inert = false;
   }
 
   if (page === "interview" || page === "interview-1" || page === "interview-2" || page === "interview-3" || $("#interview-step-track")) {

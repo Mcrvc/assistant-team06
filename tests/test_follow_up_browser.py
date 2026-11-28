@@ -121,7 +121,11 @@ def start_interview(page, expect, base):
     expect(page.locator("[data-username]").first).to_have_text("playtester")
     page.locator("#job-source").fill("Python backend intern. Build APIs and write tests.")
     page.locator('#job-form button[type="submit"]').click()
-    page.wait_for_url("**/interview.html?id=*")
+    try:
+        page.wait_for_url("**/interview.html?id=*")
+    except Exception:
+        print("Interview creation diagnostics:", page.url, page.locator("#job-error").inner_text())
+        raise
     expect(page.locator("#question-badge")).to_have_text("1 of 3")
     expect(page.locator("#answer")).to_be_editable()
 

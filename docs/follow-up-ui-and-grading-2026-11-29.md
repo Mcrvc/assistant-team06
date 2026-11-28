@@ -16,6 +16,7 @@ Khi AI chọn câu phụ lỗi hoặc chưa xong sau 15 giây, trang chuyển ti
 ## Những sửa lỗi playtest đã có trong nhánh này
 
 - Chỉ mở ô trả lời sau khi tải xong câu hỏi.
+- Trang tạo buổi cũng chờ khởi tạo xong mới cho nhập và bấm Continue. CI phát hiện tên người dùng đã hiện từ bộ nhớ trong khi form chưa sẵn sàng, khiến nhập sớm có thể mất hoặc bấm Continue làm tải lại trang.
 - Báo rõ ngay dưới ô nhập khi bỏ trống; giữ nguyên câu khi nộp thất bại.
 - Chặn nhấn Next liên tục khi đang gửi; thử lại sau mất mạng không nộp/chấm trùng.
 - Giữ bản nháp chính khi F5 hoặc nhận kết quả chấm qua polling.
@@ -42,7 +43,7 @@ Save and leave lưu cả hai phần. Nếu đang nhập câu phụ và phần đ
 
 ## Kiểm tra lại
 
-Đã chạy qua 310 bài kiểm tra mặc định và 16 bài Chrome. Các trường hợp thêm gồm kết quả chấm cũ về muộn, sửa đáp án trong lúc chấm, gửi lại sau khi mất phản hồi, AI chọn câu phụ quá chậm và câu gốc bị sửa từ tab khác. Kiểm thử trình duyệt dùng tài khoản, dữ liệu và AI giả trên localhost; phần kết nối microphone/Replay có kiểm tra bằng bộ mô phỏng giọng nói.
+Đã chạy qua 310 bài kiểm tra mặc định và 17 bài Chrome. Các trường hợp thêm gồm kết quả chấm cũ về muộn, sửa đáp án trong lúc chấm, gửi lại sau khi mất phản hồi, AI chọn câu phụ quá chậm và câu gốc bị sửa từ tab khác. Kiểm thử trình duyệt dùng tài khoản, dữ liệu và AI giả trên localhost; phần kết nối microphone/Replay có kiểm tra bằng bộ mô phỏng giọng nói.
 
 Đã thử riêng hai lượt chấm NVIDIA thật với dữ liệu hoàn toàn giả. Điểm trước là 5,5/10; điểm sau bổ sung là 8,5/10. Cả hai lượt không dùng điểm mẫu và trích dẫn khớp văn bản. Không suy ra AI luôn chấm đúng từ một mẫu này. Các hạn chế khi chọn câu phụ vẫn được ghi trong [báo cáo stress test 204 mẫu](follow-up-coverage-fix-stress-test.md).
 
@@ -52,4 +53,4 @@ Save and leave lưu cả hai phần. Nếu đang nhập câu phụ và phần đ
 .\.venv\Scripts\python.exe -m pytest -m slow tests/test_interview_browser.py tests/test_follow_up_browser.py
 ```
 
-Các bài Chrome dùng Chrome đã cài trên máy. CI cài Chromium và chạy lại cả 16 bài, đồng thời chạy các bài RPC trên PostgreSQL thử ở localhost. Không có thử ghi lên Supabase chung hoặc deploy trong lượt này. Nhóm cần chạy lại luồng thật trên môi trường triển khai sau khi review và tích hợp.
+Các bài Chrome dùng Chrome đã cài trên máy. CI cài Chromium và chạy lại cả 17 bài, đồng thời chạy các bài RPC trên PostgreSQL thử ở localhost. Không có thử ghi lên Supabase chung hoặc deploy trong lượt này. Nhóm cần chạy lại luồng thật trên môi trường triển khai sau khi review và tích hợp.

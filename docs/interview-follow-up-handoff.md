@@ -27,7 +27,7 @@ Bản sửa cách chọn và phép đo trước/sau trên 204 mẫu nằm tại 
 Lượt thử lớn hơn đã phát hiện hỏi thừa và chọn nhầm tiêu chí. Xem [báo cáo 132 trường hợp cùng sáu lượt chẩn đoán](follow-up-large-test-2026-11-28.md) trước khi dùng kết quả bộ 24 mẫu bên dưới để đánh giá chất lượng.
 
 - Bộ mặc định hiện có 310 bài đã qua, gồm chấm chung, nộp lặp, thử chấm lại, kết quả chấm về muộn và sửa đáp án khi đang chấm. Có một cảnh báo TestClient đang dùng API cũ.
-- 16 bài Chrome đã qua, gồm chín bài từ playtest và bảy bài cho câu phụ: dùng chung Yori/Replay/microphone, F5, báo cáo, đăng xuất, lỗi lưu, AI chậm, mất phản hồi sau khi đã lưu, và sửa câu gốc ở tab khác.
+- 17 bài Chrome đã qua, gồm chín bài từ playtest, một bài chặn nhập khi trang tạo buổi chưa khởi tạo xong và bảy bài cho câu phụ: dùng chung Yori/Replay/microphone, F5, báo cáo, đăng xuất, lỗi lưu, AI chậm, mất phản hồi sau khi đã lưu, và sửa câu gốc ở tab khác.
 - NVIDIA thật đã chấm một cặp đáp án giả cho bản chấm chung: điểm trước 5,5/10, sau bổ sung 8,5/10; không dùng điểm mẫu và toàn bộ trích dẫn khớp nội dung. Đây là kiểm tra đường chạy, không phải phép đo độ chính xác tổng quát.
 - NVIDIA thật đã chạy 24 đáp án giả có kỳ vọng trước, gồm 12 bản thiếu thông tin và 12 bản đã giải thích đủ. Lượt này không hỏi thừa, không bỏ sót, không chọn sai loại thiếu thông tin và không gặp lỗi nhà cung cấp. Trung bình 1,29 giây cho bước chọn và kiểm tra. Bộ mẫu này cần được mở rộng bằng đáp án đa dạng hơn khi nhóm dùng thử.
 - Chạy lại đánh giá bằng `python eval/follow_up_eval.py`, dùng các mẫu trong `eval/follow_up_cases.json` và cấu hình NVIDIA trên máy.

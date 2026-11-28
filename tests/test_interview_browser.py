@@ -123,8 +123,34 @@ def start_interview(page, expect, base):
     expect(page.locator("[data-username]").first).to_have_text("playtester")
     page.locator("#job-source").fill("Python backend intern. Build APIs and write tests.")
     page.locator('#job-form button[type="submit"]').click()
-    page.wait_for_url("**/interview.html?id=*")
+    try:
+        page.wait_for_url("**/interview.html?id=*")
+    except Exception:
+        print("Interview creation diagnostics:", page.url, page.locator("#job-error").inner_text())
+        raise
     expect(page.locator("#question-badge")).to_have_text("1 of 3")
+    expect(page.locator("#answer")).to_be_editable()
+
+
+def test_job_form_waits_for_initialization_before_accepting_input(browser_page, website):
+    page, expect = browser_page
+    page.goto(website + "/sign-in.html")
+    sign_in(page)
+    page.wait_for_url("**/dashboard.html")
+    pending = []
+    page.route("**/js/app.js*", lambda route: pending.append(route))
+    page.goto(website + "/job-profile.html", wait_until="commit")
+    expect(page.locator("#job-source")).to_have_attribute("readonly", "")
+    expect(page.locator('#job-form button[type="submit"]')).to_be_disabled()
+    assert page.locator("#job-form").evaluate("form => form.inert")
+    assert len(pending) == 1
+    pending[0].continue_()
+    page.unroute("**/js/app.js*")
+    expect(page.locator("#job-source")).to_be_editable()
+    expect(page.locator('#job-form button[type="submit"]')).to_be_enabled()
+    page.locator("#job-source").fill("Python backend intern. Build APIs and write tests.")
+    page.locator('#job-form button[type="submit"]').click()
+    page.wait_for_url("**/interview.html?id=*")
     expect(page.locator("#answer")).to_be_editable()
 
 
