@@ -1,0 +1,1548 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "corpus_sha256": "f950cd7ae695797da22fd2f047ddbc35ac7a4bdf0aa399e25f849cee9fab2e7c",
+  "completed": 120,
+  "total": 120,
+  "results": [
+    {
+      "id": "personal_action_missing-1-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Our team resolved conflicting designs and delivered on time.",
+        "missing_information": "The answer only states what the team did collectively and does not describe any specific action taken by the individual.",
+        "question": "What specific action did you personally take to resolve the conflicting designs?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 7.82
+    },
+    {
+      "id": "personal_action_missing-2-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 0.63
+    },
+    {
+      "id": "personal_action_missing-3-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "We fixed a deployment failure together.",
+        "missing_information": "The answer only describes a collective team effort and does not state what the individual personally did to resolve the problem.",
+        "question": "What specific actions did you personally take to resolve the deployment failure?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 2.32
+    },
+    {
+      "id": "personal_action_missing-4-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 0.62
+    },
+    {
+      "id": "personal_action_missing-5-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Our group divided tasks and finished the library app.",
+        "missing_information": "The answer only states what the group did collectively; it does not describe any specific action taken by the individual to resolve the problem.",
+        "question": "What specific action did you personally take to resolve the team problem?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 1.82
+    },
+    {
+      "id": "personal_action_missing-6-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 0.65
+    },
+    {
+      "id": "personal_action_missing-7-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Everyone discussed the disagreement until we reached agreement.",
+        "missing_information": "The answer only describes what the team collectively did; it does not state what the candidate personally did to resolve the problem.",
+        "question": "What specific actions did you personally take to help resolve the team disagreement?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 1.72
+    },
+    {
+      "id": "personal_action_missing-8-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 0.64
+    },
+    {
+      "id": "decision_reason_missing-9-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I chose Redis for the API.",
+        "missing_information": "The answer states the choice of Redis but does not explain why it was selected or how it addressed the problem.",
+        "question": "Why did you choose Redis for the API, and how did that choice address the problem you were solving?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 3.74
+    },
+    {
+      "id": "decision_reason_missing-10-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 0.61
+    },
+    {
+      "id": "decision_reason_missing-11-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I used PostgreSQL rather than storing JSON files.",
+        "missing_information": "The answer states the choice but not why PostgreSQL was selected or how it addressed the problem compared to JSON files.",
+        "question": "Why did you choose PostgreSQL over JSON files, and how did that address the problem?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 1.81
+    },
+    {
+      "id": "decision_reason_missing-12-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 0.68
+    },
+    {
+      "id": "decision_reason_missing-13-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I chose a queue for sending emails.",
+        "missing_information": "The answer states the chosen approach but does not explain why it was chosen or how it addressed the problem.",
+        "question": "Why did you choose a queue for sending emails, and how did that address the problem?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 2.03
+    },
+    {
+      "id": "decision_reason_missing-14-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 0.78
+    },
+    {
+      "id": "decision_reason_missing-15-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "The project uses a shared validation schema that I selected.",
+        "missing_information": "The answer states a design choice was made but does not explain why that approach was chosen or how it addressed the problem.",
+        "question": "Why did you choose a shared validation schema, and how did it address the problem you were solving?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 1.79
+    },
+    {
+      "id": "decision_reason_missing-16-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 0.61
+    },
+    {
+      "id": "result_evidence_missing-17-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "I reduced API latency by 40%.",
+        "missing_information": "The answer states a 40% latency reduction but does not explain how this improvement was verified or measured.",
+        "question": "How did you verify the 40% reduction in API latency?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 2.15
+    },
+    {
+      "id": "result_evidence_missing-18-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 0.73
+    },
+    {
+      "id": "result_evidence_missing-19-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "The new validation reduced invalid registrations.",
+        "missing_information": "The answer claims invalid registrations were reduced but does not state how this was verified or what evidence confirmed the improvement.",
+        "question": "How did you verify that invalid registrations were reduced, and what specific evidence or metrics did you use?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 1.91
+    },
+    {
+      "id": "result_evidence_missing-20-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 5.03
+    },
+    {
+      "id": "result_evidence_missing-21-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Our update improved user satisfaction.",
+        "missing_information": "The answer claims user satisfaction improved but does not explain how this was verified or measured.",
+        "question": "How did you verify that user satisfaction improved after the update?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 1.73
+    },
+    {
+      "id": "result_evidence_missing-22-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 1.99
+    },
+    {
+      "id": "result_evidence_missing-23-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Search latency fell from 600 to 180 milliseconds.",
+        "missing_information": "The answer states the outcome but does not explain how the improvement was verified or measured.",
+        "question": "How did you verify that search latency actually fell from 600 to 180 milliseconds?"
+      },
+      "category": "baseline",
+      "language": "en",
+      "seconds": 2.0
+    },
+    {
+      "id": "result_evidence_missing-24-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "baseline",
+      "language": "en",
+      "seconds": 2.4
+    },
+    {
+      "id": "expanded-personal_action_missing-1-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "We completed a school library application despite disagreement about task allocation.",
+        "missing_information": "The answer only states what the team accomplished together and does not describe any specific actions the individual personally took to resolve the task allocation disagreement.",
+        "question": "What specific actions did you personally take to resolve the disagreement about task allocation?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 2.26
+    },
+    {
+      "id": "expanded-personal_action_missing-1-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.66
+    },
+    {
+      "id": "expanded-personal_action_missing-1-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Nhóm em hoàn thành ứng dụng thư viện dù ban đầu không thống nhất cách chia việc.",
+        "missing_information": "Câu trả lời chưa nêu hành động cụ thể của bản thân để giải quyết việc không thống nhất chia việc trong nhóm.",
+        "question": "Bạn đã làm gì cụ thể để giúp nhóm thống nhất cách chia việc?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.82
+    },
+    {
+      "id": "expanded-personal_action_missing-1-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.66
+    },
+    {
+      "id": "expanded-personal_action_missing-2-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Our restaurant team resolved confusion about table assignments during a busy evening.",
+        "missing_information": "The answer states what the team did but does not describe any specific action the respondent personally took to resolve the table assignment confusion.",
+        "question": "What specific actions did you personally take to resolve the table assignment confusion?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 3.89
+    },
+    {
+      "id": "expanded-personal_action_missing-2-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.64
+    },
+    {
+      "id": "expanded-personal_action_missing-2-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Cả nhóm ở quán đã giải quyết chuyện phân bàn lộn xộn vào tối đông khách.",
+        "missing_information": "Câu trả lời chỉ dùng 'cả nhóm' và không nêu hành động cụ thể của bản thân để giải quyết vấn đề phân bàn.",
+        "question": "Bạn cá nhân đã làm gì để giải quyết vấn đề phân bàn lộn xộn vào tối đông khách?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 2.01
+    },
+    {
+      "id": "expanded-personal_action_missing-2-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.65
+    },
+    {
+      "id": "expanded-personal_action_missing-3-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Our volunteer group fixed a conflict about the event schedule.",
+        "missing_information": "The answer only states what the group did collectively; it does not describe any specific action the respondent personally took to resolve the conflict.",
+        "question": "What specific action did you personally take to help resolve the schedule conflict?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 6.46
+    },
+    {
+      "id": "expanded-personal_action_missing-3-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.65
+    },
+    {
+      "id": "expanded-personal_action_missing-3-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Nhóm tình nguyện giải quyết được bất đồng về lịch tổ chức sự kiện.",
+        "missing_information": "Câu trả lời chỉ nói nhóm đã giải quyết bất đồng, không nêu hành động cụ thể của bản thân trong việc đó.",
+        "question": "Bạn đã làm gì cụ thể để giúp nhóm giải quyết bất đồng về lịch tổ chức sự kiện?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 2.19
+    },
+    {
+      "id": "expanded-personal_action_missing-3-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.63
+    },
+    {
+      "id": "expanded-personal_action_missing-4-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "We corrected the inconsistent labels in our research dataset.",
+        "missing_information": "The answer only states what the team did collectively and does not describe any specific action the individual personally took to resolve the problem.",
+        "question": "What specific actions did you personally take to correct the inconsistent labels?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.93
+    },
+    {
+      "id": "expanded-personal_action_missing-4-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.67
+    },
+    {
+      "id": "expanded-personal_action_missing-4-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Nhóm nghiên cứu đã sửa được lỗi gán nhãn không thống nhất.",
+        "missing_information": "Câu trả lời chỉ nêu kết quả chung của nhóm, chưa mô tả hành động cụ thể mà bạn cá nhân đã thực hiện để giải quyết khó khăn.",
+        "question": "Bạn đã làm gì cụ thể để giúp nhóm sửa lỗi gán nhãn không thống nhất?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 2.52
+    },
+    {
+      "id": "expanded-personal_action_missing-4-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.62
+    },
+    {
+      "id": "expanded-personal_action_missing-5-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "The design team reached agreement on the registration screen.",
+        "missing_information": "The answer states a team outcome but does not describe any specific actions the individual personally took to resolve the problem.",
+        "question": "What specific actions did you personally take to help the design team reach agreement on the registration screen?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.92
+    },
+    {
+      "id": "expanded-personal_action_missing-5-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.65
+    },
+    {
+      "id": "expanded-personal_action_missing-5-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Nhóm thiết kế cuối cùng thống nhất được màn hình đăng ký.",
+        "missing_information": "Câu trả lời chỉ nêu kết quả chung của nhóm, chưa mô tả hành động cụ thể của bản thân để giải quyết khó khăn.",
+        "question": "Bạn đã làm gì cụ thể để giúp nhóm thống nhất màn hình đăng ký?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.98
+    },
+    {
+      "id": "expanded-personal_action_missing-5-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.66
+    },
+    {
+      "id": "expanded-personal_action_missing-6-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Our robotics group resolved a problem with the sensor calibration.",
+        "missing_information": "The answer states the team resolved a sensor calibration problem but does not describe any specific actions the individual personally took.",
+        "question": "What specific actions did you personally take to resolve the sensor calibration problem?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.75
+    },
+    {
+      "id": "expanded-personal_action_missing-6-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.61
+    },
+    {
+      "id": "expanded-personal_action_missing-6-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Nhóm robot đã xử lý được vấn đề hiệu chỉnh cảm biến.",
+        "missing_information": "Câu trả lời chỉ nêu nhóm đã làm gì, chưa nêu chính bạn đã làm hành động cụ thể nào để giải quyết khó khăn.",
+        "question": "Bạn đã làm việc cụ thể nào để giúp nhóm xử lý vấn đề hiệu chỉnh cảm biến?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 2.72
+    },
+    {
+      "id": "expanded-personal_action_missing-6-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.68
+    },
+    {
+      "id": "expanded-decision_reason_missing-1-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I chose a relational database for the reservation project.",
+        "missing_information": "The answer states the choice but does not explain why a relational database was selected or how it relates to the reservation project's problem.",
+        "question": "Why did you choose a relational database for the reservation project?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 3.05
+    },
+    {
+      "id": "expanded-decision_reason_missing-1-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.67
+    },
+    {
+      "id": "expanded-decision_reason_missing-1-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "Em chọn cơ sở dữ liệu quan hệ cho ứng dụng đặt chỗ.",
+        "missing_information": "Câu trả lời chỉ nêu lựa chọn cơ sở dữ liệu quan hệ nhưng chưa giải thích lý do chọn cách làm này để giải quyết vấn đề.",
+        "question": "Bạn chọn cơ sở dữ liệu quan hệ vì lý do gì?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 5.28
+    },
+    {
+      "id": "expanded-decision_reason_missing-1-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.67
+    },
+    {
+      "id": "expanded-decision_reason_missing-2-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I decided to use a paper checklist during equipment handover.",
+        "missing_information": "The answer states a choice but does not explain why it was made or how it relates to any problem.",
+        "question": "What problem led you to choose a paper checklist for equipment handover, and why did you choose that option?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.97
+    },
+    {
+      "id": "expanded-decision_reason_missing-2-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.65
+    },
+    {
+      "id": "expanded-decision_reason_missing-2-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "Tôi quyết định dùng phiếu giấy khi bàn giao thiết bị.",
+        "missing_information": "Câu trả lời chỉ nêu cách làm nhưng chưa giải thích lý do chọn phiếu giấy thay vì các phương án khác.",
+        "question": "Tại sao bạn chọn dùng phiếu giấy khi bàn giao thiết bị thay vì các phương án khác?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.92
+    },
+    {
+      "id": "expanded-decision_reason_missing-2-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.7
+    },
+    {
+      "id": "expanded-decision_reason_missing-3-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I selected stratified sampling for our survey.",
+        "missing_information": "The answer states a choice but does not explain why stratified sampling was selected or how it related to the problem.",
+        "question": "Why did you choose stratified sampling, and how did that reason relate to the problem you were trying to solve?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.86
+    },
+    {
+      "id": "expanded-decision_reason_missing-3-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.66
+    },
+    {
+      "id": "expanded-decision_reason_missing-3-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "Em chọn lấy mẫu phân tầng cho khảo sát.",
+        "missing_information": "Câu trả lời chỉ nêu phương án chọn mà chưa giải thích lý do tại sao chọn lấy mẫu phân tầng để giải quyết vấn đề.",
+        "question": "Vì sao em chọn lấy mẫu phân tầng cho khảo sát?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 2.12
+    },
+    {
+      "id": "expanded-decision_reason_missing-3-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.92
+    },
+    {
+      "id": "expanded-decision_reason_missing-4-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I used a queue for document conversion.",
+        "missing_information": "The answer states a choice but does not explain why a queue was selected or what problem it addressed.",
+        "question": "Why did you choose a queue for document conversion, and what problem were you trying to solve?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.82
+    },
+    {
+      "id": "expanded-decision_reason_missing-4-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.65
+    },
+    {
+      "id": "expanded-decision_reason_missing-4-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "Mình dùng hàng đợi để chuyển đổi tài liệu.",
+        "missing_information": "Câu trả lời chỉ nêu cách làm nhưng chưa giải thích lý do chọn hàng đợi để chuyển đổi tài liệu.",
+        "question": "Tại sao bạn chọn hàng đợi để chuyển đổi tài liệu?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.96
+    },
+    {
+      "id": "expanded-decision_reason_missing-4-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.66
+    },
+    {
+      "id": "expanded-decision_reason_missing-5-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I picked a blue high-contrast design for the control panel.",
+        "missing_information": "The answer states a choice but does not explain why blue high-contrast was selected or how it relates to the problem.",
+        "question": "Why did you choose a blue high-contrast design for the control panel, and how did that address the problem?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.8
+    },
+    {
+      "id": "expanded-decision_reason_missing-5-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.65
+    },
+    {
+      "id": "expanded-decision_reason_missing-5-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "Tôi chọn giao diện tương phản cao cho bảng điều khiển.",
+        "missing_information": "Câu trả lời chỉ nêu cách làm đã chọn nhưng chưa giải thích lý do lựa chọn giao diện tương phản cao để giải quyết vấn đề.",
+        "question": "Bạn chọn giao diện tương phản cao vì lý do gì, và cách làm này giúp giải quyết vấn đề ra sao?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 2.04
+    },
+    {
+      "id": "expanded-decision_reason_missing-5-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.65
+    },
+    {
+      "id": "expanded-decision_reason_missing-6-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "I chose integration tests for the payment callback.",
+        "missing_information": "The answer states a choice but does not explain why integration tests were selected for the payment callback or how that relates to the problem.",
+        "question": "Why did you choose integration tests for the payment callback, and how did that address the problem?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.8
+    },
+    {
+      "id": "expanded-decision_reason_missing-6-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.61
+    },
+    {
+      "id": "expanded-decision_reason_missing-6-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "Em chọn kiểm thử tích hợp cho thông báo thanh toán.",
+        "missing_information": "Câu trả lời chỉ nêu cách làm đã chọn nhưng chưa giải thích lý do tại sao chọn kiểm thử tích hợp cho thông báo thanh toán.",
+        "question": "Vì sao bạn chọn kiểm thử tích hợp cho thông báo thanh toán?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.8
+    },
+    {
+      "id": "expanded-decision_reason_missing-6-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.81
+    },
+    {
+      "id": "expanded-result_evidence_missing-1-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "I reduced failed registrations by half.",
+        "missing_information": "The answer claims an improvement but does not explain how the reduction was verified through observations or measurements.",
+        "question": "How did you verify that failed registrations were reduced by half?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.68
+    },
+    {
+      "id": "expanded-result_evidence_missing-1-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.81
+    },
+    {
+      "id": "expanded-result_evidence_missing-1-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Em giảm một nửa số lần đăng ký lỗi.",
+        "missing_information": "Câu trả lời khẳng định kết quả nhưng không giải thích cách kiểm tra bằng quan sát hoặc đo đạc.",
+        "question": "Bạn đã kiểm tra kết quả bằng cách quan sát hay đo đạc như thế nào?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.86
+    },
+    {
+      "id": "expanded-result_evidence_missing-1-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.66
+    },
+    {
+      "id": "expanded-result_evidence_missing-2-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "My checklist reduced missing items during equipment handover.",
+        "missing_information": "The answer claims the checklist reduced missing items but does not explain how this was verified with observations or measurements.",
+        "question": "How did you verify that the checklist reduced missing items during equipment handover?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.75
+    },
+    {
+      "id": "expanded-result_evidence_missing-2-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.67
+    },
+    {
+      "id": "expanded-result_evidence_missing-2-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Phiếu kiểm tra của tôi giảm tình trạng thiếu thiết bị khi bàn giao.",
+        "missing_information": "Câu trả lời chưa nêu cách kiểm tra kết quả bằng quan sát hoặc đo đạc, ví dụ so sánh số lượng thiết bị thiếu trước và sau khi áp dụng phiếu kiểm tra.",
+        "question": "Bạn đã kiểm tra kết quả ra sao, ví dụ bằng cách quan sát hoặc đo đạc số lượng thiết bị thiếu trước và sau khi dùng phiếu kiểm tra?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 2.13
+    },
+    {
+      "id": "expanded-result_evidence_missing-2-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.72
+    },
+    {
+      "id": "expanded-result_evidence_missing-3-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "The new search feature made results noticeably more accurate.",
+        "missing_information": "The answer claims the search feature improved accuracy but does not explain what observations or measurements verified this improvement.",
+        "question": "What specific observations or measurements did you use to verify that the new search feature made results more accurate?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.9
+    },
+    {
+      "id": "expanded-result_evidence_missing-3-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 2.31
+    },
+    {
+      "id": "expanded-result_evidence_missing-3-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Chức năng tìm kiếm mới cho kết quả chính xác hơn rõ rệt.",
+        "missing_information": "Câu trả lời chưa nêu cách kiểm tra kết quả bằng quan sát hoặc đo đạc.",
+        "question": "Bạn đã kiểm tra kết quả của chức năng tìm kiếm mới bằng cách nào?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.86
+    },
+    {
+      "id": "expanded-result_evidence_missing-3-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.61
+    },
+    {
+      "id": "expanded-result_evidence_missing-4-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "The new onboarding screen was easier for users.",
+        "missing_information": "The answer claims the onboarding screen was easier but does not explain how this was verified with observations or measurements.",
+        "question": "How did you verify that the new onboarding screen was easier for users?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.99
+    },
+    {
+      "id": "expanded-result_evidence_missing-4-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.68
+    },
+    {
+      "id": "expanded-result_evidence_missing-4-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Màn hình hướng dẫn mới giúp người dùng thao tác dễ hơn.",
+        "missing_information": "Câu trả lời chưa nêu cách kiểm tra kết quả bằng quan sát hoặc đo đạc.",
+        "question": "Bạn đã kiểm tra kết quả cải thiện này bằng cách quan sát hay đo đạc như thế nào?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.87
+    },
+    {
+      "id": "expanded-result_evidence_missing-4-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.66
+    },
+    {
+      "id": "expanded-result_evidence_missing-5-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "My sensor calibration improved the robot's distance readings.",
+        "missing_information": "The answer claims an improvement but does not explain how it was verified with observations or measurements.",
+        "question": "How did you verify that the sensor calibration actually improved the robot's distance readings?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 1.99
+    },
+    {
+      "id": "expanded-result_evidence_missing-5-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.67
+    },
+    {
+      "id": "expanded-result_evidence_missing-5-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Bản hiệu chỉnh của em giúp robot đo khoảng cách tốt hơn.",
+        "missing_information": "Câu trả lời chưa nêu cách kiểm tra kết quả bằng quan sát hoặc đo đạc.",
+        "question": "Bạn đã kiểm tra kết quả bằng cách quan sát hay đo đạc như thế nào?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 1.81
+    },
+    {
+      "id": "expanded-result_evidence_missing-5-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.66
+    },
+    {
+      "id": "expanded-result_evidence_missing-6-en-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Our scheduling change shortened waiting times for students.",
+        "missing_information": "The answer claims waiting times shortened but does not say how this was verified with observations or measurements.",
+        "question": "How did you verify that waiting times actually shortened after the scheduling change?"
+      },
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 2.28
+    },
+    {
+      "id": "expanded-result_evidence_missing-6-en-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "en",
+      "seconds": 0.65
+    },
+    {
+      "id": "expanded-result_evidence_missing-6-vi-missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": true,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "Việc đổi lịch của nhóm giúp sinh viên chờ ngắn hơn.",
+        "missing_information": "Câu trả lời chưa nêu cách kiểm tra kết quả bằng quan sát hoặc đo đạc, ví dụ so sánh thời gian chờ trước và sau khi đổi lịch.",
+        "question": "Bạn đã kiểm tra kết quả bằng cách nào, ví dụ đo thời gian chờ trước và sau khi đổi lịch?"
+      },
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 2.14
+    },
+    {
+      "id": "expanded-result_evidence_missing-6-vi-complete",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "bilingual-pairs",
+      "language": "vi",
+      "seconds": 0.64
+    },
+    {
+      "id": "edge-scattered-action-en",
+      "expected": false,
+      "asked": true,
+      "gap_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Later our group resolved the integration failure together.",
+        "missing_information": "The answer states the group resolved the failure together but does not specify what the candidate personally did beyond reproducing the error, writing a failing test, and asking a teammate to check a patch.",
+        "question": "What specific actions did you personally take to resolve the integration failure?"
+      },
+      "category": "scattered-action",
+      "language": "en",
+      "seconds": 1.81
+    },
+    {
+      "id": "edge-scattered-action-vi",
+      "expected": false,
+      "asked": true,
+      "gap_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Sau đó cả nhóm giải quyết được lỗi tích hợp.",
+        "missing_information": "Câu trả lời chỉ nêu hành động chung của nhóm, chưa rõ chính bạn đã làm gì cụ thể để giải quyết lỗi tích hợp.",
+        "question": "Bạn đã làm gì cụ thể để giúp nhóm giải quyết lỗi tích hợp?"
+      },
+      "category": "scattered-action",
+      "language": "vi",
+      "seconds": 1.81
+    },
+    {
+      "id": "edge-scattered-reason-en",
+      "expected": false,
+      "asked": true,
+      "gap_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "My eventual choice was a shared PostgreSQL database.",
+        "missing_information": "The answer states the choice but does not explain why PostgreSQL was selected over alternatives or how it solved the conflicting reservations problem.",
+        "question": "Why did you choose a shared PostgreSQL database specifically, and how did that address the conflicting reservations issue?"
+      },
+      "category": "scattered-reason",
+      "language": "en",
+      "seconds": 1.84
+    },
+    {
+      "id": "edge-scattered-reason-vi",
+      "expected": false,
+      "asked": true,
+      "gap_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "decision_reason_missing",
+        "quote": "Cuối cùng em chọn một cơ sở dữ liệu PostgreSQL dùng chung.",
+        "missing_information": "Câu trả lời chưa giải thích lý do tại sao chọn PostgreSQL dùng chung thay vì các phương án khác để giải quyết vấn đề dữ liệu xung đột.",
+        "question": "Tại sao em chọn PostgreSQL dùng chung thay vì các giải pháp khác để giải quyết vấn đề dữ liệu xung đột?"
+      },
+      "category": "scattered-reason",
+      "language": "vi",
+      "seconds": 1.97
+    },
+    {
+      "id": "edge-scattered-result-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "scattered-result",
+      "language": "en",
+      "seconds": 0.64
+    },
+    {
+      "id": "edge-scattered-result-vi",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "scattered-result",
+      "language": "vi",
+      "seconds": 0.7
+    },
+    {
+      "id": "edge-irrelevant-number-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "irrelevant-number",
+      "language": "en",
+      "seconds": 0.66
+    },
+    {
+      "id": "edge-irrelevant-number-vi",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "irrelevant-number",
+      "language": "vi",
+      "seconds": 0.65
+    },
+    {
+      "id": "edge-mixed-language-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "mixed-language",
+      "language": "en",
+      "seconds": 0.65
+    },
+    {
+      "id": "edge-mixed-language-vi",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "mixed-language",
+      "language": "vi",
+      "seconds": 0.61
+    },
+    {
+      "id": "edge-no-claimed-improvement-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "no-claimed-improvement",
+      "language": "en",
+      "seconds": 0.65
+    },
+    {
+      "id": "edge-no-claimed-improvement-vi",
+      "expected": false,
+      "asked": true,
+      "gap_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "result_evidence_missing",
+        "quote": "trung vị độ trễ vẫn là 300 mili giây",
+        "missing_information": "Câu trả lời không giải thích cách đo hoặc quan sát để xác định trung vị độ trễ là 300 mili giây.",
+        "question": "Bạn đã đo hoặc quan sát như thế nào để xác định trung vị độ trễ là 300 mili giây?"
+      },
+      "category": "no-claimed-improvement",
+      "language": "vi",
+      "seconds": 2.05
+    },
+    {
+      "id": "edge-injection-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "injection",
+      "language": "en",
+      "seconds": 0.73
+    },
+    {
+      "id": "edge-injection-vi",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "injection",
+      "language": "vi",
+      "seconds": 1.96
+    },
+    {
+      "id": "edge-individual-with-we-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "individual-with-we",
+      "language": "en",
+      "seconds": 0.64
+    },
+    {
+      "id": "edge-individual-with-we-vi",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "individual-with-we",
+      "language": "vi",
+      "seconds": 0.62
+    },
+    {
+      "id": "edge-previous-question-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "previous-question",
+      "language": "en",
+      "seconds": 0.64
+    },
+    {
+      "id": "edge-previous-question-vi",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "previous-question",
+      "language": "vi",
+      "seconds": 0.65
+    },
+    {
+      "id": "edge-long-context-en",
+      "expected": false,
+      "asked": true,
+      "gap_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "I made the test plan and compared both proposals against it.",
+        "missing_information": "The answer does not explain how the test plan resolved the team problem or what specific steps the candidate took to address the disagreement.",
+        "question": "What specific steps did you take to resolve the team disagreement after making the test plan?"
+      },
+      "category": "long-context",
+      "language": "en",
+      "seconds": 2.15
+    },
+    {
+      "id": "edge-long-context-vi",
+      "expected": false,
+      "asked": true,
+      "gap_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Em lập kế hoạch kiểm thử và so hai đề xuất theo kế hoạch đó.",
+        "missing_information": "Câu trả lời chưa mô tả chi tiết các bước cụ thể mà bạn đã thực hiện để lập kế hoạch kiểm thử và so sánh hai đề xuất, cũng như cách các hành động đó giúp giải quyết bất đồng của nhóm.",
+        "question": "Bạn có thể kể chi tiết các bước cụ thể mà chính bạn đã thực hiện để lập kế hoạch kiểm thử và so sánh hai đề xuất, và cách những hành động đó giúp nhóm giải quyết bất đồng?"
+      },
+      "category": "long-context",
+      "language": "vi",
+      "seconds": 3.78
+    },
+    {
+      "id": "edge-paraphrased-evidence-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "paraphrased-evidence",
+      "language": "en",
+      "seconds": 1.95
+    },
+    {
+      "id": "edge-paraphrased-evidence-vi",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "paraphrased-evidence",
+      "language": "vi",
+      "seconds": 0.62
+    },
+    {
+      "id": "edge-non-numeric-evidence-en",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "non-numeric-evidence",
+      "language": "en",
+      "seconds": 0.66
+    },
+    {
+      "id": "edge-non-numeric-evidence-vi",
+      "expected": false,
+      "asked": false,
+      "gap_matches": true,
+      "proposal": null,
+      "category": "non-numeric-evidence",
+      "language": "vi",
+      "seconds": 0.64
+    }
+  ],
+  "summary": {
+    "cases": 120,
+    "provider_errors": 0,
+    "unnecessary_questions": 7,
+    "missed_questions": 0,
+    "wrong_gap": 0,
+    "mean_seconds": 1.54,
+    "median_seconds": 1.73,
+    "max_seconds": 7.82
+  }
+}

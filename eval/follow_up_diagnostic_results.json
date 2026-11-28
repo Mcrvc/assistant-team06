@@ -1,0 +1,163 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "corpus_sha256": "188e839f94da6266c5f96e744c1d36c4d8fc9aa9b2529adcfdfbc622bd38488a",
+  "completed": 6,
+  "total": 6,
+  "results": [
+    {
+      "id": "multi-en-decision_reason_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": false,
+      "criterion_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "I chose a queue rather than increasing HTTP timeouts.",
+        "missing_information": "The answer does not state what you personally did to implement the queue or worker; it only describes the choice and team-level testing.",
+        "question": "What specific steps did you personally take to implement the queue and worker?"
+      },
+      "category": "multiple-criteria",
+      "language": "en",
+      "repetition": 1,
+      "checks": [
+        {
+          "ask": true,
+          "criterion_index": 0,
+          "gap": "personal_action_missing",
+          "quote": "I chose a queue rather than increasing HTTP timeouts.",
+          "missing_information": "The answer does not state what you personally did to implement the queue or worker; it only describes the choice and team-level testing.",
+          "question": "What specific steps did you personally take to implement the queue and worker?"
+        },
+        {
+          "relevant": true,
+          "already_answered": false,
+          "useful": true
+        }
+      ],
+      "seconds": 2.09
+    },
+    {
+      "id": "multi-vi-decision_reason_missing",
+      "expected": true,
+      "asked": true,
+      "gap_matches": false,
+      "criterion_matches": false,
+      "proposal": {
+        "criterion_index": 0,
+        "gap": "personal_action_missing",
+        "quote": "Em chọn hàng đợi thay vì tăng thời gian chờ HTTP. Em viết tiến trình xử lý và thêm kiểm thử tích hợp.",
+        "missing_information": "Câu trả lời dùng 'em' nhưng không tách biệt hành động cá nhân khỏi công việc nhóm, ví dụ việc chọn hàng đợi có phải do em đề xuất hay nhóm quyết định chung không.",
+        "question": "Bạn cá nhân đã làm những bước cụ thể nào trong việc thay đổi sang hàng đợi, riêng biệt với những gì nhóm làm chung?"
+      },
+      "category": "multiple-criteria",
+      "language": "vi",
+      "repetition": 1,
+      "checks": [
+        {
+          "ask": true,
+          "criterion_index": 0,
+          "gap": "personal_action_missing",
+          "quote": "Em chọn hàng đợi thay vì tăng thời gian chờ HTTP. Em viết tiến trình xử lý và thêm kiểm thử tích hợp.",
+          "missing_information": "Câu trả lời dùng 'em' nhưng không tách biệt hành động cá nhân khỏi công việc nhóm, ví dụ việc chọn hàng đợi có phải do em đề xuất hay nhóm quyết định chung không.",
+          "question": "Bạn cá nhân đã làm những bước cụ thể nào trong việc thay đổi sang hàng đợi, riêng biệt với những gì nhóm làm chung?"
+        },
+        {
+          "relevant": true,
+          "already_answered": false,
+          "useful": true
+        }
+      ],
+      "seconds": 2.46
+    },
+    {
+      "id": "multi-vi-result_evidence_missing",
+      "expected": true,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "vi",
+      "repetition": 1,
+      "checks": [
+        {
+          "ask": false
+        }
+      ],
+      "seconds": 0.66
+    },
+    {
+      "id": "multi-en-decision_reason_missing",
+      "expected": true,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "en",
+      "repetition": 2,
+      "checks": [
+        {
+          "ask": true,
+          "criterion_index": 0,
+          "gap": "personal_action_missing",
+          "quote": "I chose a queue rather than increasing HTTP timeouts.",
+          "missing_information": "The answer does not state which specific actions you personally took versus what the team did collectively.",
+          "question": "What specific actions did you personally take in this team project change?"
+        },
+        {
+          "relevant": true,
+          "already_answered": true,
+          "useful": false
+        }
+      ],
+      "seconds": 1.96
+    },
+    {
+      "id": "multi-vi-decision_reason_missing",
+      "expected": true,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "vi",
+      "repetition": 2,
+      "checks": [
+        {
+          "ask": false
+        }
+      ],
+      "seconds": 0.66
+    },
+    {
+      "id": "multi-vi-result_evidence_missing",
+      "expected": true,
+      "asked": false,
+      "gap_matches": true,
+      "criterion_matches": true,
+      "proposal": null,
+      "category": "multiple-criteria",
+      "language": "vi",
+      "repetition": 2,
+      "checks": [
+        {
+          "ask": false
+        }
+      ],
+      "seconds": 0.64
+    }
+  ],
+  "summary": {
+    "cases": 6,
+    "provider_errors": 0,
+    "unnecessary_questions": 0,
+    "missed_questions": 4,
+    "wrong_gap": 2,
+    "wrong_criterion": 2,
+    "mean_seconds": 1.41,
+    "median_seconds": 1.31,
+    "max_seconds": 2.46
+  }
+}
