@@ -7,116 +7,75 @@
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css?v=20261128a">
   <style id="yori-mascot-motion">
-    /* Scoped only to the dashboard YORI mascot. */
+    /* Self-contained motion for the dashboard YORI mascot only. */
     .dashboard-hero-banner .hero-mascot {
       --yori-face-x: 0px;
       --yori-face-y: 0px;
     }
 
-    /* The outer head, ears, helmet and antenna stay rigid. */
+    /* This scoped block owns the mascot motion; cancel the generic ones. */
+    .dashboard-hero-banner .hero-mascot .hero-mascot-svg,
+    .dashboard-hero-banner .hero-mascot .hero-mascot-head,
+    .dashboard-hero-banner .hero-mascot .hero-mascot-eyes,
+    .dashboard-hero-banner .hero-mascot .hero-mascot-sparkle-1,
+    .dashboard-hero-banner .hero-mascot .hero-mascot-sparkle-2 {
+      animation: none;
+    }
+
+    /* The white helmet, side ears and antenna stay completely rigid. */
     .dashboard-hero-banner .hero-mascot .hero-mascot-head {
       transform: none;
-      animation: none;
     }
 
-    /* Only the inner face glides inside the dark visor. */
+    /* Only the inner facial features glide inside the dark visor. */
     .dashboard-hero-banner .hero-mascot #yori-face {
       transform: translate(var(--yori-face-x), var(--yori-face-y));
-      transition: transform 0.2s ease-out;
     }
 
-    /* Resting arm sits at the robot's side. */
-    .dashboard-hero-banner .hero-mascot .hero-mascot-arm-right {
+    /* Resting arm; pivots from the top shoulder joint, never on hover. */
+    .dashboard-hero-banner .hero-mascot #yori-wave-arm {
       transform-box: fill-box;
-      transform-origin: top center;
+      transform-origin: 50% 15%;
       transform: rotate(0deg);
       animation: none;
-      transition: transform 0.45s ease;
-    }
-
-    .dashboard-hero-banner .hero-mascot .hero-mascot-happy-eyes {
-      opacity: 0;
-      transition: opacity 0.2s ease;
-      transform-box: fill-box;
-      transform-origin: center;
     }
 
     @media (prefers-reduced-motion: no-preference) {
-      .dashboard-hero-banner .hero-mascot .hero-mascot-svg {
-        animation: yori-idle-float 3s ease-in-out infinite;
+      /* Robot body, head, arms and sparkles hover as one unit. */
+      .dashboard-hero-banner .hero-mascot #yori-float-body {
+        animation: yoriFloat 3s ease-in-out infinite;
       }
 
-      .dashboard-hero-banner .hero-mascot .hero-mascot-sparkle-1 {
-        animation: yori-sparkle-drift 3s ease-in-out infinite;
+      /* Ground shadow breathes in sync with the hover. */
+      .dashboard-hero-banner .hero-mascot .hero-mascot-shadow {
+        animation: yoriShadowPulse 3s ease-in-out infinite;
       }
 
-      .dashboard-hero-banner .hero-mascot .hero-mascot-sparkle-2 {
-        animation: yori-sparkle-drift 3s ease-in-out 0.55s infinite;
+      /* One-off greeting wave, triggered by JS on load/navigation. */
+      .dashboard-hero-banner .hero-mascot #yori-wave-arm.is-waving {
+        animation: yoriWave 2.5s ease-in-out forwards;
       }
 
-      .dashboard-hero-banner .hero-mascot .hero-mascot-arm-right.is-waving {
-        animation: yori-arm-wave 2.5s ease-in-out both;
+      @keyframes yoriFloat {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-8px); }
       }
 
-      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-eyes {
-        opacity: 0;
-        animation: none;
+      @keyframes yoriShadowPulse {
+        0%, 100% { transform: scaleX(1); opacity: 0.12; }
+        50% { transform: scaleX(0.88); opacity: 0.08; }
       }
 
-      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-happy-eyes {
-        opacity: 1;
-        animation: yori-happy-eyes 0.6s ease-out both;
+      @keyframes yoriWave {
+        0% { transform: rotate(0deg); }
+        12% { transform: rotate(-135deg); }
+        25% { transform: rotate(-120deg); }
+        38% { transform: rotate(-145deg); }
+        51% { transform: rotate(-120deg); }
+        64% { transform: rotate(-145deg); }
+        80% { transform: rotate(0deg); }
+        100% { transform: rotate(0deg); }
       }
-
-      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-antenna-tip {
-        transform-box: fill-box;
-        transform-origin: center;
-        animation: yori-antenna-pulse 1.25s ease-in-out infinite;
-      }
-
-      .dashboard-hero-banner .hero-mascot.is-greeting .hero-mascot-antenna-glow {
-        transform-box: fill-box;
-        transform-origin: center;
-        animation: yori-antenna-glow 1.25s ease-in-out infinite;
-      }
-    }
-
-    @keyframes yori-idle-float {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-8px); }
-    }
-
-    @keyframes yori-sparkle-drift {
-      0%, 100% { transform: translateY(0); opacity: 0.55; }
-      50% { transform: translateY(-4px); opacity: 1; }
-    }
-
-    @keyframes yori-arm-wave {
-      0% { transform: rotate(0deg); }
-      10% { transform: rotate(-135deg); }
-      22% { transform: rotate(-120deg); }
-      34% { transform: rotate(-145deg); }
-      46% { transform: rotate(-120deg); }
-      58% { transform: rotate(-145deg); }
-      70% { transform: rotate(-120deg); }
-      82% { transform: rotate(-145deg); }
-      100% { transform: rotate(0deg); }
-    }
-
-    @keyframes yori-happy-eyes {
-      0% { opacity: 0; transform: scale(0.82); }
-      45% { opacity: 1; transform: scale(1.08); }
-      100% { opacity: 1; transform: scale(1); }
-    }
-
-    @keyframes yori-antenna-pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.16); }
-    }
-
-    @keyframes yori-antenna-glow {
-      0%, 100% { opacity: 0.55; transform: scale(0.82); }
-      50% { opacity: 1; transform: scale(1.14); }
     }
   </style>
   <script src="js/data.js?v=20261118" defer></script>
@@ -204,6 +163,7 @@
     <div class="hero-banner-artwork" aria-hidden="true">
       <div class="hero-mascot">
         <svg class="hero-mascot-svg" viewBox="0 0 160 180" width="280" height="315" focusable="false">
+          <g id="yori-float-body">
           <!-- Twinkling accent sparkles -->
           <g class="hero-mascot-sparkles">
             <path class="hero-mascot-sparkle hero-mascot-sparkle-1" d="M 118 8 L 120.2 13.4 L 125.6 15.6 L 120.2 17.8 L 118 23.2 L 115.8 17.8 L 110.4 15.6 L 115.8 13.4 Z" fill="#F2B84B"/>
@@ -224,7 +184,7 @@
           </g>
 
           <!-- Right arm (friendly wave) -->
-          <g class="hero-mascot-arm-right">
+          <g class="hero-mascot-arm-right" id="yori-wave-arm">
             <rect x="124" y="104" width="14" height="32" rx="7" fill="#6AAEB8"/>
             <circle cx="131" cy="136" r="7" fill="#AAD7D9"/>
           </g>
@@ -259,13 +219,10 @@
                 <ellipse cx="102" cy="60" rx="5.6" ry="6.6" fill="#92C7CF"/>
                 <circle cx="104" cy="57.5" r="2" fill="#FFFFFF"/>
               </g>
-              <g class="hero-mascot-happy-eyes" aria-hidden="true">
-                <path d="M 52.5 62 Q 58 55 63.5 62" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
-                <path d="M 96.5 62 Q 102 55 107.5 62" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
-              </g>
               <path class="hero-mascot-mouth" d="M 70 71 Q 80 80.5 90 71" stroke="#92C7CF" stroke-width="3" stroke-linecap="round" fill="none"/>
             </g>
           </g>
+          </g><!-- /yori-float-body -->
         </svg>
         <div class="hero-mascot-shadow"></div>
       </div>
@@ -405,11 +362,18 @@
 <noscript><p class="noscript">Enable JavaScript to save your demo answers and use the forms.</p></noscript>
 <script id="yori-mascot-motion-script">
   (() => {
+    const WAVE_MS = 2500;
+    const MAX_X = 6;
+    const MAX_Y = 4;
+    const LERP = 0.12;
+
     function init() {
       const mascot = document.querySelector(".dashboard-hero-banner .hero-mascot");
       if (!mascot) return;
-      const waveArm = mascot.querySelector(".hero-mascot-arm-right");
-      if (!waveArm) return;
+
+      const waveArm = mascot.querySelector("#yori-wave-arm");
+      const face = mascot.querySelector("#yori-face");
+      if (!waveArm || !face) return;
 
       const motionQuery = window.matchMedia
         ? window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -417,78 +381,94 @@
       const reduceMotion = () => Boolean(motionQuery && motionQuery.matches);
       const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
+      let waveTimer = 0;
+      let lastWaveAt = 0;
       let frame = 0;
-      let pending = null;
-      let greetingTimer = 0;
+      let targetX = 0;
+      let targetY = 0;
+      let currentX = 0;
+      let currentY = 0;
 
-      function resetTracking() {
-        pending = null;
-        if (frame) {
-          cancelAnimationFrame(frame);
-          frame = 0;
-        }
-        mascot.style.setProperty("--yori-face-x", "0px");
-        mascot.style.setProperty("--yori-face-y", "0px");
+      // rAF loop with linear interpolation so the face glides, then settles.
+      function renderFace() {
+        currentX += (targetX - currentX) * LERP;
+        currentY += (targetY - currentY) * LERP;
+        if (Math.abs(targetX - currentX) < 0.02) currentX = targetX;
+        if (Math.abs(targetY - currentY) < 0.02) currentY = targetY;
+
+        mascot.style.setProperty("--yori-face-x", `${currentX.toFixed(2)}px`);
+        mascot.style.setProperty("--yori-face-y", `${currentY.toFixed(2)}px`);
+
+        frame = (currentX === targetX && currentY === targetY)
+          ? 0
+          : requestAnimationFrame(renderFace);
       }
 
-      function applyTracking() {
-        frame = 0;
-        if (!pending || reduceMotion()) return;
+      function scheduleFace() {
+        if (!frame) frame = requestAnimationFrame(renderFace);
+      }
+
+      function onMouseMove(event) {
+        if (reduceMotion()) return;
         const rect = mascot.getBoundingClientRect();
         if (!rect.width || !rect.height) return;
 
-        const halfWidth = Math.max(rect.width / 2, 1);
-        const halfHeight = Math.max(rect.height / 2, 1);
+        const halfWidth = rect.width / 2;
+        const halfHeight = rect.height / 2;
         const centerX = rect.left + halfWidth;
         const centerY = rect.top + halfHeight;
-        const normX = clamp((pending.clientX - centerX) / halfWidth, -1, 1);
-        const normY = clamp((pending.clientY - centerY) / halfHeight, -1, 1);
+        const normX = clamp((event.clientX - centerX) / halfWidth, -1, 1);
+        const normY = clamp((event.clientY - centerY) / halfHeight, -1, 1);
 
-        mascot.style.setProperty("--yori-face-x", `${(normX * 6).toFixed(2)}px`);
-        mascot.style.setProperty("--yori-face-y", `${(normY * 4).toFixed(2)}px`);
-        pending = null;
+        targetX = normX * MAX_X;
+        targetY = normY * MAX_Y;
+        scheduleFace();
       }
 
-      function scheduleTracking(event) {
-        if (reduceMotion()) return;
-        pending = event;
-        if (!frame) frame = requestAnimationFrame(applyTracking);
+      function resetFace() {
+        targetX = 0;
+        targetY = 0;
+        scheduleFace();
       }
 
-      function stopGreeting() {
-        if (greetingTimer) {
-          window.clearTimeout(greetingTimer);
-          greetingTimer = 0;
+      function stopWave() {
+        if (waveTimer) {
+          window.clearTimeout(waveTimer);
+          waveTimer = 0;
         }
         waveArm.classList.remove("is-waving");
-        mascot.classList.remove("is-greeting");
       }
 
-      function startGreeting() {
+      function startWave() {
         if (reduceMotion()) return;
-        mascot.classList.add("is-greeting");
+        stopWave();
+        void waveArm.getBoundingClientRect(); // allow a clean restart on bfcache return
+        lastWaveAt = Date.now();
         waveArm.classList.add("is-waving");
-        greetingTimer = window.setTimeout(() => {
-          waveArm.classList.remove("is-waving");
-          mascot.classList.remove("is-greeting");
-          greetingTimer = 0;
-        }, 2500);
+        waveTimer = window.setTimeout(stopWave, WAVE_MS);
       }
 
-      startGreeting();
+      function onPageShow(event) {
+        // Re-greet when returning via browser navigation / bfcache.
+        if (event.persisted || Date.now() - lastWaveAt >= WAVE_MS) startWave();
+      }
+
+      // Initial greeting on DOMContentLoaded (or immediately if already ready).
+      startWave();
+      window.addEventListener("pageshow", onPageShow);
 
       if (motionQuery && motionQuery.addEventListener) {
         motionQuery.addEventListener("change", event => {
           if (!event.matches) return;
-          stopGreeting();
-          resetTracking();
+          stopWave();
+          resetFace();
         });
       }
 
       if (reduceMotion()) return;
-      window.addEventListener("mousemove", scheduleTracking, { passive: true });
-      document.addEventListener("mouseleave", resetTracking);
-      window.addEventListener("blur", resetTracking);
+      window.addEventListener("mousemove", onMouseMove, { passive: true });
+      document.addEventListener("mouseleave", resetFace);
+      window.addEventListener("blur", resetFace);
     }
 
     if (document.readyState === "loading") {
