@@ -2,7 +2,7 @@
 
 Triển khai trên nhánh `feat/interview-follow-up`, bắt đầu từ main `2e1ad39`.
 
-Sau khi nộp câu chính, ứng dụng tự kiểm tra có cần hỏi sâu không. Nếu có, câu phụ hiện ngay tại câu chính đó và người dùng phải trả lời trước khi đi tiếp. Nếu đáp án đã đủ hoặc AI lỗi, ứng dụng chuyển tiếp. Trong lúc đợi chọn câu, người dùng có thể chọn tiếp tục mà không chờ. Giới hạn hai câu phụ được chọn cho cả buổi. Báo cáo đặt từng câu phụ dưới đúng câu chính. Điểm chính theo cách chấm hiện có, câu phụ chưa được cộng vào điểm.
+Sau khi nộp câu chính, ứng dụng tự kiểm tra có cần hỏi sâu không. Nếu có, câu phụ hiện ngay tại câu chính đó và người dùng phải trả lời trước khi đi tiếp. Nếu đáp án đã đủ hoặc AI lỗi, ứng dụng chuyển tiếp. Trong lúc đợi chọn câu, người dùng có thể chọn tiếp tục mà không chờ. Giới hạn hai câu phụ được chọn cho cả buổi và một câu phụ cho mỗi câu chính, kể cả sau khi sửa đáp án. Báo cáo đặt từng câu phụ dưới đúng câu chính. Điểm chính theo cách chấm hiện có, câu phụ chưa được cộng vào điểm.
 
 ## Cách chọn câu
 
@@ -20,7 +20,7 @@ Bản nháp câu phụ nằm trong sessionStorage theo buổi và mã yêu cầu
 
 ## Kết quả kiểm tra cục bộ
 
-- 291 bài kiểm thử mặc định qua. Có một cảnh báo TestClient đang dùng API cũ.
+- Bộ mặc định 291 bài đã qua. Đã bổ sung và chạy qua thêm kiểm thử hạn mức khi sửa lại một câu đã được chọn. Có một cảnh báo TestClient đang dùng API cũ.
 - Bốn bài Chrome qua, gồm tự hỏi tại câu 1 và giữ bản nháp sau F5, tự đi tiếp khi lỗi AI, lưu trước khi đăng xuất, và chọn câu 2 để hỏi sâu rồi thử lưu lại sau lỗi mạng.
 - NVIDIA thật đã chạy 24 đáp án giả có kỳ vọng trước, gồm 12 bản thiếu thông tin và 12 bản đã giải thích đủ. Lượt này không hỏi thừa, không bỏ sót, không chọn sai loại thiếu thông tin và không gặp lỗi nhà cung cấp. Trung bình 1,29 giây cho bước chọn và kiểm tra. Bộ mẫu này cần được mở rộng bằng đáp án đa dạng hơn khi nhóm dùng thử.
 - Chạy lại đánh giá bằng `python eval/follow_up_eval.py`, dùng các mẫu trong `eval/follow_up_cases.json` và cấu hình NVIDIA trên máy.

@@ -193,3 +193,14 @@ def test_two_question_budget_and_required_answer(setup):
     final = service.finalize("owner", item["id"], FinalizeInterview(revision=current["revision"]))
     assert len(final["report"]["follow_ups"]) == 2
     assert len(final["report"]["items"]) == 3
+
+
+def test_editing_an_already_selected_question_does_not_ask_it_again(setup):
+    service, item = setup
+    follow = item["follow_up"]
+    service.generate_follow_up("owner", item["id"], follow["request_id"])
+    current = service.get("owner", item["id"])
+    current, _ = service.submit_answer("owner", item["id"], 0,
+                                      SubmitAnswer(revision=current["revision"], text="A different answer"))
+    assert current["follow_up"]["status"] == "not_needed"
+    assert current["follow_ups"][0]["status"] == "invalidated"

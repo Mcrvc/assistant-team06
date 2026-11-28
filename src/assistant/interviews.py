@@ -76,9 +76,10 @@ def selected_follow_up_count(item: dict) -> int:
 
 def new_follow_up(item: dict, index: int, *, automatic: bool) -> dict:
     selected = selected_follow_up_count(item)
+    already_selected = any(f["parent_index"] == index and f.get("selected") for f in follow_ups(item))
     follow = {"parent_index": index, "parent_grading_id": item["answers"][index]["grading_id"],
               "request_id": str(uuid4()), "started_at": _now(), "automatic": automatic,
-              "selected": False, "status": "generating" if selected < 2 else "not_needed",
+              "selected": False, "status": "generating" if selected < 2 and not already_selected else "not_needed",
               "quote": "", "question": "", "answer": ""}
     follow_ups(item).append(follow)
     item["follow_up"] = follow
