@@ -124,22 +124,29 @@ def start_interview(page, expect, base):
     expect(page.locator("#answer")).to_be_editable()
 
 
+def select_first(question, answer, previous):
+    if "Python API" in answer:
+        return {"quote": "Python API", "question": "How did you test your Python API?"}
+    return None
+
+
 def test_follow_up_browser_round_trip(browser_page, website, monkeypatch):
     from assistant import interview_follow_up
-    monkeypatch.setattr(interview_follow_up, "generate", lambda *args: {"quote": "Python API", "question": "How did you test your Python API?"})
+    monkeypatch.setattr(interview_follow_up, "generate", select_first)
     page, expect = browser_page
     start_interview(page, expect, website)
     page.locator("#answer").fill(ANSWERS[0])
     page.locator("#next-question-btn").click()
-    expect(page.locator("#question-badge")).to_have_text("2 of 3")
-    page.get_by_role("button", name="Practise my first answer").click()
     practice = page.locator("#follow-up-practice")
     expect(practice.get_by_text("How did you test your Python API?", exact=True)).to_be_visible()
+    expect(page.locator("#question-badge")).to_have_text("1 of 3")
+    page.locator("#next-question-btn").click()
+    expect(page.locator("#question-badge")).to_have_text("1 of 3")
     page.locator("#follow-up-answer").fill("I added six integration tests.")
     page.reload()
     expect(page.locator("#follow-up-answer")).to_have_value("I added six integration tests.")
-    page.get_by_role("button", name="Save practice answer").click()
-    expect(practice.get_by_text("I added six integration tests.", exact=True)).to_be_visible()
+    page.get_by_role("button", name="Submit follow-up answer").click()
+    expect(page.locator("#question-badge")).to_have_text("2 of 3")
     page.locator("#answer").fill(ANSWERS[1])
     page.locator("#next-question-btn").click()
     expect(page.locator("#question-badge")).to_have_text("3 of 3")
@@ -150,10 +157,9 @@ def test_follow_up_browser_round_trip(browser_page, website, monkeypatch):
     page.locator('#done-form button[type="submit"]').click()
     page.wait_for_url("**/report.html")
     expect(page.locator("#report-cards")).to_contain_text("I added six integration tests.")
-    expect(page.locator("#report-cards")).to_contain_text("Practice answer ? excluded from your score")
 
 
-def test_optional_failure_preserves_main_draft(browser_page, website, monkeypatch):
+def test_provider_failure_continues_interview(browser_page, website, monkeypatch):
     from assistant import interview_follow_up
     def fail(*args):
         raise TimeoutError()
@@ -164,23 +170,16 @@ def test_optional_failure_preserves_main_draft(browser_page, website, monkeypatc
     page.locator("#next-question-btn").click()
     expect(page.locator("#question-badge")).to_have_text("2 of 3")
     page.locator("#answer").fill("My main draft stays here.")
-    page.get_by_role("button", name="Practise my first answer").click()
-    expect(page.get_by_role("button", name="Retry practice question")).to_be_visible()
-    expect(page.locator("#answer")).to_have_value("My main draft stays here.")
-    page.get_by_role("button", name="Skip extra practice").click()
-    expect(page.get_by_text("Extra practice skipped.", exact=True)).to_be_visible()
     expect(page.locator("#answer")).to_have_value("My main draft stays here.")
 
 
-def test_sign_out_saves_practice_before_leaving(browser_page, website, monkeypatch):
+def test_sign_out_saves_follow_up_before_leaving(browser_page, website, monkeypatch):
     from assistant import interview_follow_up
-    monkeypatch.setattr(interview_follow_up, "generate", lambda *args: {"quote": "Python API", "question": "How did you test it?"})
+    monkeypatch.setattr(interview_follow_up, "generate", select_first)
     page, expect = browser_page
     start_interview(page, expect, website)
     page.locator("#answer").fill(ANSWERS[0])
     page.locator("#next-question-btn").click()
-    expect(page.locator("#question-badge")).to_have_text("2 of 3")
-    page.get_by_role("button", name="Practise my first answer").click()
     page.locator("#follow-up-answer").fill("I wrote integration tests before release.")
     page.get_by_role("link", name="Sign out").click()
     modal = page.locator("#interview-exit-modal")
@@ -191,4 +190,31 @@ def test_sign_out_saves_practice_before_leaving(browser_page, website, monkeypat
     page.wait_for_url("**/dashboard.html")
     page.goto(website + "/storage.html")
     page.get_by_role("link", name="Continue", exact=True).click()
+    page.locator("#prev-question-btn").click()
     expect(page.locator("#follow-up-practice")).to_contain_text("I wrote integration tests before release.")
+
+
+def test_second_question_can_require_follow_up_and_save_retry(browser_page, website, monkeypatch):
+    from assistant import interview_follow_up
+    def select_second(question, answer, previous):
+        if answer == ANSWERS[1]:
+            return {"quote": "regression test", "question": "What did your regression test verify?"}
+        return None
+    monkeypatch.setattr(interview_follow_up, "generate", select_second)
+    page, expect = browser_page
+    start_interview(page, expect, website)
+    page.locator("#answer").fill(ANSWERS[0])
+    page.locator("#next-question-btn").click()
+    expect(page.locator("#question-badge")).to_have_text("2 of 3")
+    page.locator("#answer").fill(ANSWERS[1])
+    page.locator("#next-question-btn").click()
+    expect(page.get_by_text("What did your regression test verify?", exact=True)).to_be_visible()
+    expect(page.locator("#question-badge")).to_have_text("2 of 3")
+    page.locator("#follow-up-answer").fill("It verified invalid requests return 400.")
+    page.route("**/follow-up/answer", lambda route: route.fulfill(status=503, json={"error": {"code": "storage_unavailable", "message": "Try again"}}))
+    page.get_by_role("button", name="Submit follow-up answer").click()
+    expect(page.locator("#follow-up-answer")).to_have_value("It verified invalid requests return 400.")
+    expect(page.locator("#question-badge")).to_have_text("2 of 3")
+    page.unroute("**/follow-up/answer")
+    page.get_by_role("button", name="Submit follow-up answer").click()
+    expect(page.locator("#question-badge")).to_have_text("3 of 3")

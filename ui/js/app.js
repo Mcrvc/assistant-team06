@@ -413,6 +413,7 @@
       progress: view?.progress || existing?.progress || null,
       report: view?.report || existing?.report || null,
       followUp: view?.follow_up || null,
+      followUps: view?.follow_ups?.length ? view.follow_ups : (view?.follow_up ? [view.follow_up] : []),
       questionGeneration: view?.question_generation || existing?.questionGeneration || null,
       server: true
     };
@@ -1300,9 +1301,28 @@
     let followPanel = null;
     let followStamp = "";
     let followBusy = false;
-    let firstGradingId = null;
+    let awaitingFollowIndex = null;
+    function activeFollowUp() {
+      return (interview.followUps || []).find(f => f.parent_index === currentStep && f.status !== "invalidated")
+        || interview.followUp;
+    }
+    function advanceAfterDecision() {
+      if (awaitingFollowIndex === null) return;
+      const follow = (interview.followUps || []).find(f => f.parent_index === awaitingFollowIndex && f.status !== "invalidated");
+      if (!follow || ["generating", "ready"].includes(follow.status)) return;
+      const from = awaitingFollowIndex;
+      awaitingFollowIndex = null;
+      if (from < totalQuestions - 1) {
+        renderStep(from + 1);
+        saveProgressToServer(from + 1);
+      } else {
+        skipPageHideSave = true;
+        save();
+        go("done-interview.html");
+      }
+    }
     function followDraftKey() {
-      return `yourin:follow-up:${interview.id}:${interview.followUp?.request_id || "none"}`;
+      return `yourin:follow-up:${interview.id}:${activeFollowUp()?.request_id || "none"}`;
     }
     function followDraft() {
       try { return sessionStorage.getItem(followDraftKey()) || ""; } catch (_) { return ""; }
@@ -1326,6 +1346,7 @@
             try { sessionStorage.removeItem(followDraftKey()); } catch (_) {}
           }
           startGradingPoll();
+          advanceAfterDecision();
           return true;
         });
       } finally {
@@ -1335,23 +1356,23 @@
       }
     }
     async function saveFollowDraft() {
-      const follow = interview.followUp;
+      const follow = activeFollowUp();
       const text = followDraft();
       if (follow?.status !== "ready" || !text.trim()) return !followBusy;
       return followWrite("/answer", { request_id: follow.request_id, text });
     }
     function renderFollowUp() {
       if (!followPanel) return;
-      const follow = interview.followUp;
-      const eligible = currentStep === 1 && firstGradingId && questions.length > 1;
-      const stamp = JSON.stringify([follow?.request_id, follow?.status, eligible, followBusy]);
+      const follow = activeFollowUp();
+      const eligible = follow && ["generating", "ready", "answered", "unavailable"].includes(follow.status);
+      const stamp = JSON.stringify([follow?.request_id, follow?.status, currentStep, followBusy]);
       if (stamp === followStamp) return;
       followStamp = stamp;
       followPanel.replaceChildren();
-      followPanel.hidden = !isServerInterview() || interview.status === "finalized" || (!follow && !eligible);
+      followPanel.hidden = !isServerInterview() || interview.status === "finalized" || !eligible;
       if (followPanel.hidden) return;
       const title = document.createElement("h2");
-      title.textContent = "Extra practice on Question 1";
+      title.textContent = `Follow-up on Question ${(follow?.parent_index || 0) + 1}`;
       followPanel.append(title);
       function button(label, action) {
         const element = document.createElement("button");
@@ -1365,13 +1386,13 @@
       const message = document.createElement("p");
       message.setAttribute("role", "status");
       followPanel.append(message);
-      if (!follow || follow.status === "unavailable") {
-        message.textContent = follow ? "The practice question is unavailable. You can retry or continue your interview." : "Ask one extra question about your first answer. This practice is optional and does not affect your score.";
-        button(follow ? "Retry practice question" : "Practise my first answer", () => followWrite("", { parent_grading_id: firstGradingId }));
+      if (follow.status === "unavailable") {
+        message.textContent = "We could not check whether a follow-up is needed. You can continue to the next question.";
       } else if (follow.status === "generating") {
-        message.textContent = "Writing your practice question. You can keep answering the main questions.";
+        message.textContent = "Checking whether your answer needs clarification. You can continue if this takes too long.";
+        button("Continue without waiting", () => followWrite("/skip", { request_id: follow.request_id }));
       } else if (follow.status === "ready" || follow.status === "answered") {
-        message.textContent = "Optional practice ? excluded from your score";
+        message.textContent = "Please clarify this point before continuing. Your main question score is shown in the report.";
         const quote = document.createElement("blockquote");
         quote.textContent = follow.quote;
         const question = document.createElement("p");
@@ -1384,7 +1405,7 @@
         } else {
           const label = document.createElement("label");
           label.htmlFor = "follow-up-answer";
-          label.textContent = "Your practice answer";
+          label.textContent = "Your follow-up answer";
           const input = document.createElement("textarea");
           input.id = "follow-up-answer";
           input.maxLength = 10000;
@@ -1394,7 +1415,7 @@
             try { sessionStorage.setItem(followDraftKey(), input.value); } catch (_) {}
           });
           followPanel.append(label, input);
-          button("Save practice answer", async () => {
+          button("Submit follow-up answer", async () => {
             if (!input.value.trim()) { input.focus(); return; }
             await saveFollowDraft();
           });
@@ -1402,9 +1423,7 @@
       } else {
         message.textContent = "Extra practice skipped.";
       }
-      if (follow && ["generating", "ready", "unavailable"].includes(follow.status)) {
-        button("Skip extra practice", () => followWrite("/skip", { request_id: follow.request_id }));
-      }
+
     }
 
     let writeQueue = Promise.resolve();
@@ -1441,7 +1460,8 @@
       }
       target.report = view.report || target.report || null;
       target.followUp = view.follow_up || null;
-      firstGradingId = view.answers?.[0]?.grading_id || null;
+      target.followUps = view.follow_ups?.length ? view.follow_ups : (view.follow_up ? [view.follow_up] : []);
+      target.gradingIds = (view.answers || []).map(answer => answer.grading_id);
       const answers = Array.isArray(view.answers) ? view.answers : [];
       const prevAnswers = Array.isArray(target.answers) ? target.answers : [];
       const prevSubmitted = Array.isArray(target.submittedTexts) ? target.submittedTexts : [];
@@ -1555,14 +1575,15 @@
       if (!isServerInterview() || gradingPoll) return;
       gradingPoll = window.setInterval(async () => {
         const hasPending = Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending");
-        if (!hasPending && interview.followUp?.status !== "generating") {
+        if (!hasPending && !(interview.followUps || []).some(f => f.status === "generating")) {
           window.clearInterval(gradingPoll);
           gradingPoll = null;
           return;
         }
         await refreshServerInterview();
         updateAnswerStatusUI();
-      }, 3000);
+        advanceAfterDecision();
+      }, 1500);
     }
 
     function updateAnswerStatusUI() {
@@ -1640,6 +1661,11 @@
         currentStep = Math.max(0, Math.min(questions.length - 1, interview.currentQuestion));
       }
     } catch (_) {}
+    const pendingFollow = (interview.followUps || []).find(f => ["generating", "ready"].includes(f.status));
+    if (pendingFollow) {
+      currentStep = pendingFollow.parent_index;
+      awaitingFollowIndex = currentStep;
+    }
 
     // The planner schedules 6-12 questions (15 max), so the answer slots
     // follow the real question count instead of a hard-coded three. They are
@@ -1905,36 +1931,23 @@
         if (isServerInterview()) {
           nextBtn.disabled = true;
           try {
-            if (!await saveFollowDraft() || !await submitCurrentAnswer(fromStep)) return;
-          } finally { nextBtn.disabled = false; }
-        }
-
-        if (fromStep < totalQuestions - 1) {
-          const toStep = fromStep + 1;
-          renderStep(toStep);
-          updateAnswerStatusUI();
-          if (isServerInterview()) {
-            submitCurrentAnswer(fromStep);
-            saveProgressToServer(toStep);
-          }
-        } else {
-          if (isServerInterview()) {
-            const originalLabel = nextBtn.textContent;
-            nextBtn.disabled = true;
-            nextBtn.textContent = "Saving...";
-            try {
-              const submitted = await submitCurrentAnswer(fromStep);
-              await writeQueue;
-              if (!submitted) return;
-            } finally {
-              nextBtn.disabled = false;
-              nextBtn.textContent = originalLabel;
+            const follow = activeFollowUp();
+            if (follow?.parent_index === fromStep && follow.status === "ready" && !followDraft().trim()) {
+              document.getElementById("follow-up-answer")?.focus();
+              return;
             }
-          }
-          skipPageHideSave = true;
-          save();
-          go("done-interview.html");
+            if (!await saveFollowDraft() || !await submitCurrentAnswer(fromStep)) return;
+            if (!(interview.followUps || []).some(f => f.parent_index === fromStep && f.status !== "invalidated")) {
+              if (!await followWrite("", { parent_index: fromStep, parent_grading_id: interview.gradingIds[fromStep] })) return;
+            }
+            awaitingFollowIndex = fromStep;
+            advanceAfterDecision();
+            startGradingPoll();
+          } finally { nextBtn.disabled = false; }
+          return;
         }
+        if (fromStep < totalQuestions - 1) renderStep(fromStep + 1);
+        else { save(); go("done-interview.html"); }
       });
     }
 
@@ -2098,11 +2111,11 @@
     followPanel = document.createElement("section");
     followPanel.id = "follow-up-practice";
     followPanel.className = "answer-section";
-    followPanel.setAttribute("aria-label", "Extra practice on Question 1");
+    followPanel.setAttribute("aria-label", "Follow-up question");
     document.getElementById("answer-section")?.before(followPanel);
     renderStep(currentStep);
     updateAnswerStatusUI();
-    if (interview.followUp?.status === "generating") startGradingPoll();
+    if ((interview.followUps || []).some(f => f.status === "generating")) startGradingPoll();
     if (isServerInterview() && Array.isArray(interview.answerStatuses) && interview.answerStatuses.some(status => status === "pending")) {
       startGradingPoll();
     }
@@ -2676,20 +2689,21 @@
         cardsContainer.append(createReportCard(interview, report, index));
       }
 
-      const practice = report?.follow_up;
-      if (practice?.status === "answered") {
+      const practices = report?.follow_ups?.length ? report.follow_ups : (report?.follow_up ? [report.follow_up] : []);
+      const mainCards = Array.from(cardsContainer.children);
+      for (const practice of practices.filter(item => item.status === "answered")) {
         const section = document.createElement("section");
         section.className = "report-card";
         for (const [tag, text] of [
-          ["h2", "Extra practice on Question 1"],
-          ["p", "Practice answer ? excluded from your score"],
+          ["h2", `Follow-up on Question ${practice.parent_index + 1}`],
+          ["p", "Follow-up answer. The main question score is shown separately."],
           ["blockquote", practice.quote], ["p", practice.question], ["p", practice.answer]
         ]) {
           const element = document.createElement(tag);
           element.textContent = text;
           section.append(element);
         }
-        cardsContainer.firstElementChild?.after(section);
+        mainCards[practice.parent_index]?.after(section);
       }
 
       const nameElement = $("#report-name");

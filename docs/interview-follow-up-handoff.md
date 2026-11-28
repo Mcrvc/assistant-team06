@@ -1,23 +1,30 @@
-# Bàn giao câu hỏi tiếp nối
+# Bàn giao câu hỏi tiếp nối tự động có chọn lọc
 
 Triển khai trên nhánh `feat/interview-follow-up`, bắt đầu từ main `2e1ad39`.
 
-Sau khi nộp câu 1 và sang câu 2, người dùng có thể chọn **Practise my first answer**. Khung luyện thêm hiện đoạn trích và một câu hỏi bám theo câu trả lời vừa nộp. Có thể lưu lời đáp hoặc bỏ qua. Báo cáo đặt phần luyện thêm dưới câu 1 và ghi rõ phần này được loại khỏi điểm chung.
+Sau khi nộp câu chính, ứng dụng tự kiểm tra có cần hỏi sâu không. Nếu có, câu phụ hiện ngay tại câu chính đó và người dùng phải trả lời trước khi đi tiếp. Nếu đáp án đã đủ hoặc AI lỗi, ứng dụng chuyển tiếp. Trong lúc đợi chọn câu, người dùng có thể chọn tiếp tục mà không chờ. Giới hạn hai câu phụ được chọn cho cả buổi. Báo cáo đặt từng câu phụ dưới đúng câu chính. Điểm chính theo cách chấm hiện có, câu phụ chưa được cộng vào điểm.
+
+## Cách chọn câu
+
+NVIDIA đọc toàn bộ đáp án, tiêu chí chấm và câu phụ đã hỏi. Đề xuất phải có chỉ số tiêu chí hợp lệ, một trong ba mã thiếu thông tin, đoạn trích nguyên văn, nội dung còn thiếu và câu hỏi. Ba loại thiếu thông tin là hành động cá nhân, lý do lựa chọn và cách xác nhận kết quả.
+
+Backend kiểm tra kiểu dữ liệu, độ dài và đoạn trích. Chỉ với đề xuất hợp lệ, lượt gọi AI thứ hai kiểm tra riêng xem khoảng thiếu có liên quan tiêu chí không, đáp án đã giải thích ở đoạn khác chưa và câu hỏi có bổ sung thông tin hữu ích không. Kết quả không đạt hoặc sai định dạng sẽ bỏ qua câu hỏi phụ.
 
 ## Lưu trữ và các trường hợp được xử lý
 
-Trạng thái bổ sung nằm trong `follow_up` của JSON buổi phỏng vấn. Câu phụ đã trả lời cũng được chụp vào `report.follow_up`. SQL LOCAL-09 lưu nguyên JSON nên dùng lại được cấu trúc hiện tại. SQLite đã kiểm thử đọc lại. Bài kiểm thử RPC mới trong `tests/test_supabase_interview_storage.py` xác nhận cả trạng thái và báo cáo qua hàm SQL trên PostgreSQL thử. Workflow backend chạy thêm các bài RPC bằng dịch vụ localhost của CI.
+Trạng thái bổ sung nằm trong danh sách `follow_ups` của JSON buổi phỏng vấn, gắn với chỉ số câu chính và mã lần nộp. Báo cáo có `report.follow_ups`. Trường `follow_up` vẫn cung cấp phần tử mới nhất để hỗ trợ dữ liệu bản trước. SQL LOCAL-09 lưu nguyên JSON nên dùng lại được cấu trúc hiện tại. Workflow backend chạy thêm các bài RPC trên PostgreSQL localhost.
 
-Gọi tạo trùng tái sử dụng cùng câu hỏi. Khi sửa hoặc nộp lại đáp án gốc, phần luyện thêm cũ được xóa. Kết quả AI về sau lúc bỏ qua, sửa đáp án hoặc kết thúc buổi sẽ bị bỏ qua. Nếu tác vụ bị ngắt, yêu cầu đang tạo hết hạn sau 15 phút và có thể thử lại. Lỗi AI cho trạng thái unavailable, người dùng tiếp tục được buổi tập.
+Câu phụ được dành chỗ trong cùng thao tác nộp đáp án chính. Gửi trùng tái sử dụng cùng quyết định. Khi sửa hoặc nộp lại đáp án gốc, quyết định cũ được vô hiệu hóa. Kết quả AI về muộn phải khớp mã yêu cầu, lần nộp và trạng thái đang chờ. Khi hai tác vụ cùng hoàn thành, kiểm tra lại hạn mức trước khi ghi. Câu đã từng được chọn vẫn tính vào hạn mức khi người dùng sửa đáp án. Nếu tác vụ bị ngắt, yêu cầu hết hạn sau 15 phút và có thể thử lại.
 
 Bản nháp câu phụ nằm trong sessionStorage theo buổi và mã yêu cầu, nên mỗi tab giữ bản nháp riêng. Khi người dùng chọn lưu rồi thoát hoặc đăng xuất, ứng dụng chờ lưu cả lời đáp phụ và tiến độ chính. Chỉ hiện nội dung AI bằng text.
 
 ## Kết quả kiểm tra cục bộ
 
-- 280 bài kiểm thử mặc định qua. Có một cảnh báo TestClient đang dùng API cũ.
-- Ba bài Chrome qua, gồm tạo câu phụ → F5 giữ bản nháp → lưu → hoàn thành → xem lại trong báo cáo, lỗi AI giữ bản nháp chính, và đăng xuất sau khi lưu đáp án phụ.
-- NVIDIA thật với đáp án giả về cải thiện tốc độ 40% đã hỏi cách đo mức cải thiện. Với đáp án về bất đồng nhóm, AI hỏi tiêu chí dùng để so sánh hai đề xuất. Mỗi lượt mất khoảng một giây, cả hai đoạn trích khớp nguyên văn.
-- CI đã qua cả bộ mặc định và chín bài RPC trên PostgreSQL thử, gồm lưu và đọc lại câu phụ trong báo cáo. Kiểm thử ghi lên Supabase chung và website triển khai cần nhóm chạy sau khi review. [Kết quả CI của commit 301c45d](https://github.com/Mcrvc/assistant-team06/actions/runs/46116133957)
+- 291 bài kiểm thử mặc định qua. Có một cảnh báo TestClient đang dùng API cũ.
+- Bốn bài Chrome qua, gồm tự hỏi tại câu 1 và giữ bản nháp sau F5, tự đi tiếp khi lỗi AI, lưu trước khi đăng xuất, và chọn câu 2 để hỏi sâu rồi thử lưu lại sau lỗi mạng.
+- NVIDIA thật đã chạy 24 đáp án giả có kỳ vọng trước, gồm 12 bản thiếu thông tin và 12 bản đã giải thích đủ. Lượt này không hỏi thừa, không bỏ sót, không chọn sai loại thiếu thông tin và không gặp lỗi nhà cung cấp. Trung bình 1,29 giây cho bước chọn và kiểm tra. Bộ mẫu này cần được mở rộng bằng đáp án đa dạng hơn khi nhóm dùng thử.
+- Chạy lại đánh giá bằng `python eval/follow_up_eval.py`, dùng các mẫu trong `eval/follow_up_cases.json` và cấu hình NVIDIA trên máy.
+- CI bản trước đã qua chín bài RPC. Cần xác nhận CI của commit mới cho luồng tự chọn. Kiểm thử ghi lên Supabase chung và website triển khai cần nhóm chạy sau khi review.
 
 Chạy bộ mặc định bằng `python -m pytest`. Chạy Chrome bằng `python -m pytest -m slow tests/test_follow_up_browser.py`, với Playwright và Chrome đã cài. Chạy RPC bằng `python -m pytest -m slow tests/test_supabase_interview_storage.py` khi có `INTERVIEW_TEST_POSTGRES_URL` trỏ tới localhost, tên database bắt đầu bằng `yourin_interview_test`.
 

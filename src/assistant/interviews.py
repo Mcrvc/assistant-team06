@@ -62,6 +62,7 @@ def follow_ups(item: dict) -> list[dict]:
 def invalidate_follow_up(item: dict, index: int) -> None:
     for follow in follow_ups(item):
         if follow["parent_index"] == index and follow["status"] != "invalidated":
+            follow["selected"] = bool(follow.get("selected") or follow["status"] in ("ready", "answered"))
             follow["status"] = "invalidated"
     item["follow_up"] = next((f for f in reversed(follow_ups(item))
                                if f["status"] != "invalidated"), None)
@@ -173,7 +174,10 @@ class InterviewService:
         request_id = str(uuid4())
 
         def already_applied(item):
-            follow = next((f for f in follow_ups(item) if f["parent_grading_id"] == request.parent_grading_id), None)
+            follow = next((f for f in reversed(follow_ups(item))
+                           if f["parent_grading_id"] == request.parent_grading_id
+                           and f["parent_index"] == request.parent_index
+                           and f["status"] != "invalidated"), None)
             return bool(follow and follow["parent_grading_id"] == request.parent_grading_id
                         and follow["status"] != "unavailable"
                         and not (follow["status"] == "generating" and interview_follow_up.expired(follow)))
@@ -219,7 +223,8 @@ class InterviewService:
                         or target["status"] != "generating"
                         or current["answers"][target["parent_index"]]["grading_id"] != target["parent_grading_id"]):
                     return
-                selected = sum(bool(f.get("selected")) for f in follow_ups(current))
+                selected = sum(bool(f.get("selected") or f["status"] in ("ready", "answered"))
+                               for f in follow_ups(current))
                 if outcome == "ready" and selected >= 2:
                     result, outcome = None, "not_needed"
                 target.update(result or {})

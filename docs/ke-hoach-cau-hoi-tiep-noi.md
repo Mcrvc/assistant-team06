@@ -1,5 +1,7 @@
 # Kế hoạch triển khai câu hỏi tiếp nối cho Yourin
 
+Kế hoạch ban đầu bên dưới đã được mở rộng theo quyết định hỏi tiếp tự động có chọn lọc. Thiết kế và kiểm thử hiện tại nằm tại [tài liệu bàn giao](interview-follow-up-handoff.md).
+
 **Mục tiêu.** Sau khi nộp một câu trả lời chính, ứng viên có thể chọn luyện thêm. Yourin hỏi một câu cụ thể về điều ứng viên vừa nói, lưu lời đáp và cho xem lại trong báo cáo. Bản đầu giới hạn một câu phụ cho mỗi buổi. Điểm, tiến độ và số câu chính vẫn được tính theo bộ câu hỏi ban đầu.
 
 **Ví dụ nghiệm thu.** Với câu trả lời “Em tối ưu truy vấn và trang tải nhanh hơn 40%”, câu hỏi phụ có thể là “Em đo mức cải thiện 40% bằng cách nào?”. Màn hình hiển thị cả đoạn trích “trang tải nhanh hơn 40%”. Nếu ứng viên kể về một bất đồng trong nhóm, câu hỏi phụ phải bám vào chi tiết của câu trả lời mới.
